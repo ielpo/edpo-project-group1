@@ -10,7 +10,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.io.InputStream;
 import java.util.*;
 
-
 public class Producer {
 
     public static void main(String[] args) throws  Exception {
@@ -40,7 +39,7 @@ public class Producer {
             for (int counter = 0; ; counter++) {
 
                 try {
-                    Thread.sleep(200);
+                    Thread.sleep(500);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -50,7 +49,7 @@ public class Producer {
                 int deviceID = getRandomNumber(0, numPartitions);
 
                 // generate a random gaze event using constructor  Gaze(int eventID, long timestamp, int xPosition, int yPosition, int pupilSize)
-                Gaze gazeEvent = new Gaze(counter, System.nanoTime(), getRandomNumber(0, 1920), getRandomNumber(0, 1080), getRandomNumber(2, 5));
+                Gaze gazeEvent = new Gaze(counter, System.currentTimeMillis(), getRandomNumber(0, 1920), getRandomNumber(0, 1080), getRandomNumber(2, 5));
 
                 // send the gaze event
                 producer.send(new ProducerRecord<String, Gaze>(
