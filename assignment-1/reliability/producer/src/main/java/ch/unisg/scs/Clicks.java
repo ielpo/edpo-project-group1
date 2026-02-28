@@ -1,10 +1,16 @@
 package ch.unisg.scs;
 
+import lombok.Getter;
+
 public class Clicks {
 
+    @Getter
     int eventID;
+    @Getter
     long timestamp;
+    @Getter
     int xPosition; // position of the click within the x-coordinate of the screen
+    @Getter
     int yPosition; // position of the click within the y-coordinate of the screen
     String clickedElement;
 
@@ -16,32 +22,11 @@ public class Clicks {
         this.clickedElement = clickedElement;
     }
 
-    public int getEventID() {
-        return eventID;
-    }
-
-    public long getTimestamp() {
-        return timestamp;
-    }
-
-    public int getxPosition() {
-        return xPosition;
-    }
-
-    public int getyPosition() {
-        return yPosition;
-    }
-
-    public String getClickedElement() {
-        return clickedElement;
-    }
-
-    public String toString()
-    {
-        return "eventID: "+eventID+", " +
-                "timestamp: "+timestamp+", " +
-                "xPosition: "+xPosition+", " +
-                "yPosition: "+yPosition+", " +
-                "clickedElement: "+clickedElement+", ";
+    public String toString() {
+        return "eventID: " + eventID + ", " +
+                "timestamp: " + timestamp + ", " +
+                "xPosition: " + xPosition + ", " +
+                "yPosition: " + yPosition + ", " +
+                "clickedElement: " + clickedElement + ", ";
     }
 }

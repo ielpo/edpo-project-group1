@@ -1,5 +1,4 @@
-package com.examples.customCommit.singleAcessToPartitionAndRebalancingExample;
-
+package ch.unisg.scs.customCommit.singleAcessToPartitionAndRebalancingExample;
 
 import com.google.common.io.Resources;
 import org.apache.kafka.clients.consumer.CommitFailedException;
@@ -13,7 +12,6 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
-
 
 public class ConsumerForClickEventsOnly1 {
     public static void main(String[] args) throws IOException, ParseException {
@@ -32,9 +30,6 @@ public class ConsumerForClickEventsOnly1 {
         int counter=0;
 
         while (true) {
-
-
-
             // pool new data
             ConsumerRecords<String, Object> records = consumer.poll(Duration.ofMillis(500));
             System.out.println("poll");
