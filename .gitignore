@@ -3,6 +3,7 @@
 
 # Log file
 *.log
+!logs/assignment-1/producer-experiments/
 
 # BlueJ files
 *.ctxt
