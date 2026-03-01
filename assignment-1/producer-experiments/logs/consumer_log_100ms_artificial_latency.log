@@ -1,0 +1,74 @@
+"C:\Program Files\Java\jdk-21\bin\java.exe" "-javaagent:C:\Program Files\JetBrains\IntelliJ IDEA 2023.2.3\lib\idea_rt.jar=2981" -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -classpath C:\hsg_projects\kafka\lab02Part2-kafka-EyeTracking\consumer\target\classes;C:\Users\micha\.m2\repository\com\googlecode\json-simple\json-simple\1.1\json-simple-1.1.jar;C:\Users\micha\.m2\repository\org\apache\kafka\kafka-clients\3.9.0\kafka-clients-3.9.0.jar;C:\Users\micha\.m2\repository\com\github\luben\zstd-jni\1.5.6-4\zstd-jni-1.5.6-4.jar;C:\Users\micha\.m2\repository\org\lz4\lz4-java\1.8.0\lz4-java-1.8.0.jar;C:\Users\micha\.m2\repository\org\xerial\snappy\snappy-java\1.1.10.5\snappy-java-1.1.10.5.jar;C:\Users\micha\.m2\repository\org\slf4j\slf4j-api\1.7.36\slf4j-api-1.7.36.jar;C:\Users\micha\.m2\repository\com\google\guava\guava\33.4.0-jre\guava-33.4.0-jre.jar;C:\Users\micha\.m2\repository\com\google\guava\failureaccess\1.0.2\failureaccess-1.0.2.jar;C:\Users\micha\.m2\repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;C:\Users\micha\.m2\repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;C:\Users\micha\.m2\repository\org\checkerframework\checker-qual\3.43.0\checker-qual-3.43.0.jar;C:\Users\micha\.m2\repository\com\google\errorprone\error_prone_annotations\2.36.0\error_prone_annotations-2.36.0.jar;C:\Users\micha\.m2\repository\com\google\j2objc\j2objc-annotations\3.0.0\j2objc-annotations-3.0.0.jar;C:\Users\micha\.m2\repository\org\slf4j\slf4j-simple\2.0.16\slf4j-simple-2.0.16.jar;C:\Users\micha\.m2\repository\org\testng\testng\7.12.0\testng-7.12.0.jar;C:\Users\micha\.m2\repository\org\jcommander\jcommander\1.83\jcommander-1.83.jar;C:\Users\micha\.m2\repository\org\webjars\jquery\3.7.1\jquery-3.7.1.jar;C:\Users\micha\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.16.0\jackson-databind-2.16.0.jar;C:\Users\micha\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.16.0\jackson-annotations-2.16.0.jar;C:\Users\micha\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.16.0\jackson-core-2.16.0.jar com.examples.BatchSizeLatencyConsumer
+Starting consumer for topics [clicks-batch-16k-18, clicks-batch-64k-18, clicks-batch-128k-18], target 100’000 each.
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[clicks-batch-16k-18] collected 5’000 messages
+[clicks-batch-16k-18] collected 10’000 messages
+[clicks-batch-16k-18] collected 15’000 messages
+[clicks-batch-16k-18] collected 20’000 messages
+[clicks-batch-16k-18] collected 25’000 messages
+[clicks-batch-16k-18] collected 30’000 messages
+[clicks-batch-16k-18] collected 35’000 messages
+[clicks-batch-16k-18] collected 40’000 messages
+[clicks-batch-16k-18] collected 45’000 messages
+[clicks-batch-16k-18] collected 50’000 messages
+[clicks-batch-16k-18] collected 55’000 messages
+[clicks-batch-16k-18] collected 60’000 messages
+[clicks-batch-16k-18] collected 65’000 messages
+[clicks-batch-16k-18] collected 70’000 messages
+[clicks-batch-16k-18] collected 75’000 messages
+[clicks-batch-16k-18] collected 80’000 messages
+[clicks-batch-16k-18] collected 85’000 messages
+[clicks-batch-16k-18] collected 90’000 messages
+[clicks-batch-16k-18] collected 95’000 messages
+[clicks-batch-16k-18] collected 100’000 messages
+[clicks-batch-64k-18] collected 5’000 messages
+[clicks-batch-64k-18] collected 10’000 messages
+[clicks-batch-64k-18] collected 15’000 messages
+[clicks-batch-64k-18] collected 20’000 messages
+[clicks-batch-64k-18] collected 25’000 messages
+[clicks-batch-64k-18] collected 30’000 messages
+[clicks-batch-64k-18] collected 35’000 messages
+[clicks-batch-64k-18] collected 40’000 messages
+[clicks-batch-64k-18] collected 45’000 messages
+[clicks-batch-64k-18] collected 50’000 messages
+[clicks-batch-64k-18] collected 55’000 messages
+[clicks-batch-64k-18] collected 60’000 messages
+[clicks-batch-64k-18] collected 65’000 messages
+[clicks-batch-64k-18] collected 70’000 messages
+[clicks-batch-64k-18] collected 75’000 messages
+[clicks-batch-64k-18] collected 80’000 messages
+[clicks-batch-64k-18] collected 85’000 messages
+[clicks-batch-64k-18] collected 90’000 messages
+[clicks-batch-64k-18] collected 95’000 messages
+[clicks-batch-64k-18] collected 100’000 messages
+[clicks-batch-128k-18] collected 5’000 messages
+[clicks-batch-128k-18] collected 10’000 messages
+[clicks-batch-128k-18] collected 15’000 messages
+[clicks-batch-128k-18] collected 20’000 messages
+[clicks-batch-128k-18] collected 25’000 messages
+[clicks-batch-128k-18] collected 30’000 messages
+[clicks-batch-128k-18] collected 35’000 messages
+[clicks-batch-128k-18] collected 40’000 messages
+[clicks-batch-128k-18] collected 45’000 messages
+[clicks-batch-128k-18] collected 50’000 messages
+[clicks-batch-128k-18] collected 55’000 messages
+[clicks-batch-128k-18] collected 60’000 messages
+[clicks-batch-128k-18] collected 65’000 messages
+[clicks-batch-128k-18] collected 70’000 messages
+[clicks-batch-128k-18] collected 75’000 messages
+[clicks-batch-128k-18] collected 80’000 messages
+[clicks-batch-128k-18] collected 85’000 messages
+[clicks-batch-128k-18] collected 90’000 messages
+[clicks-batch-128k-18] collected 95’000 messages
+[clicks-batch-128k-18] collected 100’000 messages
+Reached target for all topics; summarizing and exiting.
+
+Latency summary (ms):
+clicks-batch-16k-18 -> count: 100’000/100000 | min: 1 | p50: 60 | p95: 102 | p99: 107 | max: 194 | avg: 58.67
+clicks-batch-64k-18 -> count: 100’000/100000 | min: 2 | p50: 59 | p95: 101 | p99: 105 | max: 120 | avg: 57.94
+clicks-batch-128k-18 -> count: 100’000/100000 | min: 2 | p50: 59 | p95: 101 | p99: 104 | max: 119 | avg: 57.72
+Done.
+
+Process finished with exit code 0

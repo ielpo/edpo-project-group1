@@ -1,0 +1,73 @@
+Starting consumer for topics [clicks-batch-16k-2, clicks-batch-64k-2, clicks-batch-128k-2], target 100’000 each.
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[clicks-batch-16k-2] collected 5’000 messages
+[clicks-batch-16k-2] collected 10’000 messages
+[clicks-batch-16k-2] collected 15’000 messages
+[clicks-batch-16k-2] collected 20’000 messages
+[clicks-batch-64k-2] collected 5’000 messages
+[clicks-batch-64k-2] collected 10’000 messages
+[clicks-batch-16k-2] collected 25’000 messages
+[clicks-batch-16k-2] collected 30’000 messages
+[clicks-batch-64k-2] collected 15’000 messages
+[clicks-batch-128k-2] collected 5’000 messages
+[clicks-batch-128k-2] collected 10’000 messages
+[clicks-batch-16k-2] collected 35’000 messages
+[clicks-batch-16k-2] collected 40’000 messages
+[clicks-batch-64k-2] collected 20’000 messages
+[clicks-batch-64k-2] collected 25’000 messages
+[clicks-batch-128k-2] collected 15’000 messages
+[clicks-batch-16k-2] collected 45’000 messages
+[clicks-batch-16k-2] collected 50’000 messages
+[clicks-batch-64k-2] collected 30’000 messages
+[clicks-batch-64k-2] collected 35’000 messages
+[clicks-batch-128k-2] collected 20’000 messages
+[clicks-batch-128k-2] collected 25’000 messages
+[clicks-batch-16k-2] collected 55’000 messages
+[clicks-batch-16k-2] collected 60’000 messages
+[clicks-batch-64k-2] collected 40’000 messages
+[clicks-batch-64k-2] collected 45’000 messages
+[clicks-batch-128k-2] collected 30’000 messages
+[clicks-batch-128k-2] collected 35’000 messages
+[clicks-batch-16k-2] collected 65’000 messages
+[clicks-batch-16k-2] collected 70’000 messages
+[clicks-batch-64k-2] collected 50’000 messages
+[clicks-batch-64k-2] collected 55’000 messages
+[clicks-batch-128k-2] collected 40’000 messages
+[clicks-batch-128k-2] collected 45’000 messages
+[clicks-batch-16k-2] collected 75’000 messages
+[clicks-batch-16k-2] collected 80’000 messages
+[clicks-batch-64k-2] collected 60’000 messages
+[clicks-batch-64k-2] collected 65’000 messages
+[clicks-batch-128k-2] collected 50’000 messages
+[clicks-batch-128k-2] collected 55’000 messages
+[clicks-batch-16k-2] collected 85’000 messages
+[clicks-batch-16k-2] collected 90’000 messages
+[clicks-batch-64k-2] collected 70’000 messages
+[clicks-batch-64k-2] collected 75’000 messages
+[clicks-batch-128k-2] collected 60’000 messages
+[clicks-batch-128k-2] collected 65’000 messages
+[clicks-batch-16k-2] collected 95’000 messages
+[clicks-batch-16k-2] collected 100’000 messages
+[clicks-batch-64k-2] collected 80’000 messages
+[clicks-batch-64k-2] collected 85’000 messages
+[clicks-batch-128k-2] collected 70’000 messages
+[clicks-batch-128k-2] collected 75’000 messages
+[clicks-batch-64k-2] collected 90’000 messages
+[clicks-batch-64k-2] collected 95’000 messages
+[clicks-batch-128k-2] collected 80’000 messages
+[clicks-batch-128k-2] collected 85’000 messages
+[clicks-batch-64k-2] collected 100’000 messages
+[clicks-batch-128k-2] collected 90’000 messages
+[clicks-batch-128k-2] collected 95’000 messages
+[clicks-batch-128k-2] collected 100’000 messages
+Reached target for all topics; summarizing and exiting.
+
+Latency summary (ms):
+clicks-batch-16k-2 -> count: 100’000/100000 | min: 59 | p50: 1189 | p95: 1230 | p99: 1236 | max: 1240 | avg: 1038.91
+clicks-batch-64k-2 -> count: 100’000/100000 | min: 22 | p50: 674 | p95: 1236 | p99: 1726 | max: 1728 | avg: 683.97
+clicks-batch-128k-2 -> count: 100’000/100000 | min: 22 | p50: 422 | p95: 1410 | p99: 1871 | max: 1876 | avg: 574.29
+Done.
+
+Process finished with exit code 0
