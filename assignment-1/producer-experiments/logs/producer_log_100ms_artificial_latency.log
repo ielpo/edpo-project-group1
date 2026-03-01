@@ -2,37 +2,6 @@
 SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
-Failed to create topic clicks-batch-16k-18
-Exception: java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-16k-18' already exists.
-Cause: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-16k-18' already exists.
-Failed to create topic clicks-batch-64k-18
-Exception: java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-64k-18' already exists.
-Cause: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-64k-18' already exists.
-Failed to create topic clicks-batch-128k-18
-Exception: java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-128k-18' already exists.
-Cause: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-128k-18' already exists.
-[16KB-100ms] topic=clicks-batch-16k-18 batch.size=16384 linger.ms=100 sending 100’000 messages...
-java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-16k-18' already exists.
-	at java.base/java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:396)
-	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2073)
-	at org.apache.kafka.common.internals.KafkaFutureImpl.get(KafkaFutureImpl.java:165)
-	at com.examples.BatchSizeExperimentProducer.cleanTopics(BatchSizeExperimentProducer.java:107)
-	at com.examples.BatchSizeExperimentProducer.main(BatchSizeExperimentProducer.java:43)
-Caused by: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-16k-18' already exists.
-java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-64k-18' already exists.
-	at java.base/java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:396)
-	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2073)
-	at org.apache.kafka.common.internals.KafkaFutureImpl.get(KafkaFutureImpl.java:165)
-	at com.examples.BatchSizeExperimentProducer.cleanTopics(BatchSizeExperimentProducer.java:107)
-	at com.examples.BatchSizeExperimentProducer.main(BatchSizeExperimentProducer.java:43)
-Caused by: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-64k-18' already exists.
-java.util.concurrent.ExecutionException: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-128k-18' already exists.
-	at java.base/java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:396)
-	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2073)
-	at org.apache.kafka.common.internals.KafkaFutureImpl.get(KafkaFutureImpl.java:165)
-	at com.examples.BatchSizeExperimentProducer.cleanTopics(BatchSizeExperimentProducer.java:107)
-	at com.examples.BatchSizeExperimentProducer.main(BatchSizeExperimentProducer.java:43)
-Caused by: org.apache.kafka.common.errors.TopicExistsException: Topic 'clicks-batch-128k-18' already exists.
 [16KB-100ms] sent 5’000/100000
 [16KB-100ms] sent 10’000/100000
 [16KB-100ms] sent 15’000/100000
