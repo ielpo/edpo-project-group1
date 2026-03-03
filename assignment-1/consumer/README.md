@@ -24,32 +24,14 @@ Kafka will be available at `localhost:9092`. Keep this terminal open.
 
 ## Step 2 — Start the Eye-Tracker Producer
 
-In IntelliJ, run:
-
-```
-java -cp EyeTrackers-Producer/target/pubsub-producer-1.0-SNAPSHOT-jar-with-dependencies.jar com.examples.EyeTrackersProducer
-```
-
-
+Run the application _com.examples.EyeTrackersProducer_ in `consumer-experiments-producer`.
 This produces ~125 gaze events/sec across 2 partitions of the `gaze-events` topic.
 
 ---
 
-## Step 3 — Build this module
+## Step 3 — Run LagMonitor (keep running for all scenarios)
 
-```bash
-cd consumer-lag-experiment
-```
-
----
-
-## Step 4 — Run LagMonitor (keep running for all scenarios)
-
-In IntelliJ, run LagMonitor:
-
-```
-mvn compile exec:java -Dexec.mainClass="com.experiments.LagMonitor" -q
-```
+Build the `consumer-experiments-consumer` module and execute _com.experiments.LagMonitor_
 
 It polls Kafka's AdminClient every 2 seconds and prints:
 
