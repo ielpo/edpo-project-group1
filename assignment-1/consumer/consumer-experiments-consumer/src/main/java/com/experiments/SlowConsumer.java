@@ -38,8 +38,8 @@ import java.util.Properties;
 public class SlowConsumer {
 
     // ── Experiment knobs ────────────────────────────────────────────────────
-    private static final String PROPERTIES_FILE     = "consumer-low-maxpoll.properties";
-    private static final long   PROCESSING_DELAY_MS = 8000;
+    private static final String PROPERTIES_FILE     = "consumer-baseline.properties";
+    private static final long   PROCESSING_DELAY_MS = 0;
     // ────────────────────────────────────────────────────────────────────────
 
     public static void main(String[] args) throws IOException, InterruptedException {

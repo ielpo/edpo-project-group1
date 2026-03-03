@@ -15,7 +15,7 @@ This module demonstrates three distinct Kafka consumer behaviours:
 From the repo root:
 
 ```bash
-cd docker && docker compose up
+docker compose up
 ```
 
 Kafka will be available at `localhost:9092`. Keep this terminal open.
