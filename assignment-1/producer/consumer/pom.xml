@@ -5,10 +5,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>pubsub-producer</artifactId>
+    <artifactId>producer-experiments-consumer</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
@@ -25,16 +31,15 @@
             <version>2.0.16</version>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.16.0</version>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>RELEASE</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1</version>
-            <scope>compile</scope>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.16.0</version>
         </dependency>
     </dependencies>
 
@@ -55,7 +60,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.examples.Simulatorsss</mainClass>
+                            <mainClass>com.examples.deleteAllTopics</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -83,7 +88,7 @@
 
                     <!-- (optional) name for binary executable, if not set will just -->
                     <!-- make the regular jar artifact executable -->
-                    <programFile>producer</programFile>
+                    <programFile>consumer</programFile>
                 </configuration>
 
                 <executions>

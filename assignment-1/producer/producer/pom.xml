@@ -5,16 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>pubsub-consumer</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>producer-experiments-producer</artifactId>
+    <version>1</version>
 
     <dependencies>
-        <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1</version>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
@@ -31,15 +25,16 @@
             <version>2.0.16</version>
         </dependency>
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <version>RELEASE</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.16.0</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -60,7 +55,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.examples.deleteAllTopics</mainClass>
+                            <mainClass>com.examples.Simulatorsss</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -88,7 +83,7 @@
 
                     <!-- (optional) name for binary executable, if not set will just -->
                     <!-- make the regular jar artifact executable -->
-                    <programFile>consumer</programFile>
+                    <programFile>producer</programFile>
                 </configuration>
 
                 <executions>

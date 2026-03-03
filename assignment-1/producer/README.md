@@ -8,16 +8,15 @@ We test batch sizes and the impact on processing latency.
 
 ## Running the Docker image
 
-1. Open a terminal in the directory: docker/.
-2. Start the Kafka process using Docker Compose:
+Start the Kafka broker using Docker Compose:
 
-    ```
-    $ docker compose up
-    ```
+```bash
+$ docker compose up
+```
 
 ## Quick Batch-Size Experiment (3 variants)
 
-- Producer: [BatchSizeExperimentProducer](ClickStream-Producer/src/main/java/com/examples/BatchSizeExperimentProducer.java)
+- Producer: [BatchSizeExperimentProducer](producer/src/main/java/com/examples/BatchSizeExperimentProducer.java)
 - Consumer: [BatchSizeLatencyConsumer](consumer/src/main/java/com/examples/BatchSizeLatencyConsumer.java)
 - Variants (topics recreated by the producer):
   - clicks-batch-16k: batch.size=16KB, linger.ms=5
