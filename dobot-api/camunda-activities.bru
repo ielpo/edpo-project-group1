@@ -1,0 +1,16 @@
+meta {
+  name: camunda-activities
+  type: http
+  seq: 13
+}
+
+get {
+  url: http://192.168.0.21:8080/engine-rest/history/activity-instance
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

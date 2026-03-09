@@ -1,0 +1,21 @@
+meta {
+  name: Conveyor Activate
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://localhost:5000/activate_conveyor?speed=1&direction=1
+  body: none
+  auth: none
+}
+
+params:query {
+  speed: 1
+  direction: 1
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
