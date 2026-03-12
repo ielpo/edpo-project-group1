@@ -1,0 +1,94 @@
+{
+  "components": [
+    {
+      "type": "image",
+      "layout": {
+        "row": "Row_0jney7a",
+        "columns": 2
+      },
+      "id": "Field_0dtttsk",
+      "source": "https://i.postimg.cc/66G8xRfN/7beba1fd-694e-4380-b3ee-f69fa9efd12a.png"
+    },
+    {
+      "text": "# Browse. Select. Order.",
+      "type": "text",
+      "layout": {
+        "row": "Row_0jney7a",
+        "columns": 12
+      },
+      "id": "Field_0j51rka",
+      "properties": {}
+    },
+    {
+      "type": "separator",
+      "layout": {
+        "row": "Row_1my2k4l",
+        "columns": null
+      },
+      "id": "Field_1j9k9hi"
+    },
+    {
+      "label": "Browse and Select",
+      "components": [
+        {
+          "label": "Select item",
+          "values": [
+            {
+              "label": "Shelf",
+              "value": "Shelf"
+            },
+            {
+              "label": "Table",
+              "value": "table"
+            },
+            {
+              "label": "Chair",
+              "value": "Closet"
+            },
+            {
+              "label": "Closet",
+              "value": "closet"
+            }
+          ],
+          "type": "select",
+          "layout": {
+            "row": "Row_0x9bq0a",
+            "columns": null
+          },
+          "id": "Field_0bbyzvq",
+          "key": "select_6zvsfi"
+        }
+      ],
+      "showOutline": true,
+      "isRepeating": true,
+      "allowAddRemove": true,
+      "defaultRepetitions": 1,
+      "type": "dynamiclist",
+      "layout": {
+        "row": "Row_1h4hmpr",
+        "columns": null
+      },
+      "id": "Field_07mxe8q",
+      "path": "dynamiclist_sqg9hg"
+    },
+    {
+      "label": "Order items",
+      "action": "submit",
+      "type": "button",
+      "layout": {
+        "row": "Row_1mbpizh",
+        "columns": null
+      },
+      "id": "Field_1e4okqv"
+    }
+  ],
+  "type": "default",
+  "id": "Form_1rvh90o",
+  "executionPlatform": "Camunda Cloud",
+  "executionPlatformVersion": "8.8.0",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.44.0"
+  },
+  "schemaVersion": 19
+}
