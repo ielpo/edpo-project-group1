@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_05lis1e" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.45.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
   <bpmn:process id="Process_1py8nv0" isExecutable="true">
-    <bpmn:startEvent id="StartEvent_1">
-      <bpmn:outgoing>Flow_09cyf4f</bpmn:outgoing>
-    </bpmn:startEvent>
     <bpmn:serviceTask id="Activity_06utl1m" name="Send order cancelled due to missing resources" camunda:type="external" camunda:topic="notify-invalid-order">
       <bpmn:extensionElements>
         <camunda:inputOutput>
@@ -31,7 +28,7 @@
       <bpmn:incoming>Flow_0y0pllz</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:subProcess id="Activity_1rf9pj7" name="Assemble, update inventory">
-      <bpmn:incoming>Flow_09cyf4f</bpmn:incoming>
+      <bpmn:incoming>Flow_0eugjrg</bpmn:incoming>
       <bpmn:outgoing>Flow_0jdcna1</bpmn:outgoing>
     </bpmn:subProcess>
     <bpmn:subProcess id="Activity_0m93oww" name="Revert assembly">
@@ -53,7 +50,11 @@
     <bpmn:sequenceFlow id="Flow_0gz6snt" sourceRef="Activity_0m93oww" targetRef="Event_01t676o" />
     <bpmn:sequenceFlow id="Flow_0jdcna1" sourceRef="Activity_1rf9pj7" targetRef="Activity_17f8qes" />
     <bpmn:sequenceFlow id="Flow_0y0pllz" sourceRef="Activity_17f8qes" targetRef="Event_1x0cof2" />
-    <bpmn:sequenceFlow id="Flow_09cyf4f" sourceRef="StartEvent_1" targetRef="Activity_1rf9pj7" />
+    <bpmn:startEvent id="Event_06zfacz" name="Manufacture Order">
+      <bpmn:outgoing>Flow_0eugjrg</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_12ed38g" />
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_0eugjrg" sourceRef="Event_06zfacz" targetRef="Activity_1rf9pj7" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1py8nv0">
@@ -77,8 +78,11 @@
           <dc:Bounds x="937" y="275" width="66" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
-        <dc:Bounds x="182" y="172" width="36" height="36" />
+      <bpmndi:BPMNShape id="Event_06zfacz_di" bpmnElement="Event_06zfacz">
+        <dc:Bounds x="202" y="172" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="189" y="215" width="62" height="27" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_1rf9pj7_di" bpmnElement="Activity_1rf9pj7">
         <dc:Bounds x="327" y="150" width="100" height="80" />
@@ -115,8 +119,8 @@
         <di:waypoint x="655" y="250" />
         <di:waypoint x="952" y="250" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_09cyf4f_di" bpmnElement="Flow_09cyf4f">
-        <di:waypoint x="218" y="190" />
+      <bpmndi:BPMNEdge id="Flow_0eugjrg_di" bpmnElement="Flow_0eugjrg">
+        <di:waypoint x="238" y="190" />
         <di:waypoint x="327" y="190" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
