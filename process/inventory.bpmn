@@ -30,53 +30,65 @@
       <bpmn:messageEventDefinition id="MessageEventDefinition_13tg9f1" />
     </bpmn:startEvent>
     <bpmn:sequenceFlow id="Flow_0iiy17s" sourceRef="Event_1914rpq" targetRef="Task_CheckInventory" />
+    <bpmn:textAnnotation id="TextAnnotation_0d6y0k3">
+      <bpmn:text>This does not actually need a BPMN model, consider having a simple service</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_15zb710" associationDirection="None" sourceRef="Event_1914rpq" targetRef="TextAnnotation_0d6y0k3" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0qx1yn3">
       <bpmndi:BPMNShape id="Task_CheckInventory_di" bpmnElement="Task_CheckInventory">
-        <dc:Bounds x="270" y="80" width="140" height="80" />
+        <dc:Bounds x="270" y="180" width="140" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_1i9qsj8_di" bpmnElement="Gateway_1i9qsj8" isMarkerVisible="true">
-        <dc:Bounds x="465" y="95" width="50" height="50" />
+        <dc:Bounds x="465" y="195" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="446" y="154.5" width="88" height="27" />
+          <dc:Bounds x="446" y="255" width="88" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BPMNShape_1u7cwbs" bpmnElement="Activity_15p7f1j">
-        <dc:Bounds x="575" y="80" width="150" height="80" />
+        <dc:Bounds x="575" y="180" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_12ryjne_di" bpmnElement="Event_12ryjne">
-        <dc:Bounds x="832" y="102" width="36" height="36" />
+        <dc:Bounds x="832" y="202" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="811" y="145" width="78" height="14" />
+          <dc:Bounds x="811" y="245" width="78" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1914rpq_di" bpmnElement="Event_1914rpq">
-        <dc:Bounds x="152" y="102" width="36" height="36" />
+        <dc:Bounds x="152" y="202" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="156" y="145" width="29" height="14" />
+          <dc:Bounds x="156" y="245" width="29" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_15zb710_di" bpmnElement="Association_15zb710">
+        <di:waypoint x="177" y="203" />
+        <di:waypoint x="224" y="85" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_163wpiw_di" bpmnElement="Flow_163wpiw">
-        <di:waypoint x="410" y="120" />
-        <di:waypoint x="465" y="120" />
+        <di:waypoint x="410" y="220" />
+        <di:waypoint x="465" y="220" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1w1acll_di" bpmnElement="Flow_1w1acll">
-        <di:waypoint x="515" y="120" />
-        <di:waypoint x="575" y="120" />
+        <di:waypoint x="515" y="220" />
+        <di:waypoint x="575" y="220" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="531" y="102" width="15" height="14" />
+          <dc:Bounds x="531" y="202" width="15" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1rjae1d_di" bpmnElement="Flow_1rjae1d">
-        <di:waypoint x="725" y="120" />
-        <di:waypoint x="832" y="120" />
+        <di:waypoint x="725" y="220" />
+        <di:waypoint x="832" y="220" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0iiy17s_di" bpmnElement="Flow_0iiy17s">
-        <di:waypoint x="188" y="120" />
-        <di:waypoint x="270" y="120" />
+        <di:waypoint x="188" y="220" />
+        <di:waypoint x="270" y="220" />
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="TextAnnotation_0d6y0k3_di" bpmnElement="TextAnnotation_0d6y0k3">
+        <dc:Bounds x="190" y="30" width="180" height="55" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>
