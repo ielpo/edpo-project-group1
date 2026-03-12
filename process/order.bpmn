@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_19vr5tl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.45.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:process id="Process_0g7lwbb" isExecutable="true">
+    <bpmn:serviceTask id="Task_VerifyOrder" name="Verify order" camunda:type="external" camunda:topic="verify-order">
+      <bpmn:incoming>Flow_02yxfsx</bpmn:incoming>
+      <bpmn:outgoing>Flow_066u4f4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_10s0x4o" name="Order valid?">
+      <bpmn:incoming>Flow_066u4f4</bpmn:incoming>
+      <bpmn:outgoing>Flow_1q7dmpr</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Activity_0w1do3y" name="Send invalid order notification" camunda:type="external" camunda:topic="notify-invalid-order">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:outputParameter name="notification" />
+        </camunda:inputOutput>
+        <camunda:executionListener class="" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1q7dmpr</bpmn:incoming>
+      <bpmn:outgoing>Flow_0s9pka0</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Event_1ct7jw6" name="Order rejected">
+      <bpmn:incoming>Flow_0s9pka0</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:startEvent id="Event_0cgpadu" name="Order received">
+      <bpmn:outgoing>Flow_02yxfsx</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_0597f9i" />
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_02yxfsx" sourceRef="Event_0cgpadu" targetRef="Task_VerifyOrder" />
+    <bpmn:sequenceFlow id="Flow_066u4f4" sourceRef="Task_VerifyOrder" targetRef="Gateway_10s0x4o" />
+    <bpmn:sequenceFlow id="Flow_1q7dmpr" name="No" sourceRef="Gateway_10s0x4o" targetRef="Activity_0w1do3y" />
+    <bpmn:sequenceFlow id="Flow_0s9pka0" sourceRef="Activity_0w1do3y" targetRef="Event_1ct7jw6" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0g7lwbb">
+      <bpmndi:BPMNShape id="Task_VerifyOrder_di" bpmnElement="Task_VerifyOrder">
+        <dc:Bounds x="275" y="90" width="130" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1j55byl" bpmnElement="Gateway_10s0x4o" isMarkerVisible="true">
+        <dc:Bounds x="467" y="105" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="462" y="81" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0npsnwe" bpmnElement="Activity_0w1do3y">
+        <dc:Bounds x="613" y="90" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1dz8g1m" bpmnElement="Event_1ct7jw6">
+        <dc:Bounds x="820" y="112" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="803" y="153" width="71" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0gmr6a5_di" bpmnElement="Event_0cgpadu">
+        <dc:Bounds x="170" y="112" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="152" y="155" width="73" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_02yxfsx_di" bpmnElement="Flow_02yxfsx">
+        <di:waypoint x="206" y="130" />
+        <di:waypoint x="275" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_066u4f4_di" bpmnElement="Flow_066u4f4">
+        <di:waypoint x="405" y="130" />
+        <di:waypoint x="467" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1q7dmpr_di" bpmnElement="Flow_1q7dmpr">
+        <di:waypoint x="517" y="130" />
+        <di:waypoint x="613" y="130" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="530" y="112" width="15" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_0f3aehe" bpmnElement="Flow_0s9pka0">
+        <di:waypoint x="763" y="130" />
+        <di:waypoint x="820" y="130" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

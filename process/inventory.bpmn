@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0s4shmf" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.45.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:process id="Process_0qx1yn3" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_14g3mc2</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_CheckInventory" name="Check inventory" camunda:type="external" camunda:topic="check-inventory">
+      <bpmn:incoming>Flow_14g3mc2</bpmn:incoming>
+      <bpmn:outgoing>Flow_163wpiw</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_1i9qsj8" name="Resources known and available?">
+      <bpmn:incoming>Flow_163wpiw</bpmn:incoming>
+      <bpmn:outgoing>Flow_1w1acll</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Activity_15p7f1j" name="Send invalid order notification" camunda:type="external" camunda:topic="notify-invalid-order">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:outputParameter name="notification" />
+        </camunda:inputOutput>
+        <camunda:executionListener class="" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1w1acll</bpmn:incoming>
+      <bpmn:outgoing>Flow_1rjae1d</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Event_12ryjne" name="Order cancelled">
+      <bpmn:incoming>Flow_1rjae1d</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_163wpiw" sourceRef="Task_CheckInventory" targetRef="Gateway_1i9qsj8" />
+    <bpmn:sequenceFlow id="Flow_1w1acll" name="No" sourceRef="Gateway_1i9qsj8" targetRef="Activity_15p7f1j" />
+    <bpmn:sequenceFlow id="Flow_1rjae1d" sourceRef="Activity_15p7f1j" targetRef="Event_12ryjne" />
+    <bpmn:sequenceFlow id="Flow_14g3mc2" sourceRef="StartEvent_1" targetRef="Task_CheckInventory" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0qx1yn3">
+      <bpmndi:BPMNShape id="Task_CheckInventory_di" bpmnElement="Task_CheckInventory">
+        <dc:Bounds x="320" y="90" width="140" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1i9qsj8_di" bpmnElement="Gateway_1i9qsj8" isMarkerVisible="true">
+        <dc:Bounds x="515" y="105" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="496" y="76" width="88" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1u7cwbs" bpmnElement="Activity_15p7f1j">
+        <dc:Bounds x="615" y="90" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_12ryjne_di" bpmnElement="Event_12ryjne">
+        <dc:Bounds x="822" y="112" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="801" y="155" width="78" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="182" y="112" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_163wpiw_di" bpmnElement="Flow_163wpiw">
+        <di:waypoint x="460" y="130" />
+        <di:waypoint x="515" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1w1acll_di" bpmnElement="Flow_1w1acll">
+        <di:waypoint x="565" y="130" />
+        <di:waypoint x="615" y="130" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="577" y="112" width="15" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1rjae1d_di" bpmnElement="Flow_1rjae1d">
+        <di:waypoint x="765" y="130" />
+        <di:waypoint x="822" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_14g3mc2_di" bpmnElement="Flow_14g3mc2">
+        <di:waypoint x="218" y="130" />
+        <di:waypoint x="320" y="130" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
