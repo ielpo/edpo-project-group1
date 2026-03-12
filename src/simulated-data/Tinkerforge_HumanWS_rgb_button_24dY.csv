@@ -1,0 +1,9 @@
+Timestamp;Date;Value;Properties
+1773070671146;2026-03-09 16:37:51.146;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 11, "state": "PRESSED!", "state_pressed": 1, "color": "green"};
+1773070671218;2026-03-09 16:37:51.218;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 12, "state": "RELEASED!", "state_pressed": 0, "color": "green"};
+1773070671624;2026-03-09 16:37:51.624;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 13, "state": "PRESSED!", "state_pressed": 1, "color": "green"};
+1773070671863;2026-03-09 16:37:51.863;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 14, "state": "RELEASED!", "state_pressed": 0, "color": "green"};
+1773070672042;2026-03-09 16:37:52.042;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 15, "state": "PRESSED!", "state_pressed": 1, "color": "green"};
+1773070672249;2026-03-09 16:37:52.249;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 16, "state": "RELEASED!", "state_pressed": 0, "color": "green"};
+1773070672466;2026-03-09 16:37:52.466;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 17, "state": "PRESSED!", "state_pressed": 1, "color": "green"};
+1773070672560;2026-03-09 16:37:52.560;{"type": "rgb_button_leftcheck", "UID": "24dY", "location": "HumanWS", "messageID": 18, "state": "RELEASED!", "state_pressed": 0, "color": "green"};

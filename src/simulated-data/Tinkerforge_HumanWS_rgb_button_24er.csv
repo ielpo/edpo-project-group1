@@ -1,0 +1,15 @@
+Timestamp;Date;Value;Properties
+1773070672904;2026-03-09 16:37:52.904;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 15, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070673127;2026-03-09 16:37:53.127;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 16, "state": "RELEASED!", "state_pressed": 0, "color": "red"};
+1773070673347;2026-03-09 16:37:53.347;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 17, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070673424;2026-03-09 16:37:53.424;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 18, "state": "RELEASED!", "state_pressed": 0, "color": "red"};
+1773070673661;2026-03-09 16:37:53.661;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 19, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070674006;2026-03-09 16:37:54.006;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 20, "state": "RELEASED!", "state_pressed": 0, "color": "red"};
+1773070674225;2026-03-09 16:37:54.225;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 21, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070674261;2026-03-09 16:37:54.261;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 22, "state": "RELEASED!", "state_pressed": 0, "color": "red"};
+1773070674449;2026-03-09 16:37:54.449;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 23, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070674498;2026-03-09 16:37:54.498;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 24, "state": "RELEASED!", "state_pressed": 0, "color": "red"};
+1773070674740;2026-03-09 16:37:54.740;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 25, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070674743;2026-03-09 16:37:54.743;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 26, "state": "RELEASED!", "state_pressed": 0, "color": "red"};
+1773070674884;2026-03-09 16:37:54.884;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 27, "state": "PRESSED!", "state_pressed": 1, "color": "red"};
+1773070675108;2026-03-09 16:37:55.108;{"type": "rgb_button_rightcheck", "UID": "24er", "location": "HumanWS", "messageID": 28, "state": "RELEASED!", "state_pressed": 0, "color": "red"};

@@ -1,0 +1,7 @@
+Timestamp;Date;Value;Properties
+1773070676384;2026-03-09 16:37:56.384;{"type": "motion_detector", "UID": "SmQ", "location": "HumanWS", "messageID": 43, "detection": "Motion Started", "motion_detection": 1};
+1773070678862;2026-03-09 16:37:58.862;{"type": "motion_detector", "UID": "SmQ", "location": "HumanWS", "messageID": 44, "detection": "Motion Ended", "motion_detection": 0};
+1773070685581;2026-03-09 16:38:05.581;{"type": "motion_detector", "UID": "SmQ", "location": "HumanWS", "messageID": 45, "detection": "Motion Started", "motion_detection": 1};
+1773070688131;2026-03-09 16:38:08.131;{"type": "motion_detector", "UID": "SmQ", "location": "HumanWS", "messageID": 46, "detection": "Motion Ended", "motion_detection": 0};
+1773070710226;2026-03-09 16:38:30.226;{"type": "motion_detector", "UID": "SmQ", "location": "HumanWS", "messageID": 47, "detection": "Motion Started", "motion_detection": 1};
+1773070712884;2026-03-09 16:38:32.884;{"type": "motion_detector", "UID": "SmQ", "location": "HumanWS", "messageID": 48, "detection": "Motion Ended", "motion_detection": 0};
