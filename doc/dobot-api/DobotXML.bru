@@ -1,0 +1,22 @@
+meta {
+  name: DobotXML
+  type: http
+  seq: 9
+}
+
+get {
+  url: http://localhost:{{port}}/run_flow?flow=lefty-dps.playback&loop=0&speed=50
+  body: none
+  auth: none
+}
+
+params:query {
+  flow: lefty-dps.playback
+  loop: 0
+  speed: 50
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

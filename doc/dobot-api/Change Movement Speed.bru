@@ -1,0 +1,20 @@
+meta {
+  name: Change Movement Speed
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:{{port}}/change_robot_speed?speed=50
+  body: none
+  auth: none
+}
+
+params:query {
+  speed: 50
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
