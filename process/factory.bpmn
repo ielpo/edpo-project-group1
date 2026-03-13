@@ -62,7 +62,7 @@
     <bpmn:sequenceFlow id="Flow_1nr3b4s" sourceRef="Activity_0m93oww" targetRef="Event_1pwj3ob" />
     <bpmn:sequenceFlow id="Flow_07tgord" sourceRef="Event_1pwj3ob" targetRef="Activity_0c2fjw1" />
     <bpmn:sequenceFlow id="Flow_0auhfpx" sourceRef="Activity_0c2fjw1" targetRef="Event_0cn7sjz" />
-    <bpmn:boundaryEvent id="Event_0tf18oi" attachedToRef="Activity_0m93oww">
+    <bpmn:boundaryEvent id="Event_0tf18oi" name="5 min" attachedToRef="Activity_0m93oww">
       <bpmn:outgoing>Flow_1aoho6h</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_1vuniaf">
         <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
@@ -78,7 +78,7 @@
       <bpmn:messageEventDefinition id="MessageEventDefinition_06io5q6" camunda:delegateExpression="" />
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_1es8c55" sourceRef="Event_04gq0dp" targetRef="Gateway_1l7qlo1" />
-    <bpmn:boundaryEvent id="Event_0jl2ivt" attachedToRef="Activity_0c2fjw1">
+    <bpmn:boundaryEvent id="Event_0jl2ivt" name="5 min" attachedToRef="Activity_0c2fjw1">
       <bpmn:outgoing>Flow_1241kpg</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_04thub3">
         <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
@@ -227,9 +227,15 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_03yheny_di" bpmnElement="Event_0tf18oi">
         <dc:Bounds x="802" y="260" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="826" y="301" width="27" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_09ht2p6_di" bpmnElement="Event_0jl2ivt">
         <dc:Bounds x="1062" y="260" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1086" y="301" width="27" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BPMNShape_14o9m8l" bpmnElement="Event_0d4jxc2">
         <dc:Bounds x="1012" y="260" width="36" height="36" />
