@@ -8,12 +8,15 @@ Accepted
 
 ## Context
 
-Camunda 7 is EOL, therefore an alternative needs to be selected.
+Camunda 7 is EOL, therefore we must choose if we use Operaton or switch to Camunda 8.
 
 ## Decision
 
-In order to be able to run everything locally, we choose to implement the system using Operaton.
+We will implement the system using Operaton as process engine.
+The execution in the context of an IoT application with physical components limits the possibilities for using cloud solutions.
+Additionally, the selected use case will allow for only a very limited number of concurrent process executions.
+Therefore, we would not leverage the advantages of the scalability of the cloud deployments.
 
 ## Consequences
 
-The project needs to be set up correctly, imported code must be ported if it was written for camunda.
+The project needs to be set up correctly, imported code must be adapted if it was written for Camunda 7.

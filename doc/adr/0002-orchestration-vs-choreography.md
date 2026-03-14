@@ -14,6 +14,7 @@ The selected application will require different services working in a coordinate
 
 The ordering and the manufacturing processes will be implemented using orchestration. The customer process will make use of choreography.
 Both ordering and manufacturing processes need to execute steps with additional logic regarding error and timeout handling.
+The ordering process also includes manual steps in case an order fails to be f
 The customer process is less critical and can have parts that fail.
 
 ## Consequences
