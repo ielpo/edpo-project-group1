@@ -21,17 +21,27 @@
   Michael Schütz, Gianluca Ielpo, Eva Amromin
 ]
 
-#outline()
-#pagebreak()
-
 = Process Orchestration
-#image("factory.png")
-The process will be orchestrated by the order service, which commands the factory service to produce the required items.
+The customer will place an order for a furniture using a form, this is the start event for the order process.
 
+#figure(
+  image("order_form.png", width: 80%),
+  caption: [Order form presented to customer]
+)
 
-= Orchestration vs Choreography
-_note: select Camunda 7 and rationale_
+#figure(
+  image("order.png"),
+  caption: [Order process]
+)
 
+The process will be orchestrated by the order service, which verifies inventory and then commands the factory to manufacture the order.
 
+#figure(
+  image("factory.png"),
+  caption: [Factory process]
+)
 
+The factory process sends events to the customer and order services.
+
+The customer service will display information to the user, this service will be receiving messages from the order and factory processes.
 
