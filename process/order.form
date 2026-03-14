@@ -28,51 +28,35 @@
       "id": "Field_1j9k9hi"
     },
     {
-      "label": "Browse and Select",
-      "components": [
+      "label": "Select item",
+      "values": [
         {
-          "label": "Select item",
-          "values": [
-            {
-              "label": "Shelf",
-              "value": "Shelf"
-            },
-            {
-              "label": "Table",
-              "value": "table"
-            },
-            {
-              "label": "Chair",
-              "value": "Closet"
-            },
-            {
-              "label": "Closet",
-              "value": "closet"
-            }
-          ],
-          "type": "select",
-          "layout": {
-            "row": "Row_0x9bq0a",
-            "columns": null
-          },
-          "id": "Field_0bbyzvq",
-          "key": "select_6zvsfi"
+          "label": "Shelf",
+          "value": "Shelf"
+        },
+        {
+          "label": "Table",
+          "value": "table"
+        },
+        {
+          "label": "Chair",
+          "value": "Closet"
+        },
+        {
+          "label": "Closet",
+          "value": "closet"
         }
       ],
-      "showOutline": true,
-      "isRepeating": true,
-      "allowAddRemove": true,
-      "defaultRepetitions": 1,
-      "type": "dynamiclist",
+      "type": "select",
       "layout": {
-        "row": "Row_1h4hmpr",
+        "row": "Row_17tztzi",
         "columns": null
       },
-      "id": "Field_07mxe8q",
-      "path": "dynamiclist_sqg9hg"
+      "id": "Field_0bbyzvq",
+      "key": "select_6zvsfi"
     },
     {
-      "label": "Order items",
+      "label": "Order item",
       "action": "submit",
       "type": "button",
       "layout": {
@@ -88,7 +72,7 @@
   "executionPlatformVersion": "8.8.0",
   "exporter": {
     "name": "Camunda Modeler",
-    "version": "5.44.0"
+    "version": "5.45.0"
   },
   "schemaVersion": 19
 }
