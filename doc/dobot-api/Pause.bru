@@ -1,0 +1,16 @@
+meta {
+  name: Pause
+  type: http
+  seq: 7
+}
+
+get {
+  url: http://localhost:{{port}}/pause
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

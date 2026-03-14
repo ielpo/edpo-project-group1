@@ -1,0 +1,16 @@
+meta {
+  name: Home
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:{{port}}/home
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
