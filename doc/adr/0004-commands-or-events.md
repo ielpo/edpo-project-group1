@@ -25,4 +25,4 @@ The orchestrator sends **commands** to trigger services; services respond with *
 - The orchestrator retains explicit control while the factory remains a smart endpoint — it emits what happened without knowing what the order process does with it.
 - Other services can subscribe to factory events in the future without changes to the factory.
 - The factory's start event is coupled to the command's Kafka topic, so schema changes require coordinated updates.
-- A correlation key (order ID) must be included in event payloads to route them back to the correct process instance, adding some complexity to event design.
+- A correlation key (order ID) must be included in event payloads to route them back to the correct process instance, adding some complexity to the event design.
