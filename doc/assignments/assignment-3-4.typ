@@ -44,7 +44,7 @@ The process begins when a customer places an order for furniture using an order 
   caption: [Order process]
 )
 
-The order process is orchestrated by the order service. This service is responsible for coordinating the workflow by first verifying the availability of the requested item in the inventory. If the item is available, the order service sends a command to the factory to initiate the manufacturing process.
+The order process is orchestrated by the order service, which coordinates the workflow by first reserving the required components in the inventory via an HTTP call. If the reservation succeeded, the order service sends a command to the factory to initiate the manufacturing process.
 
 #figure(
   image("factory.png"),
