@@ -1,13 +1,13 @@
 # Event-driven and Process-oriented Architectures - Group 1
 This repository contains all code related to the project and assignments.
 
-## Project Description
+# Project Description
 The project simulates a factory that produces custom furniture on order.
 The customer can select a type of furniture (chair, table, shelf, closet) and a colour, the factory then fetches the components from inventory and assembles them using the robot arms.
 
-## Sequence Diagram
+# Sequence Diagram
 
-### Successful Order Flow 
+## Successful Order Flow 
 ```mermaid
 sequenceDiagram
     actor Customer
@@ -26,11 +26,11 @@ sequenceDiagram
     deactivate order
 ```
 
-### Failure During Manufacturing
+## Failure During Manufacturing
 
-### Inventory not Sufficient
+## Inventory not Sufficient
 
-## Inventory Management
+# Inventory Management
 The inventory is represented by a grid, each cell can either contain a block of a certain colour, or be empty.
 Additionally, occupied cells can be reserved for an order and not be available for further orders.
 
@@ -67,9 +67,12 @@ Coordinates on grid (x,y):
 +-----+-----+-----+-----+
 ```
 
-## Data Structures
-### Enums
-#### ItemType
+## Inventory Service API
+Refer to [Inventory Service Readme](services/inventory/README.md)
+
+# Data Structures
+## Enums
+### ItemType
 | Value  | Description         |
 |--------|---------------------|
 | Chair  | 1 block             |
@@ -77,7 +80,7 @@ Coordinates on grid (x,y):
 | Shelf  | 2 blocks vertical   |
 | Closet | 3 blocks vertical   |
 
-#### BlockColour
+### BlockColour
 | Value  |
 |--------|
 | Red    |
@@ -85,30 +88,30 @@ Coordinates on grid (x,y):
 | Blue   |
 | Yellow |
 
-### OrderDto
+## OrderDto
 | Field    | Type          | Content                     |
 |----------|---------------|-----------------------------|
 | orderId  | string        | Order UUID                  |
 | itemType | Enum.ItemType | Name of item to manufacture |
 
-### ReserveInventoryDto
+## ReserveInventoryDto
 | Field   | Type             | Content                     |
 |---------|------------------|-----------------------------|
 | orderId | string           | Order UUID                  |
 | count   | int              | Number of blocks to reserve |
 | colour  | Enum.BlockColour | Colour of blocks to reserve |
 
-### InventoryPositionDto
+## InventoryPositionDto
 | Field  | Type             | Content                        |
 |--------|------------------|--------------------------------|
 | x      | int              | X coordinate of inventory grid |
 | y      | int              | Y coordinate of inventory grid |
 | colour | Enum.BlockColour | Colour of block                |
 
-## Kafka Topics
+# Kafka Topics
 Customer service subscribes to all topics and displays live information form the received events.
 
-### error
+## Error
 Error messages, feedback from Factory to Order service:
 `error.v1`
 
@@ -118,8 +121,8 @@ Error messages, feedback from Factory to Order service:
 | orderId       | string | Order ID                                                |
 | correlationId | string | UUID to correlate message, not used by Customer service |
 
-### info
-Information message, Customer service subscribes to this:
+## Info
+Information messages, Customer service subscribes to this:
 `info.v1`
 
 | Field         | Type   | Content                                                 |
@@ -128,7 +131,7 @@ Information message, Customer service subscribes to this:
 | orderId       | string | Order ID                                                |
 | correlationId | string | UUID to correlate message, not used by Customer service |
 
-### order
+## Order
 `order.manufacture.v1`: command from Order to Factory service:
 
 | Field         | Type      | Content                   |
