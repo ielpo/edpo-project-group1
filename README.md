@@ -37,13 +37,15 @@ Additionally, occupied cells can be reserved for an order and not be available f
 Example of inventory grid state:
 ```
 +---+---+---+---+
-| R | R | R | R |
+| R |   |   |   |
 +---+---+---+---+
-| G | G | G |   |
+| R |   |   | Y |
 +---+---+---+---+
-| B | B | B | B |
+| R |   |   | Y |
 +---+---+---+---+
-| Y |   |   |   |
+| R | G |   | Y |
++---+---+---+---+
+| R | G | B | Y |
 +---+---+---+---+
 ```
 
@@ -61,13 +63,13 @@ Coordinates on grid (x,y):
 +-----+-----+-----+-----+
 | 3,0 | 3,1 | 3,2 | 3,3 |
 +-----+-----+-----+-----+
+| 4,0 | 4,1 | 4,2 | 4,3 |
++-----+-----+-----+-----+
 ```
 
 ## Data Structures
-
 ### Enums
-**ItemType**
-
+#### ItemType
 | Value  | Description         |
 |--------|---------------------|
 | Chair  | 1 block             |
@@ -75,8 +77,7 @@ Coordinates on grid (x,y):
 | Shelf  | 2 blocks vertical   |
 | Closet | 3 blocks vertical   |
 
-**BlockColour**
-
+#### BlockColour
 | Value  |
 |--------|
 | Red    |
@@ -84,31 +85,25 @@ Coordinates on grid (x,y):
 | Blue   |
 | Yellow |
 
-
 ### OrderDto
-| Field    | Type           | Content                     |
-|----------|----------------|-----------------------------|
-| orderId  | string         | Order UUID                  |
-| itemType | Enum<ItemType> | Name of item to manufacture |
+| Field    | Type          | Content                     |
+|----------|---------------|-----------------------------|
+| orderId  | string        | Order UUID                  |
+| itemType | Enum.ItemType | Name of item to manufacture |
 
 ### ReserveInventoryDto
-| Field   | Type              | Content                     |
-|---------|-------------------|-----------------------------|
-| orderId | string            | Order UUID                  |
-| count   | int               | Number of blocks to reserve |
-| colour  | Enum<BlockColour> | Colour of blocks to reserve |
+| Field   | Type             | Content                     |
+|---------|------------------|-----------------------------|
+| orderId | string           | Order UUID                  |
+| count   | int              | Number of blocks to reserve |
+| colour  | Enum.BlockColour | Colour of blocks to reserve |
 
-### PositionDto
-| Field  | Type              | Content                        |
-|--------|-------------------|--------------------------------|
-| x      | int               | X coordinate of inventory grid |
-| y      | int               | Y coordinate of inventory grid |
-| colour | Enum<BlockColour> | Colour of block                |
-
-### FetchInventoryDto
-| Field     | Type              | Content                                  |
-|-----------|-------------------|------------------------------------------|
-| positions | List<PositionDto> | List of positions to take from inventory |
+### InventoryPositionDto
+| Field  | Type             | Content                        |
+|--------|------------------|--------------------------------|
+| x      | int              | X coordinate of inventory grid |
+| y      | int              | Y coordinate of inventory grid |
+| colour | Enum.BlockColour | Colour of block                |
 
 ## Kafka Topics
 Customer service subscribes to all topics and displays live information form the received events.
@@ -116,30 +111,34 @@ Customer service subscribes to all topics and displays live information form the
 ### error
 Error messages, feedback from Factory to Order service:
 `error.v1`
-| Field  | Type              | Content                        |
-|--------|-------------------|--------------------------------|
-| message      | string               | Message for user  |
-| orderId      | string               | Order ID  |
-| correlationId      | string               | UUID to correlate message, not used by Customer service |
+
+| Field         | Type   | Content                                                 |
+|---------------|--------|---------------------------------------------------------|
+| message       | string | Message for user                                        |
+| orderId       | string | Order ID                                                |
+| correlationId | string | UUID to correlate message, not used by Customer service |
 
 ### info
 Information message, Customer service subscribes to this:
 `info.v1`
-| Field  | Type              | Content                        |
-|--------|-------------------|--------------------------------|
-| message      | string               | Message for user  |
-| orderId      | string               | Order ID  |
-| correlationId      | string               | UUID to correlate message, not used by Customer service |
+
+| Field         | Type   | Content                                                 |
+|---------------|--------|---------------------------------------------------------|
+| message       | string | Message for user                                        |
+| orderId       | string | Order ID                                                |
+| correlationId | string | UUID to correlate message, not used by Customer service |
 
 ### order
 `order.manufacture.v1`: command from Order to Factory service:
-| Field  | Type              | Content                        |
-|--------|-------------------|--------------------------------|
-| order      | OrderDto               | Order to be manufactured  |
-| correlationId      | string               | UUID to correlate message |
+
+| Field         | Type      | Content                   |
+|---------------|-----------|---------------------------|
+| order         | OrderDto  | Order to be manufactured  |
+| correlationId | string    | UUID to correlate message |
 
 `order.complete.v1`: feedback from Factory to Order service:
-| Field  | Type              | Content                        |
-|--------|-------------------|--------------------------------|
-| orderId      | string               | Order that was manufactured  |
-| correlationId      | string               | UUID to correlate message |
+
+| Field         | Type    | Content                      |
+|---------------|---------|------------------------------|
+| orderId       | string  | Order that was manufactured  |
+| correlationId | string  | UUID to correlate message    |
