@@ -1,4 +1,4 @@
-package ch.unisg.scs.edpo.factory.application;
+package ch.unisg.scs.edpo.factory.application.services;
 
 import org.springframework.stereotype.Service;
 
