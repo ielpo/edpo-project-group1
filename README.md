@@ -109,3 +109,37 @@ Coordinates on grid (x,y):
 | Field     | Type              | Content                                  |
 |-----------|-------------------|------------------------------------------|
 | positions | List<PositionDto> | List of positions to take from inventory |
+
+## Kafka Topics
+Customer service subscribes to all topics and displays live information form the received events.
+
+### error
+Error messages, feedback from Factory to Order service:
+`error.v1`
+| Field  | Type              | Content                        |
+|--------|-------------------|--------------------------------|
+| message      | string               | Message for user  |
+| orderId      | string               | Order ID  |
+| correlationId      | string               | UUID to correlate message, not used by Customer service |
+
+### info
+Information message, Customer service subscribes to this:
+`info.v1`
+| Field  | Type              | Content                        |
+|--------|-------------------|--------------------------------|
+| message      | string               | Message for user  |
+| orderId      | string               | Order ID  |
+| correlationId      | string               | UUID to correlate message, not used by Customer service |
+
+### order
+`order.manufacture.v1`: command from Order to Factory service:
+| Field  | Type              | Content                        |
+|--------|-------------------|--------------------------------|
+| order      | OrderDto               | Order to be manufactured  |
+| correlationId      | string               | UUID to correlate message |
+
+`order.complete.v1`: feedback from Factory to Order service:
+| Field  | Type              | Content                        |
+|--------|-------------------|--------------------------------|
+| orderId      | string               | Order that was manufactured  |
+| correlationId      | string               | UUID to correlate message |
