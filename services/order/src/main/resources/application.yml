@@ -1,0 +1,19 @@
+spring.datasource.url: jdbc:h2:file:./operaton-h2-database
+
+operaton:
+  bpm:
+    admin-user:
+      id: demo
+      password: demo
+    filter:
+      create: All Tasks
+    generic-properties:
+      properties:
+        historyTimeToLive: P1D
+
+kafka:
+  bootstrap-address: localhost:9092
+  trusted-packages: ch.unisg.scs.edpo.order.dto;
+
+
+
