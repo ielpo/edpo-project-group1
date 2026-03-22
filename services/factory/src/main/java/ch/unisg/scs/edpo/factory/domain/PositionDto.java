@@ -1,6 +1,6 @@
 package ch.unisg.scs.edpo.factory.domain;
 
-import lombok.NonNull;
+import jakarta.validation.constraints.NotNull;
 
-public record PositionDto(@NonNull Integer x, @NonNull Integer y, @NonNull BlockColour color) {
+public record PositionDto(@NotNull Integer x, @NotNull Integer y, @NotNull BlockColour colour) {
 }
