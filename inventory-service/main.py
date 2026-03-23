@@ -7,9 +7,9 @@ from typing import Optional
 app = FastAPI(title="Inventory Service")
 
 COLORS = ["red", "yellow", "blue", "green"]
-GRID_SIZE = 4
+GRID_SIZE = 5
 
-# State: each color has 4 slots, True = available
+# State: each color has 5 slots, True = available
 inventory: dict[str, list[bool]] = {
     color: [True] * GRID_SIZE for color in COLORS
 }

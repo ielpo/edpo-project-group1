@@ -22,7 +22,7 @@
 
     #grid {
       display: grid;
-      grid-template-columns: 80px repeat(4, 64px);
+      grid-template-columns: 80px repeat(5, 64px);
       gap: 10px;
       margin-bottom: 36px;
     }
@@ -142,7 +142,7 @@
         <option value="blue">Blue</option>
         <option value="green">Green</option>
       </select>
-      <input type="number" id="take-count" value="1" min="1" max="4" />
+      <input type="number" id="take-count" value="1" min="1" max="5" />
       <button class="btn-take" onclick="takeCubes()">Take</button>
     </div>
   </div>
@@ -207,7 +207,7 @@
       grid.appendChild(label);
 
       const slots = data[color].slots;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 5; i++) {
         const cell = document.createElement("div");
         cell.className = `cell ${slots[i] ? "available" : "taken"} cell-${color}`;
         cell.style.background = slots[i] ? colorHex(color) : "";
