@@ -1,0 +1,68 @@
+{
+  "components": [
+    {
+      "text": "# Browse, select and order",
+      "type": "text",
+      "layout": {
+        "row": "Row_0p0kz0x",
+        "columns": null
+      },
+      "id": "Field_0spqg44"
+    },
+    {
+      "type": "separator",
+      "layout": {
+        "row": "Row_0hyx6r0",
+        "columns": null
+      },
+      "id": "Field_10e02di"
+    },
+    {
+      "label": "Select item",
+      "values": [
+        {
+          "label": "Shelf",
+          "value": "Shelf"
+        },
+        {
+          "label": "Table",
+          "value": "table"
+        },
+        {
+          "label": "Chair",
+          "value": "chair"
+        },
+        {
+          "label": "closet",
+          "value": "closet"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_03b2jml",
+        "columns": null
+      },
+      "id": "Field_1o4nhye",
+      "key": "select_37fuxr"
+    },
+    {
+      "label": "Order",
+      "action": "submit",
+      "type": "button",
+      "layout": {
+        "row": "Row_0ebpm1k",
+        "columns": 2
+      },
+      "id": "Field_0vijs0p"
+    }
+  ],
+  "type": "default",
+  "id": "form_1",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.45.0"
+  },
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.24.0",
+  "schemaVersion": 19
+}
