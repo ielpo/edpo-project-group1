@@ -4,7 +4,7 @@ import ch.unisg.scs.edpo.factory.application.ports.in.AssembleOrderPort;
 import ch.unisg.scs.edpo.factory.application.ports.in.RequestItemsFromInventoryPort;
 import ch.unisg.scs.edpo.factory.application.ports.out.FetchInventoryPort;
 import ch.unisg.scs.edpo.factory.application.ports.out.MoveBlockPort;
-import ch.unisg.scs.edpo.factory.application.ports.out.ReadColourPort;
+import ch.unisg.scs.edpo.factory.application.ports.out.ReadColorPort;
 import ch.unisg.scs.edpo.factory.domain.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +39,7 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
 
     private final FetchInventoryPort fetchInventory;
     private final MoveBlockPort moveBlock;
-    private final ReadColourPort readColour;
+    private final ReadColorPort readColor;
     private final MqttService mqttService;
 
     @Override
@@ -51,10 +51,10 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
     public void assemble(@NotNull List<InventoryPositionDto> positions, @NotNull OrderDto order) {
         // Determine positions of blocks for assembly
         List<AssemblyPositionDto> assembly = new ArrayList<>(switch (order.itemType()) {
-            case Chair -> CHAIR_ASSEMBLY;
-            case Table -> TABLE_ASSEMBLY;
-            case Shelf -> SHELF_ASSEMBLY;
-            case Closet -> CLOSET_ASSEMBLY;
+            case CHAIR -> CHAIR_ASSEMBLY;
+            case TABLE -> TABLE_ASSEMBLY;
+            case SHELF -> SHELF_ASSEMBLY;
+            case CLOSET -> CLOSET_ASSEMBLY;
         });
 
         // Gather blocks from inventory and build item
@@ -69,11 +69,11 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
                 throw new RuntimeException("No block picked up, aborting process");
             }
             moveBlock.toColor();
-            var actualColour = readColour.get();
-            if (actualColour != block.colour()) {
+            var actualColour = readColor.get();
+            if (actualColour != block.color()) {
                 moveBlock.toDiscard();
-                log.error("Unexpected colour: {} instead of {}", actualColour, block.colour());
-                throw new RuntimeException("Unexpected colour, aborting process");
+                log.error("Unexpected color: {} instead of {}", actualColour, block.color());
+                throw new RuntimeException("Unexpected color, aborting process");
             }
             moveBlock.toAssembly(assembly.removeFirst());
         }
