@@ -26,7 +26,7 @@ public class ReserveInventoryDelegate implements JavaDelegate {
         Object configuredUrl = execution.getVariable("inventoryServiceUrl");
         String url = configuredUrl == null ? DEFAULT_URL : configuredUrl.toString();
         ItemType selectedItemType = getRequiredEnum(execution, "select_item", ItemType.class);
-        BlockColour selectedColor = getRequiredEnum(execution, "select_color", BlockColour.class);
+        BlockColour selectedColour = getRequiredEnum(execution, "select_colour", BlockColour.class);
         int requiredBlockCount = getRequiredBlockCount(selectedItemType);
 
         try {
@@ -34,7 +34,7 @@ public class ReserveInventoryDelegate implements JavaDelegate {
             boolean success = result.statusCode() >= 200 && result.statusCode() < 300;
 
             execution.setVariable("selectedItemType", selectedItemType.name());
-            execution.setVariable("selectedColor", selectedColor.name());
+            execution.setVariable("selectedColour", selectedColour.name());
             execution.setVariable("requiredBlockCount", requiredBlockCount);
             execution.setVariable("inventoryReservationStatus", result.statusCode());
             execution.setVariable("inventoryReservationResponse", result.body());

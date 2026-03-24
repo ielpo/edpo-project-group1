@@ -46,7 +46,7 @@
       "key": "select_item"
     },
     {
-      "label": "Select color",
+      "label": "Select colour",
       "values": [
         {
           "label": "Red",
@@ -71,7 +71,7 @@
         "columns": null
       },
       "id": "Field_1v9hor7",
-      "key": "select_color"
+      "key": "select_colour"
     },
     {
       "label": "Order",
