@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Factory Inventory</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    h1 { margin-bottom: 32px; font-size: 1.6rem; letter-spacing: 1px; }
+
+    #grid-wrapper {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 36px;
+    }
+
+    #col-labels {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 6px;
+      padding-left: 36px;
+    }
+
+    .axis-label {
+      width: 64px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    #row-labels {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .row-label {
+      width: 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    #grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cell {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      border: 2px solid rgba(255,255,255,0.15);
+      transition: background 0.3s, opacity 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.6);
+      cursor: default;
+    }
+
+    .cell.empty {
+      background: #2a2a3e;
+      opacity: 0.4;
+    }
+
+    .cell.occupied {
+      opacity: 1;
+    }
+
+    .cell.reserved {
+      opacity: 0.6;
+      outline: 2px dashed rgba(255,255,255,0.5);
+      outline-offset: -4px;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .form-panel {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-panel h2 {
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .row-inputs {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    select, input[type="number"], input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #0f3460;
+      color: #eee;
+      font-size: 0.95rem;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: bold;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+
+    .btn-reserve  { background: #e74c3c; color: #fff; }
+    .btn-fetch    { background: #e67e22; color: #fff; }
+    .btn-restore  { background: #2ecc71; color: #1a1a2e; width: 100%; }
+
+    #message {
+      margin-top: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      max-width: 400px;
+      width: 100%;
+      display: none;
+    }
+    #message.success { background: #1e4d2b; border: 1px solid #2ecc71; color: #2ecc71; }
+    #message.error   { background: #4d1e1e; border: 1px solid #e74c3c; color: #e74c3c; }
+  </style>
+</head>
+<body>
+
+<h1>Factory Inventory</h1>
+
+<div>
+  <div id="col-labels"></div>
+  <div id="grid-wrapper">
+    <div id="row-labels"></div>
+    <div id="grid"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="form-panel">
+    <h2>Reserve Blocks</h2>
+    <div class="row-inputs">
+      <select id="reserve-colour">
+        <option value="Red">Red</option>
+        <option value="Green">Green</option>
+        <option value="Blue">Blue</option>
+        <option value="Yellow">Yellow</option>
+      </select>
+      <input type="number" id="reserve-count" value="1" min="1" max="5" />
+      <input type="text" id="reserve-order" placeholder="Order ID" style="flex:2" />
+    </div>
+    <button class="btn-reserve" onclick="reserveBlocks()">Reserve</button>
+  </div>
+
+  <div class="form-panel">
+    <h2>Fetch Reserved Blocks</h2>
+    <div class="row-inputs">
+      <input type="text" id="fetch-order" placeholder="Order ID" />
+    </div>
+    <button class="btn-fetch" onclick="fetchBlocks()">Fetch</button>
+  </div>
+
+  <div class="form-panel">
+    <h2>Restore</h2>
+    <div class="row-inputs">
+      <input type="text" id="restore-order" placeholder="Order ID (leave empty to restore all)" />
+    </div>
+    <button class="btn-restore" onclick="restoreInventory()">Restore</button>
+  </div>
+</div>
+
+<div id="message"></div>
+
+<script>
+  const COLOR_HEX = {
+    Red: "#e74c3c",
+    Green: "#2ecc71",
+    Blue: "#3498db",
+    Yellow: "#f1c40f",
+  };
+
+  async function loadInventory() {
+    const res = await fetch("/inventory");
+    const data = await res.json();
+    renderGrid(data);
+  }
+
+  function renderGrid(data) {
+    const { grid, rows, cols } = data;
+
+    // Column labels (y axis)
+    const colLabels = document.getElementById("col-labels");
+    colLabels.innerHTML = "";
+    for (let y = 0; y < cols; y++) {
+      const lbl = document.createElement("div");
+      lbl.className = "axis-label";
+      lbl.textContent = `y=${y}`;
+      colLabels.appendChild(lbl);
+    }
+
+    // Row labels (x axis)
+    const rowLabels = document.getElementById("row-labels");
+    rowLabels.innerHTML = "";
+    for (let x = 0; x < rows; x++) {
+      const lbl = document.createElement("div");
+      lbl.className = "row-label";
+      lbl.textContent = `x=${x}`;
+      rowLabels.appendChild(lbl);
+    }
+
+    // Grid cells
+    const gridEl = document.getElementById("grid");
+    gridEl.style.gridTemplateColumns = `repeat(${cols}, 64px)`;
+    gridEl.innerHTML = "";
+
+    for (let x = 0; x < rows; x++) {
+      for (let y = 0; y < cols; y++) {
+        const cell = grid[x][y];
+        const div = document.createElement("div");
+
+        if (cell === null) {
+          div.className = "cell empty";
+        } else {
+          div.className = `cell occupied${cell.reserved ? " reserved" : ""}`;
+          div.style.background = COLOR_HEX[cell.colour] || "#555";
+          if (cell.reserved) {
+            div.title = `Reserved for order: ${cell.order_id}`;
+            div.textContent = "reserved";
+          }
+        }
+
+        gridEl.appendChild(div);
+      }
+    }
+  }
+
+  async function reserveBlocks() {
+    const color = document.getElementById("reserve-colour").value;
+    const count = parseInt(document.getElementById("reserve-count").value);
+    const orderId = document.getElementById("reserve-order").value.trim() || "manual";
+    try {
+      const res = await fetch("/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, count, colour: color }),
+      });
+      if (res.status === 200 && res.headers.get("content-length") === "0") {
+        // No body on success — reload inventory separately
+        showMessage(`Reserved ${count} ${color} block(s) for order '${orderId}'`, "success");
+        await loadInventory();
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.message || data.detail, "error");
+      } else {
+        showMessage(`Reserved ${count} ${color} block(s) for order '${orderId}'`, "success");
+        await loadInventory();
+      }
+    } catch (e) {
+      showMessage("Request failed", "error");
+    }
+  }
+
+  async function fetchBlocks() {
+    const orderId = document.getElementById("fetch-order").value.trim();
+    if (!orderId) {
+      showMessage("Enter an Order ID", "error");
+      return;
+    }
+    try {
+      const res = await fetch(`/fetch?orderId=${encodeURIComponent(orderId)}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.detail, "error");
+      } else {
+        showMessage(`Fetched ${data.fetched.length} block(s) for order '${orderId}'`, "success");
+        renderGrid(data);
+      }
+    } catch (e) {
+      showMessage("Request failed", "error");
+    }
+  }
+
+  async function restoreInventory() {
+    const orderId = document.getElementById("restore-order").value.trim() || null;
+    try {
+      const res = await fetch("/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.detail, "error");
+      } else {
+        showMessage(data.message, "success");
+        renderGrid(data);
+      }
+    } catch (e) {
+      showMessage("Request failed", "error");
+    }
+  }
+
+  function showMessage(text, type) {
+    const el = document.getElementById("message");
+    el.textContent = text;
+    el.className = type;
+    el.style.display = "block";
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.display = "none"; }, 5000);
+  }
+
+  loadInventory();
+  setInterval(loadInventory, 3000);
+</script>
+</body>
+</html>
