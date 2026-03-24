@@ -21,20 +21,48 @@
       "label": "Select item",
       "values": [
         {
-          "label": "Shelf",
+          "label": "Chair (1 block)",
+          "value": "Chair"
+        },
+        {
+          "label": "Table (2 blocks horizontal)",
+          "value": "Table"
+        },
+        {
+          "label": "Shelf (2 blocks vertical)",
           "value": "Shelf"
         },
         {
-          "label": "Table",
-          "value": "table"
+          "label": "Closet (3 blocks vertical)",
+          "value": "Closet"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_03b2jml",
+        "columns": 8
+      },
+      "id": "Field_1o4nhye",
+      "key": "select_item"
+    },
+    {
+      "label": "Select color",
+      "values": [
+        {
+          "label": "Red",
+          "value": "Red"
         },
         {
-          "label": "Chair",
-          "value": "chair"
+          "label": "Green",
+          "value": "Green"
         },
         {
-          "label": "closet",
-          "value": "closet"
+          "label": "Blue",
+          "value": "Blue"
+        },
+        {
+          "label": "Yellow",
+          "value": "Yellow"
         }
       ],
       "type": "select",
@@ -42,8 +70,8 @@
         "row": "Row_03b2jml",
         "columns": null
       },
-      "id": "Field_1o4nhye",
-      "key": "select_37fuxr"
+      "id": "Field_1v9hor7",
+      "key": "select_color"
     },
     {
       "label": "Order",
