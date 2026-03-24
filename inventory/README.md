@@ -90,20 +90,19 @@ Each cell is either `null` (empty) or `{"colour", "reserved", "order_id"}`.
 
 ---
 
-### POST /reserve
+### POST /reserve/{orderId}
 
-Reserve a number of blocks of a given colour for an order. Returns `200` with no body on success.
+Reserve a number of blocks of a given colour for an order. `orderId` must be a valid UUID. Returns `200` with no body on success.
 
 ```bash
-curl -X POST http://localhost:8000/reserve \
+curl -X POST http://localhost:8000/reserve/550e8400-e29b-41d4-a716-446655440000 \
   -H "Content-Type: application/json" \
-  -d '{"orderId": "abc-123", "count": 2, "colour": "Red"}'
+  -d '{"count": 2, "colour": "Red"}'
 ```
 
 **Request body — ReserveInventoryDto**
 ```json
 {
-  "orderId": "abc-123",
   "count": 2,
   "colour": "Red"
 }
@@ -128,18 +127,25 @@ curl -X POST http://localhost:8000/reserve \
 **Response (409 — order already reserved)**
 ```json
 {
-  "message": "Order 'abc-123' already has reserved blocks"
+  "message": "Order '550e8400-e29b-41d4-a716-446655440000' already has reserved blocks"
+}
+```
+
+**Response (422 — invalid UUID)**
+```json
+{
+  "detail": "value is not a valid uuid"
 }
 ```
 
 ---
 
-### GET /reserve?orderId=UUID
+### GET /reserve/{orderId}
 
 Returns the list of positions reserved for a given order — FetchInventoryDto.
 
 ```bash
-curl http://localhost:8000/reserve?orderId=abc-123
+curl http://localhost:8000/reserve/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response (200)**
@@ -155,18 +161,18 @@ curl http://localhost:8000/reserve?orderId=abc-123
 **Response (404 — order not found)**
 ```json
 {
-  "detail": "No reservations found for order 'abc-123'"
+  "detail": "No reservations found for order '550e8400-e29b-41d4-a716-446655440000'"
 }
 ```
 
 ---
 
-### POST /fetch?orderId=UUID
+### POST /fetch/{orderId}
 
 Remove all reserved blocks for a given order from the grid (called by the factory when manufacturing starts).
 
 ```bash
-curl -X POST "http://localhost:8000/fetch?orderId=abc-123"
+curl -X POST http://localhost:8000/fetch/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response (200)**
@@ -185,7 +191,7 @@ curl -X POST "http://localhost:8000/fetch?orderId=abc-123"
 **Response (404 — no reserved blocks for order)**
 ```json
 {
-  "detail": "No reserved blocks found for order 'abc-123'"
+  "detail": "No reserved blocks found for order '550e8400-e29b-41d4-a716-446655440000'"
 }
 ```
 

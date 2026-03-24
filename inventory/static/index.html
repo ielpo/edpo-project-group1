@@ -184,7 +184,7 @@
         <option value="Yellow">Yellow</option>
       </select>
       <input type="number" id="reserve-count" value="1" min="1" max="5" />
-      <input type="text" id="reserve-order" placeholder="Order ID" style="flex:2" />
+      <input type="text" id="reserve-order" placeholder="Order UUID" style="flex:2" />
     </div>
     <button class="btn-reserve" onclick="reserveBlocks()">Reserve</button>
   </div>
@@ -192,7 +192,7 @@
   <div class="form-panel">
     <h2>Fetch Reserved Blocks</h2>
     <div class="row-inputs">
-      <input type="text" id="fetch-order" placeholder="Order ID" />
+      <input type="text" id="fetch-order" placeholder="Order UUID" />
     </div>
     <button class="btn-fetch" onclick="fetchBlocks()">Fetch</button>
   </div>
@@ -200,7 +200,7 @@
   <div class="form-panel">
     <h2>Restore</h2>
     <div class="row-inputs">
-      <input type="text" id="restore-order" placeholder="Order ID (leave empty to restore all)" />
+      <input type="text" id="restore-order" placeholder="Order UUID (leave empty to restore all)" />
     </div>
     <button class="btn-restore" onclick="restoreInventory()">Restore</button>
   </div>
@@ -271,15 +271,21 @@
     }
   }
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   async function reserveBlocks() {
     const color = document.getElementById("reserve-colour").value;
     const count = parseInt(document.getElementById("reserve-count").value);
-    const orderId = document.getElementById("reserve-order").value.trim() || "manual";
+    const orderId = document.getElementById("reserve-order").value.trim();
+    if (!UUID_RE.test(orderId)) {
+      showMessage("Order ID must be a valid UUID", "error");
+      return;
+    }
     try {
-      const res = await fetch("/reserve", {
+      const res = await fetch(`/reserve/${encodeURIComponent(orderId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, count, colour: color }),
+        body: JSON.stringify({ count, colour: color }),
       });
       if (res.status === 200 && res.headers.get("content-length") === "0") {
         // No body on success — reload inventory separately
@@ -301,12 +307,12 @@
 
   async function fetchBlocks() {
     const orderId = document.getElementById("fetch-order").value.trim();
-    if (!orderId) {
-      showMessage("Enter an Order ID", "error");
+    if (!UUID_RE.test(orderId)) {
+      showMessage("Order ID must be a valid UUID", "error");
       return;
     }
     try {
-      const res = await fetch(`/fetch?orderId=${encodeURIComponent(orderId)}`, {
+      const res = await fetch(`/fetch/${encodeURIComponent(orderId)}`, {
         method: "POST",
       });
       const data = await res.json();

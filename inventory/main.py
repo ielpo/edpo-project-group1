@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, Response
+from uuid import UUID
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -34,7 +35,6 @@ class PositionDto(BaseModel):
 
 
 class ReserveInventoryDto(BaseModel):
-    orderId: str
     count: int
     colour: str
 
@@ -48,8 +48,9 @@ def get_inventory():
     return grid_response()
 
 
-@app.post("/reserve", status_code=200)
-def reserve_inventory(req: ReserveInventoryDto):
+@app.post("/reserve/{orderId}", status_code=200)
+def reserve_inventory(orderId: UUID, req: ReserveInventoryDto):
+    order_id = str(orderId)
     colour = req.colour.capitalize()
 
     if colour not in COLOURS:
@@ -59,19 +60,19 @@ def reserve_inventory(req: ReserveInventoryDto):
         )
 
     already_reserved = any(
-        grid[x][y] is not None and grid[x][y].get("order_id") == req.orderId
+        grid[x][y] is not None and grid[x][y].get("order_id") == order_id
         for x in range(ROWS)
         for y in range(COLS)
     )
-    if already_reserved or req.orderId in fetch_log:
+    if already_reserved or order_id in fetch_log:
         return JSONResponse(
             status_code=409,
-            content={"message": f"Order '{req.orderId}' already has reserved blocks"},
+            content={"message": f"Order '{order_id}' already has reserved blocks"},
         )
 
     available = [
         (x, y)
-        for x in range(ROWS)  # top to bottom
+        for x in range(ROWS)
         for y in range(COLS)
         if grid[x][y] is not None
         and grid[x][y]["colour"] == colour
@@ -86,42 +87,44 @@ def reserve_inventory(req: ReserveInventoryDto):
 
     for x, y in available[: req.count]:
         grid[x][y]["reserved"] = True
-        grid[x][y]["order_id"] = req.orderId
+        grid[x][y]["order_id"] = order_id
 
     return Response(status_code=200)
 
 
-@app.get("/reserve")
-def get_reserved_positions(orderId: str = Query(...)):
+@app.get("/reserve/{orderId}")
+def get_reserved_positions(orderId: UUID):
+    order_id = str(orderId)
     positions = [
         PositionDto(x=x, y=y, colour=grid[x][y]["colour"]).model_dump()
         for x in range(ROWS)
         for y in range(COLS)
-        if grid[x][y] is not None and grid[x][y].get("order_id") == orderId
+        if grid[x][y] is not None and grid[x][y].get("order_id") == order_id
     ]
 
     if not positions:
-        raise HTTPException(status_code=404, detail=f"No reservations found for order '{orderId}'")
+        raise HTTPException(status_code=404, detail=f"No reservations found for order '{order_id}'")
 
     return {"positions": positions}
 
 
-@app.post("/fetch")
-def fetch_inventory(orderId: str = Query(...)):
+@app.post("/fetch/{orderId}")
+def fetch_inventory(orderId: UUID):
+    order_id = str(orderId)
     reserved = [
         (x, y)
         for x in range(ROWS)
         for y in range(COLS)
-        if grid[x][y] is not None and grid[x][y].get("order_id") == orderId
+        if grid[x][y] is not None and grid[x][y].get("order_id") == order_id
     ]
 
     if not reserved:
-        raise HTTPException(status_code=404, detail=f"No reserved blocks found for order '{orderId}'")
+        raise HTTPException(status_code=404, detail=f"No reserved blocks found for order '{order_id}'")
 
     fetched = []
     for x, y in reserved:
         colour = grid[x][y]["colour"]
-        fetch_log.setdefault(orderId, []).append({"x": x, "y": y, "colour": colour})
+        fetch_log.setdefault(order_id, []).append({"x": x, "y": y, "colour": colour})
         grid[x][y] = None
         fetched.append(PositionDto(x=x, y=y, colour=colour).model_dump())
 
