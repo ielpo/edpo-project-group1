@@ -9,12 +9,12 @@ app = FastAPI(title="Inventory Service")
 
 ROWS = 5
 COLS = 4
-COLOURS = ["Red", "Green", "Blue", "Yellow"]  # one colour per column (y=0..3)
+COLOURS = ["RED", "GREEN", "BLUE", "YELLOW"]  # one color per column (y=0..3)
 
-# Grid cell: None (empty) or {"colour": str, "reserved": bool, "order_id": str | None}
+# Grid cell: None (empty) or {"color": str, "reserved": bool, "order_id": str | None}
 def default_grid() -> list[list[dict | None]]:
     return [
-        [{"colour": COLOURS[y], "reserved": False, "order_id": None} for y in range(COLS)]
+        [{"color": COLOURS[y], "reserved": False, "order_id": None} for y in range(COLS)]
         for _ in range(ROWS)
     ]
 
@@ -31,12 +31,12 @@ def grid_response(**extra) -> dict:
 class PositionDto(BaseModel):
     x: int
     y: int
-    colour: str
+    color: str
 
 
 class ReserveInventoryDto(BaseModel):
     count: int
-    colour: str
+    color: str
 
 
 class RestoreRequest(BaseModel):
@@ -51,12 +51,12 @@ def get_inventory():
 @app.post("/reserve/{orderId}", status_code=200)
 def reserve_inventory(orderId: UUID, req: ReserveInventoryDto):
     order_id = str(orderId)
-    colour = req.colour.capitalize()
+    colour = req.color.upper()
 
     if colour not in COLOURS:
         return JSONResponse(
             status_code=400,
-            content={"message": f"Unknown color: {req.colour}. Valid colors: {COLOURS}"},
+            content={"message": f"Unknown color: {req.color}. Valid colors: {COLOURS}"},
         )
 
     already_reserved = any(
@@ -75,7 +75,7 @@ def reserve_inventory(orderId: UUID, req: ReserveInventoryDto):
         for x in range(ROWS)
         for y in range(COLS)
         if grid[x][y] is not None
-        and grid[x][y]["colour"] == colour
+        and grid[x][y]["color"] == colour
         and not grid[x][y]["reserved"]
     ]
 
@@ -96,7 +96,7 @@ def reserve_inventory(orderId: UUID, req: ReserveInventoryDto):
 def get_reserved_positions(orderId: UUID):
     order_id = str(orderId)
     positions = [
-        PositionDto(x=x, y=y, colour=grid[x][y]["colour"]).model_dump()
+        PositionDto(x=x, y=y, color=grid[x][y]["color"]).model_dump()
         for x in range(ROWS)
         for y in range(COLS)
         if grid[x][y] is not None and grid[x][y].get("order_id") == order_id
@@ -123,10 +123,10 @@ def fetch_inventory(orderId: UUID):
 
     fetched = []
     for x, y in reserved:
-        colour = grid[x][y]["colour"]
-        fetch_log.setdefault(order_id, []).append({"x": x, "y": y, "colour": colour})
+        colour = grid[x][y]["color"]
+        fetch_log.setdefault(order_id, []).append({"x": x, "y": y, "color": colour})
         grid[x][y] = None
-        fetched.append(PositionDto(x=x, y=y, colour=colour).model_dump())
+        fetched.append(PositionDto(x=x, y=y, color=colour).model_dump())
 
     return grid_response(fetched=fetched)
 
@@ -149,12 +149,12 @@ def restore_inventory(req: RestoreRequest = RestoreRequest()):
             if cell is not None and cell.get("order_id") == order_id:
                 cell["reserved"] = False
                 cell["order_id"] = None
-                restored.append(PositionDto(x=x, y=y, colour=cell["colour"]).model_dump())
+                restored.append(PositionDto(x=x, y=y, color=cell["color"]).model_dump())
 
     for entry in fetch_log.pop(order_id, []):
-        x, y, colour = entry["x"], entry["y"], entry["colour"]
-        grid[x][y] = {"colour": colour, "reserved": False, "order_id": None}
-        restored.append(PositionDto(x=x, y=y, colour=colour).model_dump())
+        x, y, colour = entry["x"], entry["y"], entry["color"]
+        grid[x][y] = {"color": colour, "reserved": False, "order_id": None}
+        restored.append(PositionDto(x=x, y=y, color=colour).model_dump())
 
     if not restored:
         raise HTTPException(status_code=404, detail=f"No blocks found for order '{order_id}'")
