@@ -1,48 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_19vr5tl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.45.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_19vr5tl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.45.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
   <bpmn:process id="Process_0g7lwbb" isExecutable="true" camunda:historyTimeToLive="4">
     <bpmn:startEvent id="Event_0cgpadu" name="Start order process" camunda:formRef="form_1" camunda:formRefBinding="latest">
       <bpmn:outgoing>Flow_183sx42</bpmn:outgoing>
       <bpmn:messageEventDefinition id="MessageEventDefinition_09ap23g" messageRef="Message_1eaptk4" />
     </bpmn:startEvent>
-    <bpmn:endEvent id="Event_0hluq7d">
-      <bpmn:incoming>Flow_0x1p4xu</bpmn:incoming>
-    </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_183sx42" sourceRef="Event_0cgpadu" targetRef="Task_VerifyOrder" />
     <bpmn:serviceTask id="Task_VerifyOrder" name="Reserve inventory" camunda:delegateExpression="${reserveInventoryDelegate}">
       <bpmn:incoming>Flow_183sx42</bpmn:incoming>
       <bpmn:outgoing>Flow_1c4cdub</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_1c4cdub" sourceRef="Task_VerifyOrder" targetRef="Event_0b2nq6x" />
-    <bpmn:intermediateCatchEvent id="Event_0b2nq6x" name="Wait 1 minute Place">
+    <bpmn:exclusiveGateway id="Gateway_0bprnq2" name="Reservation successful?" default="Flow_1hn6wbk">
       <bpmn:incoming>Flow_1c4cdub</bpmn:incoming>
-      <bpmn:outgoing>Flow_0x1p4xu</bpmn:outgoing>
-      <bpmn:timerEventDefinition id="TimerEventDefinition_0r8trjz">
-        <bpmn:timeDuration>PT1M</bpmn:timeDuration>
-      </bpmn:timerEventDefinition>
-    </bpmn:intermediateCatchEvent>
-    <bpmn:sequenceFlow id="Flow_0x1p4xu" sourceRef="Event_0b2nq6x" targetRef="Event_0hluq7d" />
+      <bpmn:outgoing>Flow_0jr2rv0</bpmn:outgoing>
+      <bpmn:outgoing>Flow_1hn6wbk</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_1c4cdub" sourceRef="Task_VerifyOrder" targetRef="Gateway_0bprnq2" />
+    <bpmn:sequenceFlow id="Flow_0jr2rv0" name="Yes" sourceRef="Gateway_0bprnq2" targetRef="Task_SendManufactureCommand">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${inventoryReservationSuccess == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sendTask id="Task_SendManufactureCommand" name="Send order.manufacture.v1" camunda:delegateExpression="${publishManufactureOrderDelegate}">
+      <bpmn:incoming>Flow_0jr2rv0</bpmn:incoming>
+      <bpmn:outgoing>Flow_0ut1c6d</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:sequenceFlow id="Flow_0ut1c6d" sourceRef="Task_SendManufactureCommand" targetRef="Event_1rf9xti" />
+    <bpmn:sequenceFlow id="Flow_1hn6wbk" name="No" sourceRef="Gateway_0bprnq2" targetRef="Event_00lv4zj" />
+    <bpmn:endEvent id="Event_1rf9xti" name="Done">
+      <bpmn:incoming>Flow_0ut1c6d</bpmn:incoming>
+    </bpmn:endEvent>
     <bpmn:boundaryEvent id="Event_0sihvtw" name="Inventory service not available" attachedToRef="Task_VerifyOrder">
       <bpmn:outgoing>Flow_0egzzm6</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_14xt49u" errorRef="Error_0lddp1d" camunda:errorCodeVariable="inventoryReservationErrorCode" camunda:errorMessageVariable="inventoryReservationErrorMessage" />
     </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="Flow_0egzzm6" sourceRef="Event_0sihvtw" targetRef="Event_1fcaf22" />
-    <bpmn:intermediateCatchEvent id="Event_1fcaf22" name="Wait 1 minute">
+    <bpmn:sequenceFlow id="Flow_0egzzm6" sourceRef="Event_0sihvtw" targetRef="Event_0s0twye" />
+    <bpmn:endEvent id="Event_00lv4zj" name="Send info.v1 missing inventory">
+      <bpmn:incoming>Flow_1hn6wbk</bpmn:incoming>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_1hprxwm" camunda:delegateExpression="${publishInventoryReservationInfoDelegate}" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="Event_0s0twye" name="Send error.v1 inventory unavailable">
       <bpmn:incoming>Flow_0egzzm6</bpmn:incoming>
-      <bpmn:outgoing>Flow_1z4e8df</bpmn:outgoing>
-      <bpmn:timerEventDefinition id="TimerEventDefinition_05dcx8h">
-        <bpmn:timeDuration>PT1M</bpmn:timeDuration>
-      </bpmn:timerEventDefinition>
-    </bpmn:intermediateCatchEvent>
-    <bpmn:sequenceFlow id="Flow_1z4e8df" sourceRef="Event_1fcaf22" targetRef="Event_0s0twye" />
-    <bpmn:endEvent id="Event_0s0twye" name="Inventory service not available">
-      <bpmn:incoming>Flow_1z4e8df</bpmn:incoming>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_0m9pzxp" camunda:delegateExpression="${publishInventoryReservationErrorDelegate}" />
     </bpmn:endEvent>
   </bpmn:process>
   <bpmn:message id="Message_1eaptk4" name="MessageStartOrder" />
   <bpmn:message id="Message_0ae2qr3" name="MessageInventoryServiceNotAvailable" />
   <bpmn:message id="Message_2ng3f94" name="MessageMissingInventory" />
   <bpmn:message id="Message_3c44enc" name="MessageManufacturingCompleted" />
+  <bpmn:message id="Message_4w2j0m0" name="MessageOrderManufactureCommand" />
   <bpmn:error id="Error_0lddp1d" name="INVENTORY_SERVICE_UNAVAILABLE" errorCode="INVENTORY_SERVICE_UNAVAILABLE" camunda:errorMessage="INVENTORY_SERVICE_UNAVAILABLE" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0g7lwbb">
@@ -52,29 +56,36 @@
           <dc:Bounds x="154" y="145" width="53" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0hluq7d_di" bpmnElement="Event_0hluq7d">
-        <dc:Bounds x="552" y="102" width="36" height="36" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BPMNShape_08m2ign" bpmnElement="Task_VerifyOrder">
         <dc:Bounds x="265" y="80" width="130" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0b2nq6x_di" bpmnElement="Event_0b2nq6x">
-        <dc:Bounds x="452" y="102" width="36" height="36" />
+      <bpmndi:BPMNShape id="Gateway_0bprnq2_di" bpmnElement="Gateway_0bprnq2" isMarkerVisible="true">
+        <dc:Bounds x="445" y="95" width="50" height="50" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="437" y="145" width="67" height="27" />
+          <dc:Bounds x="441" y="69" width="59" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1fcaf22_di" bpmnElement="Event_1fcaf22">
-        <dc:Bounds x="312" y="232" width="36" height="36" />
+      <bpmndi:BPMNShape id="Task_SendManufactureCommand_di" bpmnElement="Task_SendManufactureCommand">
+        <dc:Bounds x="565" y="80" width="170" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1rf9xti_di" bpmnElement="Event_1rf9xti">
+        <dc:Bounds x="772" y="102" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="235" y="243" width="67" height="14" />
+          <dc:Bounds x="762" y="145" width="20" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0t595t8_di" bpmnElement="Event_0s0twye">
-        <dc:Bounds x="312" y="312" width="36" height="36" />
+      <bpmndi:BPMNShape id="Event_09ueyzn_di" bpmnElement="Event_0s0twye">
+        <dc:Bounds x="312" y="252" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="289" y="353" width="84" height="27" />
+          <dc:Bounds x="297" y="295" width="67" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0srbmy8_di" bpmnElement="Event_00lv4zj">
+        <dc:Bounds x="452" y="252" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="427" y="295" width="86" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0sihvtw_di" bpmnElement="Event_0sihvtw">
@@ -89,19 +100,29 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1c4cdub_di" bpmnElement="Flow_1c4cdub">
         <di:waypoint x="395" y="120" />
-        <di:waypoint x="452" y="120" />
+        <di:waypoint x="445" y="120" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0x1p4xu_di" bpmnElement="Flow_0x1p4xu">
-        <di:waypoint x="488" y="120" />
-        <di:waypoint x="552" y="120" />
+      <bpmndi:BPMNEdge id="Flow_0jr2rv0_di" bpmnElement="Flow_0jr2rv0">
+        <di:waypoint x="495" y="120" />
+        <di:waypoint x="565" y="120" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="501" y="102" width="18" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0ut1c6d_di" bpmnElement="Flow_0ut1c6d">
+        <di:waypoint x="735" y="120" />
+        <di:waypoint x="772" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1hn6wbk_di" bpmnElement="Flow_1hn6wbk">
+        <di:waypoint x="470" y="145" />
+        <di:waypoint x="470" y="252" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="430" y="150" width="15" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0egzzm6_di" bpmnElement="Flow_0egzzm6">
         <di:waypoint x="330" y="178" />
-        <di:waypoint x="330" y="232" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1z4e8df_di" bpmnElement="Flow_1z4e8df">
-        <di:waypoint x="330" y="268" />
-        <di:waypoint x="330" y="312" />
+        <di:waypoint x="330" y="252" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

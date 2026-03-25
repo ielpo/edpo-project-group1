@@ -22,19 +22,19 @@
       "values": [
         {
           "label": "Chair (1 block)",
-          "value": "CHAIR"
+          "value": "Chair"
         },
         {
           "label": "Table (2 blocks horizontal)",
-          "value": "TABLE"
+          "value": "Table"
         },
         {
           "label": "Shelf (2 blocks vertical)",
-          "value": "SHELF"
+          "value": "Shelf"
         },
         {
           "label": "Closet (3 blocks vertical)",
-          "value": "CLOSET"
+          "value": "Closet"
         }
       ],
       "type": "select",
@@ -50,19 +50,19 @@
       "values": [
         {
           "label": "Red",
-          "value": "RED"
+          "value": "Red"
         },
         {
           "label": "Green",
-          "value": "GREEN"
+          "value": "Green"
         },
         {
           "label": "Blue",
-          "value": "BLUE"
+          "value": "Blue"
         },
         {
           "label": "Yellow",
-          "value": "YELLOW"
+          "value": "Yellow"
         }
       ],
       "type": "select",

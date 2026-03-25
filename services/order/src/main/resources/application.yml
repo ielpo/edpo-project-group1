@@ -14,6 +14,17 @@ operaton:
 kafka:
   bootstrap-address: localhost:9092
   trusted-packages: ch.unisg.scs.edpo.order.dto;
+  topics:
+    order-manufacture: order.manufacture.v1
+    info: info.v1
+    error: error.v1
+
+spring:
+  kafka:
+    bootstrap-servers: ${kafka.bootstrap-address}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 
 
