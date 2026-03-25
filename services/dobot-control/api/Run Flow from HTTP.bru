@@ -1,0 +1,34 @@
+meta {
+  name: Run Flow from HTTP
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:{{port}}/run_flow
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "MovementCommand": {
+      x: 0.0,
+      y: 0.0,
+      z: 0.0,
+      r: 0.0,
+      "mode": "MOVE_LINEAR"
+    },
+    "ConveyorCommand": {
+      "direction": "STOP"
+    },
+    "SuctionCupCommand": {
+      "suck": true
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Change Movement Speed
+  type: http
+  seq: 6
+}
+
+put {
+  url: http://localhost:{{port}}/set-speed
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "speed": 0.0,
+    "acceleration": 0.0
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

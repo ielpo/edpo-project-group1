@@ -1,0 +1,24 @@
+meta {
+  name: Conveyor Move Distance
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:5000/move-conveyor
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "direction": "FORWARD",
+    "speed": 50,
+    "distance": 10
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

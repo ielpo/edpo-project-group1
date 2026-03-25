@@ -1,0 +1,9 @@
+robots:
+  left:
+    robot_port: COM3
+    server_port: 5000
+  right:
+    robot_port: COM4
+    server_port: 5001
+
+default_robot: right
