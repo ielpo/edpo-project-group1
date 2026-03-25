@@ -20,7 +20,7 @@ public class RestClientReserveInventoryAdapter implements ReserveInventoryPort {
     @Override
     public ReserveInventoryResult reserve(String url, ReserveInventoryDto request) {
         String normalizedBaseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
-        String reserveUrl = normalizedBaseUrl + "/reserve/" + request.orderId();
+        String reserveUrl = normalizedBaseUrl + "/reserve?orderId=" + request.orderId();
         String json = String.format("{\"count\":%d,\"color\":\"%s\"}", request.count(), request.color().name());
 
         try {
