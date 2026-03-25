@@ -9,12 +9,12 @@ app = FastAPI(title="Inventory Service")
 
 ROWS = 5
 COLS = 4
-COLOURS = ["RED", "GREEN", "BLUE", "YELLOW"]  # one color per column (y=0..3)
+COLORS = ["RED", "GREEN", "BLUE", "YELLOW"]  # one color per column (y=0..3)
 
 # Grid cell: None (empty) or {"color": str, "reserved": bool, "order_id": str | None}
 def default_grid() -> list[list[dict | None]]:
     return [
-        [{"color": COLOURS[y], "reserved": False, "order_id": None} for y in range(COLS)]
+        [{"color": COLORS[y], "reserved": False, "order_id": None} for y in range(COLS)]
         for _ in range(ROWS)
     ]
 
@@ -48,15 +48,15 @@ def get_inventory():
     return grid_response()
 
 
-@app.post("/reserve/{orderId}", status_code=200)
+@app.post("/reserve", status_code=200)
 def reserve_inventory(orderId: UUID, req: ReserveInventoryDto):
     order_id = str(orderId)
     colour = req.color.upper()
 
-    if colour not in COLOURS:
+    if colour not in COLORS:
         return JSONResponse(
             status_code=400,
-            content={"message": f"Unknown color: {req.color}. Valid colors: {COLOURS}"},
+            content={"message": f"Unknown color: {req.color}. Valid colors: {COLORS}"},
         )
 
     already_reserved = any(
@@ -92,7 +92,7 @@ def reserve_inventory(orderId: UUID, req: ReserveInventoryDto):
     return Response(status_code=200)
 
 
-@app.get("/reserve/{orderId}")
+@app.get("/reserve")
 def get_reserved_positions(orderId: UUID):
     order_id = str(orderId)
     positions = [
@@ -108,7 +108,7 @@ def get_reserved_positions(orderId: UUID):
     return {"positions": positions}
 
 
-@app.post("/fetch/{orderId}")
+@app.post("/fetch")
 def fetch_inventory(orderId: UUID):
     order_id = str(orderId)
     reserved = [
