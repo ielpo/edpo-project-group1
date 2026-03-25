@@ -10,6 +10,7 @@ import org.operaton.bpm.engine.delegate.DelegateExecution;
 import org.operaton.bpm.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
 import java.util.UUID;
 
 @Component("reserveInventoryDelegate")
@@ -80,7 +81,11 @@ public class ReserveInventoryDelegate implements JavaDelegate {
         try {
             return Enum.valueOf(enumClass, value);
         } catch (IllegalArgumentException e) {
-            throw new BpmnError(ERROR_CODE, "Invalid " + variableName + " value: " + value);
+            try {
+                return Enum.valueOf(enumClass, value.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                throw new BpmnError(ERROR_CODE, "Invalid " + variableName + " value: " + value);
+            }
         }
     }
 
