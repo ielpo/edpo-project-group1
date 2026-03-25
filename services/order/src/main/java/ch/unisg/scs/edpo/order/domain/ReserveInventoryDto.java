@@ -5,6 +5,6 @@ import lombok.NonNull;
 public record ReserveInventoryDto(
         @NonNull String orderId,
         int count,
-        @NonNull BlockColour colour
+        @NonNull BlockColor color
 ) {
 }

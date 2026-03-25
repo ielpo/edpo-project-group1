@@ -22,19 +22,19 @@
       "values": [
         {
           "label": "Chair (1 block)",
-          "value": "Chair"
+          "value": "CHAIR"
         },
         {
           "label": "Table (2 blocks horizontal)",
-          "value": "Table"
+          "value": "TABLE"
         },
         {
           "label": "Shelf (2 blocks vertical)",
-          "value": "Shelf"
+          "value": "SHELF"
         },
         {
           "label": "Closet (3 blocks vertical)",
-          "value": "Closet"
+          "value": "CLOSET"
         }
       ],
       "type": "select",
@@ -46,23 +46,23 @@
       "key": "select_item"
     },
     {
-      "label": "Select colour",
+      "label": "Select color",
       "values": [
         {
           "label": "Red",
-          "value": "Red"
+          "value": "RED"
         },
         {
           "label": "Green",
-          "value": "Green"
+          "value": "GREEN"
         },
         {
           "label": "Blue",
-          "value": "Blue"
+          "value": "BLUE"
         },
         {
           "label": "Yellow",
-          "value": "Yellow"
+          "value": "YELLOW"
         }
       ],
       "type": "select",
@@ -71,7 +71,7 @@
         "columns": null
       },
       "id": "Field_1v9hor7",
-      "key": "select_colour"
+      "key": "select_color"
     },
     {
       "label": "Order",

@@ -2,7 +2,7 @@ package ch.unisg.scs.edpo.order.delegates;
 
 import ch.unisg.scs.edpo.order.application.ports.out.ReserveInventoryResult;
 import ch.unisg.scs.edpo.order.application.services.ReserveInventoryUseCase;
-import ch.unisg.scs.edpo.order.domain.BlockColour;
+import ch.unisg.scs.edpo.order.domain.BlockColor;
 import ch.unisg.scs.edpo.order.domain.ItemType;
 import org.operaton.bpm.engine.delegate.BpmnError;
 import org.operaton.bpm.engine.delegate.DelegateExecution;
@@ -26,7 +26,7 @@ public class ReserveInventoryDelegate implements JavaDelegate {
         Object configuredUrl = execution.getVariable("inventoryServiceUrl");
         String url = configuredUrl == null ? DEFAULT_URL : configuredUrl.toString();
         ItemType selectedItemType = getRequiredEnum(execution, "select_item", ItemType.class);
-        BlockColour selectedColour = getRequiredEnum(execution, "select_colour", BlockColour.class);
+        BlockColor selectedColor = getRequiredEnum(execution, "select_color", BlockColor.class);
         int requiredBlockCount = getRequiredBlockCount(selectedItemType);
 
         try {
@@ -34,7 +34,7 @@ public class ReserveInventoryDelegate implements JavaDelegate {
             boolean success = result.statusCode() >= 200 && result.statusCode() < 300;
 
             execution.setVariable("selectedItemType", selectedItemType.name());
-            execution.setVariable("selectedColour", selectedColour.name());
+            execution.setVariable("selectedColor", selectedColor.name());
             execution.setVariable("requiredBlockCount", requiredBlockCount);
             execution.setVariable("inventoryReservationStatus", result.statusCode());
             execution.setVariable("inventoryReservationResponse", result.body());
@@ -70,9 +70,9 @@ public class ReserveInventoryDelegate implements JavaDelegate {
 
     private int getRequiredBlockCount(ItemType itemType) {
         return switch (itemType) {
-            case Chair -> 1;
-            case Table, Shelf -> 2;
-            case Closet -> 3;
+            case CHAIR -> 1;
+            case TABLE, SHELF -> 2;
+            case CLOSET -> 3;
         };
     }
 }
