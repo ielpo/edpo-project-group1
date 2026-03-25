@@ -282,7 +282,7 @@
       return;
     }
     try {
-      const res = await fetch(`/reserve/${encodeURIComponent(orderId)}`, {
+      const res = await fetch(`/reserve?orderId=${encodeURIComponent(orderId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ count, color }),

@@ -2,10 +2,16 @@
 
 A FastAPI service managing a 5x4 inventory grid of colored blocks.
 
+## Dependencies
+Install all required dependencies and create a virtual environment by running
+```bash
+uv sync
+```
+in the repository root folder.
+
 ## Running the Service
 
 ```bash
-pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
@@ -25,12 +31,12 @@ curl http://localhost:8000/inventory
 ---
 
 ### Reserve Blocks
-`POST /reserve/{orderId}`
+`POST /reserve?orderId=UUID`
 
 Reserves a number of blocks of a given color for an order.
 
 ```bash
-curl -X POST "http://localhost:8000/reserve/550e8400-e29b-41d4-a716-446655440000" -H "Content-Type: application/json" -d '{"count": 2, "color": "RED"}'
+curl -X POST "http://localhost:8000/reserve?orderId=550e8400-e29b-41d4-a716-446655440000" -H "Content-Type: application/json" -d '{"count": 2, "color": "RED"}'
 ```
 
 **Request body**
@@ -47,12 +53,12 @@ curl -X POST "http://localhost:8000/reserve/550e8400-e29b-41d4-a716-446655440000
 ---
 
 ### Get Reserved Positions
-`GET /reserve/{orderId}`
+`GET /reserve?orderId=UUID`
 
 Returns the grid positions reserved for an order.
 
 ```bash
-curl http://localhost:8000/reserve/550e8400-e29b-41d4-a716-446655440000
+curl http://localhost:8000/reserve?orderId=550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response: 200**
@@ -70,12 +76,12 @@ curl http://localhost:8000/reserve/550e8400-e29b-41d4-a716-446655440000
 ---
 
 ### Fetch Reserved Blocks
-`POST /fetch/{orderId}`
+`POST /fetch?orderId=UUID`
 
 Removes the reserved blocks from the grid (used when manufacturing starts).
 
 ```bash
-curl -X POST http://localhost:8000/fetch/550e8400-e29b-41d4-a716-446655440000
+curl -X POST http://localhost:8000/fetch?orderId=550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Responses**
