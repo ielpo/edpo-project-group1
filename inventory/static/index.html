@@ -178,10 +178,10 @@
     <h2>Reserve Blocks</h2>
     <div class="row-inputs">
       <select id="reserve-colour">
-        <option value="Red">Red</option>
-        <option value="Green">Green</option>
-        <option value="Blue">Blue</option>
-        <option value="Yellow">Yellow</option>
+        <option value="RED">Red</option>
+        <option value="GREEN">Green</option>
+        <option value="BLUE">Blue</option>
+        <option value="YELLOW">Yellow</option>
       </select>
       <input type="number" id="reserve-count" value="1" min="1" max="5" />
       <input type="text" id="reserve-order" placeholder="Order UUID" style="flex:2" />
@@ -210,10 +210,10 @@
 
 <script>
   const COLOR_HEX = {
-    Red: "#e74c3c",
-    Green: "#2ecc71",
-    Blue: "#3498db",
-    Yellow: "#f1c40f",
+    RED: "#e74c3c",
+    GREEN: "#2ecc71",
+    BLUE: "#3498db",
+    YELLOW: "#f1c40f",
   };
 
   async function loadInventory() {
@@ -259,7 +259,7 @@
           div.className = "cell empty";
         } else {
           div.className = `cell occupied${cell.reserved ? " reserved" : ""}`;
-          div.style.background = COLOR_HEX[cell.colour] || "#555";
+          div.style.background = COLOR_HEX[cell.color] || "#555";
           if (cell.reserved) {
             div.title = `Reserved for order: ${cell.order_id}`;
             div.textContent = "reserved";
@@ -285,7 +285,7 @@
       const res = await fetch(`/reserve/${encodeURIComponent(orderId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count, colour: color }),
+        body: JSON.stringify({ count, color }),
       });
       if (res.status === 200 && res.headers.get("content-length") === "0") {
         // No body on success — reload inventory separately
