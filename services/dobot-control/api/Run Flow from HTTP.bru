@@ -6,8 +6,12 @@ meta {
 
 post {
   url: http://localhost:{{port}}/run_flow
-  body: json
+  body: text
   auth: none
+}
+
+headers {
+  Content-Type: application/x-yaml
 }
 
 body:json {
@@ -26,6 +30,15 @@ body:json {
       "suck": true
     }
   }
+}
+
+body:text {
+  - MoveCommand:
+      x: 10
+      y: 20
+  - ConveyorCommand:
+      speed: 100
+      direction: forward
 }
 
 settings {

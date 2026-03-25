@@ -1,4 +1,3 @@
-import json
 import logging
 
 from flask import Flask, request
@@ -38,9 +37,9 @@ def run_flow() -> dict:
     if filename:
         file_path = os.path.join(os.getcwd(), filename)
         with open(file_path, "r") as f:
-            command_list_json: dict = json.load(f)
+            command_list_json: dict = yaml.safe_load(f)
     else:
-        command_list_json: dict = request.get_json()
+        command_list_json: dict = yaml.safe_load(request.get_data())
 
     command_list: list[Command] = [
         command_type_map[cmd.type].model_validate(cmd) for cmd in command_list_json
