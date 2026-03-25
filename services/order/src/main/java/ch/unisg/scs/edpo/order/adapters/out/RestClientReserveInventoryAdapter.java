@@ -3,56 +3,38 @@ package ch.unisg.scs.edpo.order.adapters.out;
 import ch.unisg.scs.edpo.order.application.ports.out.ReserveInventoryPort;
 import ch.unisg.scs.edpo.order.application.ports.out.ReserveInventoryResult;
 import ch.unisg.scs.edpo.order.domain.ReserveInventoryDto;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Component
 public class RestClientReserveInventoryAdapter implements ReserveInventoryPort {
 
-    private final RestClient restClient;
-
-    public RestClientReserveInventoryAdapter(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.build();
-    }
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .build();
 
     @Override
     public ReserveInventoryResult reserve(String url, ReserveInventoryDto request) {
         String normalizedBaseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
-
-        /*
-        // TODO: Remove this fallback after a stable inventory service base URL is always provided.
-        // Temporary behavior: keep flow runnable when default placeholder URL is used.
-        if (isPlaceholderUrl(normalizedBaseUrl)) {
-            ResponseEntity<String> placeholderResponse = restClient.get()
-                    .uri(normalizedBaseUrl)
-                    .retrieve()
-                    .toEntity(String.class);
-
-            int placeholderStatusCode = placeholderResponse.getStatusCode().value();
-            String placeholderBody = placeholderResponse.getBody() == null ? "" : placeholderResponse.getBody();
-            return new ReserveInventoryResult(placeholderStatusCode, placeholderBody);
-        }*/
-
-
-
         String reserveUrl = normalizedBaseUrl + "/reserve/" + request.orderId();
-        ReserveBody reserveBody = new ReserveBody(request.count(), request.color().name());
+        String json = String.format("{\"count\":%d,\"color\":\"%s\"}", request.count(), request.color().name());
 
-        ResponseEntity<String> response = restClient.post()
-                .uri(reserveUrl)
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(reserveBody)
-                .retrieve()
-                .toEntity(String.class);
+        try {
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(reserveUrl))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
 
-        int statusCode = response.getStatusCode().value();
-        String body = response.getBody() == null ? "" : response.getBody();
-        return new ReserveInventoryResult(statusCode, body);
-    }
-
-
-    private record ReserveBody(int count, String color) {
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            String body = response.body() == null ? "" : response.body();
+            return new ReserveInventoryResult(response.statusCode(), body);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to call inventory service: " + e.getMessage(), e);
+        }
     }
 }
