@@ -20,7 +20,7 @@ def default_grid() -> list[list[dict | None]]:
 
 grid: list[list[dict | None]] = default_grid()
 
-# Tracks cells removed by /fetch, keyed by order_id → [{"x", "y", "colour"}]
+# Tracks cells removed by /fetch, keyed by order_id → [{"x", "y", "color"}]
 fetch_log: dict[str, list[dict]] = {}
 
 
