@@ -1,0 +1,12 @@
+[project]
+name = "dobot-control"
+version = "1"
+requires-python = ">=3.13"
+description = "Application to control the Dobot Magician robots via USB"
+dependencies = []
+
+[tool.uv]
+   package = true
+
+[project.scripts]
+dobot-api = "app:main"

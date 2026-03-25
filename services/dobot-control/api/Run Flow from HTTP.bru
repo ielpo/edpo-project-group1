@@ -1,0 +1,47 @@
+meta {
+  name: Run Flow from HTTP
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:{{port}}/run_flow
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/x-yaml
+}
+
+body:json {
+  {
+    "MovementCommand": {
+      x: 0.0,
+      y: 0.0,
+      z: 0.0,
+      r: 0.0,
+      "mode": "MOVE_LINEAR"
+    },
+    "ConveyorCommand": {
+      "direction": "STOP"
+    },
+    "SuctionCupCommand": {
+      "suck": true
+    }
+  }
+}
+
+body:text {
+  - MoveCommand:
+      x: 10
+      y: 20
+  - ConveyorCommand:
+      speed: 100
+      direction: forward
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
