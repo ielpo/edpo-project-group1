@@ -59,9 +59,9 @@
         <bpmn:timeDuration>PT3M</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
-    <bpmn:sequenceFlow id="Flow_0h3u7p5" sourceRef="Event_0tm3min" targetRef="Event_0to3min" />
+    <bpmn:sequenceFlow id="Flow_0h3u7p5" sourceRef="Event_0tm3min" targetRef="Activity_0rv8yvb" />
     <bpmn:endEvent id="Event_0to3min" name="Send error.v1&#10;manufacturing timed out">
-      <bpmn:incoming>Flow_0h3u7p5</bpmn:incoming>
+      <bpmn:incoming>Flow_1fd52nk</bpmn:incoming>
       <bpmn:messageEventDefinition id="MessageEventDefinition_12nhj0r" camunda:delegateExpression="${publishManufacturingTimeoutErrorDelegate}" />
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_0r8m6v3" sourceRef="Gateway_1yfhskd" targetRef="Event_1errorfb" />
@@ -70,15 +70,45 @@
       <bpmn:outgoing>Flow_1v4m7c2</bpmn:outgoing>
       <bpmn:messageEventDefinition id="MessageEventDefinition_1errorfb" messageRef="Message_1errorfb" />
     </bpmn:intermediateCatchEvent>
-    <bpmn:sequenceFlow id="Flow_1v4m7c2" sourceRef="Event_1errorfb" targetRef="Event_1errordone" />
+    <bpmn:sequenceFlow id="Flow_1v4m7c2" sourceRef="Event_1errorfb" targetRef="Activity_1ol0bmd" />
     <bpmn:endEvent id="Event_1errordone" name="Send error.v1&#10;manufacturing error">
-      <bpmn:incoming>Flow_1v4m7c2</bpmn:incoming>
+      <bpmn:incoming>Flow_0umdidt</bpmn:incoming>
       <bpmn:messageEventDefinition id="MessageEventDefinition_0factoryerr" camunda:delegateExpression="${publishFactoryErrorDelegate}" />
     </bpmn:endEvent>
     <bpmn:endEvent id="Event_0doneok" name="Send info.v1 manufcaturing success">
       <bpmn:incoming>Flow_1x2m4k9</bpmn:incoming>
       <bpmn:messageEventDefinition id="MessageEventDefinition_0c7fsz6" camunda:delegateExpression="${publishFactoryInfoDelegate}" />
     </bpmn:endEvent>
+    <bpmn:userTask id="Activity_0rv8yvb" name="Restock inventory" camunda:assignee="demo">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="restockCompleted" label="Inventory has been restocked" type="boolean" defaultValue="false" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0h3u7p5</bpmn:incoming>
+      <bpmn:outgoing>Flow_12bzb6x</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_12bzb6x" sourceRef="Activity_0rv8yvb" targetRef="Activity_0uhz0y6" />
+    <bpmn:serviceTask id="Activity_0uhz0y6" name="Reset inventory" camunda:delegateExpression="${restockInventoryDelegate}">
+      <bpmn:incoming>Flow_12bzb6x</bpmn:incoming>
+      <bpmn:outgoing>Flow_1fd52nk</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_1fd52nk" sourceRef="Activity_0uhz0y6" targetRef="Event_0to3min" />
+    <bpmn:userTask id="Activity_1ol0bmd" name="Restock inventory" camunda:assignee="demo">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="restockCompleted" label="Inventory has been restocked" type="boolean" defaultValue="false" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1v4m7c2</bpmn:incoming>
+      <bpmn:outgoing>Flow_1jntfai</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_1jntfai" sourceRef="Activity_1ol0bmd" targetRef="Activity_0ezfqp2" />
+    <bpmn:serviceTask id="Activity_0ezfqp2" name="Reset inventory" camunda:delegateExpression="${restockInventoryDelegate}">
+      <bpmn:incoming>Flow_1jntfai</bpmn:incoming>
+      <bpmn:outgoing>Flow_0umdidt</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_0umdidt" sourceRef="Activity_0ezfqp2" targetRef="Event_1errordone" />
     <bpmn:textAnnotation id="TextAnnotation_0o1uhio">
       <bpmn:text>we could add retries</bpmn:text>
     </bpmn:textAnnotation>
@@ -141,28 +171,42 @@
           <dc:Bounds x="895" y="235" width="72" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1r1p8to_di" bpmnElement="Event_0to3min">
-        <dc:Bounds x="1032" y="192" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1016" y="235" width="70" height="40" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1errorfb_di" bpmnElement="Event_1errorfb">
         <dc:Bounds x="912" y="292" width="36" height="36" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="912" y="335" width="38" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1errordone_di" bpmnElement="Event_1errordone">
-        <dc:Bounds x="1032" y="292" width="36" height="36" />
+      <bpmndi:BPMNShape id="Event_1r1p8to_di" bpmnElement="Event_0to3min">
+        <dc:Bounds x="1252" y="192" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1016" y="335" width="70" height="40" />
+          <dc:Bounds x="1236" y="235" width="70" height="40" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0akuedd_di" bpmnElement="Event_0doneok">
-        <dc:Bounds x="1032" y="82" width="36" height="36" />
+      <bpmndi:BPMNShape id="Event_1errordone_di" bpmnElement="Event_1errordone">
+        <dc:Bounds x="1252" y="292" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1016" y="125" width="70" height="40" />
+          <dc:Bounds x="1236" y="335" width="70" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1jtijix_di" bpmnElement="Activity_0rv8yvb">
+        <dc:Bounds x="980" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0xa26xh" bpmnElement="Activity_0uhz0y6">
+        <dc:Bounds x="1100" y="170" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1rj7yq0_di" bpmnElement="Activity_1ol0bmd">
+        <dc:Bounds x="980" y="270" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0g5i0df" bpmnElement="Activity_0ezfqp2">
+        <dc:Bounds x="1100" y="270" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0akuedd_di" bpmnElement="Event_0doneok">
+        <dc:Bounds x="1252" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1236" y="125" width="70" height="40" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="TextAnnotation_0o1uhio_di" bpmnElement="TextAnnotation_0o1uhio">
@@ -212,7 +256,7 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1x2m4k9_di" bpmnElement="Flow_1x2m4k9">
         <di:waypoint x="948" y="100" />
-        <di:waypoint x="1032" y="100" />
+        <di:waypoint x="1252" y="100" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0q7x5l1_di" bpmnElement="Flow_0q7x5l1">
         <di:waypoint x="855" y="210" />
@@ -220,7 +264,7 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0h3u7p5_di" bpmnElement="Flow_0h3u7p5">
         <di:waypoint x="948" y="210" />
-        <di:waypoint x="1032" y="210" />
+        <di:waypoint x="980" y="210" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0r8m6v3_di" bpmnElement="Flow_0r8m6v3">
         <di:waypoint x="830" y="235" />
@@ -229,11 +273,27 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1v4m7c2_di" bpmnElement="Flow_1v4m7c2">
         <di:waypoint x="948" y="310" />
-        <di:waypoint x="1032" y="310" />
+        <di:waypoint x="980" y="310" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Association_0hxxtul_di" bpmnElement="Association_0hxxtul">
         <di:waypoint x="255" y="110" />
         <di:waypoint x="319" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12bzb6x_di" bpmnElement="Flow_12bzb6x">
+        <di:waypoint x="1080" y="210" />
+        <di:waypoint x="1100" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1fd52nk_di" bpmnElement="Flow_1fd52nk">
+        <di:waypoint x="1200" y="210" />
+        <di:waypoint x="1252" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1jntfai_di" bpmnElement="Flow_1jntfai">
+        <di:waypoint x="1080" y="310" />
+        <di:waypoint x="1100" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0umdidt_di" bpmnElement="Flow_0umdidt">
+        <di:waypoint x="1200" y="310" />
+        <di:waypoint x="1252" y="310" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
