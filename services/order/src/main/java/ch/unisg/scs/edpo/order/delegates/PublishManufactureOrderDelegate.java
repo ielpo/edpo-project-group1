@@ -36,7 +36,7 @@ public class PublishManufactureOrderDelegate implements JavaDelegate {
     public void execute(DelegateExecution execution) {
         String orderId = getRequiredOrderId(execution);
         ItemType itemType = getRequiredItemType(execution);
-        String correlationId = UUID.randomUUID().toString();
+        String correlationId = getOrCreateCorrelationId(execution);
 
         OrderDto orderDto = new OrderDto(orderId, itemType);
         Map<String, Object> payload = Map.of(
@@ -46,7 +46,7 @@ public class PublishManufactureOrderDelegate implements JavaDelegate {
 
         try {
             String message = objectMapper.writeValueAsString(payload);
-            kafkaTemplate.send(manufactureTopic, orderId, message);
+            kafkaTemplate.send(manufactureTopic, "0", message);
 
             execution.setVariable("orderId", orderId);
             execution.setVariable("correlationId", correlationId);
@@ -77,5 +77,16 @@ public class PublishManufactureOrderDelegate implements JavaDelegate {
         } catch (Exception e) {
             throw new BpmnError(ERROR_CODE, "Invalid item type for manufacture command: " + rawValue);
         }
+    }
+
+    private String getOrCreateCorrelationId(DelegateExecution execution) {
+        Object value = execution.getVariable("correlationId");
+        if (value != null && !value.toString().isBlank()) {
+            return value.toString();
+        }
+
+        String correlationId = UUID.randomUUID().toString();
+        execution.setVariable("correlationId", correlationId);
+        return correlationId;
     }
 }

@@ -10,55 +10,45 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.UUID;
 
-@Component("publishInventoryReservationInfoDelegate")
-public class PublishInventoryReservationInfoDelegate implements JavaDelegate {
+@Component("publishFactoryErrorDelegate")
+public class PublishFactoryErrorDelegate implements JavaDelegate {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final String infoTopic;
+    private final String errorTopic;
 
-    public PublishInventoryReservationInfoDelegate(
+    public PublishFactoryErrorDelegate(
             KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
-            @Value("${kafka.topics.info:info.v1}") String infoTopic) {
+            @Value("${kafka.topics.error:error.v1}") String errorTopic) {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
-        this.infoTopic = infoTopic;
+        this.errorTopic = errorTopic;
     }
 
     @Override
     public void execute(DelegateExecution execution) {
         String orderId = getOrderId(execution);
         String correlationId = getOrCreateCorrelationId(execution);
-        String message = getMessage(execution);
 
         Map<String, Object> payload = Map.of(
-                "message", message,
+                "message", "Factory reported an error",
                 "orderId", orderId,
                 "correlationId", correlationId
         );
 
         try {
             String serialized = objectMapper.writeValueAsString(payload);
-            kafkaTemplate.send(infoTopic, "0", serialized);
+            kafkaTemplate.send(errorTopic, "0", serialized);
             execution.setVariable("correlationId", correlationId);
         } catch (Exception e) {
-            // Best-effort notification: process should continue on business-failure branch.
-            execution.setVariable("infoPublishError", e.getMessage());
+            execution.setVariable("errorPublishError", e.getMessage());
         }
     }
 
     private String getOrderId(DelegateExecution execution) {
         Object value = execution.getVariable("orderId");
         return value == null ? "unknown-order" : value.toString();
-    }
-
-    private String getMessage(DelegateExecution execution) {
-        Object value = execution.getVariable("inventoryReservationErrorMessage");
-        if (value != null && !value.toString().isBlank()) {
-            return "Reservation not possible: " + value;
-        }
-        return "Reservation not possible due to insufficient inventory.";
     }
 
     private String getOrCreateCorrelationId(DelegateExecution execution) {

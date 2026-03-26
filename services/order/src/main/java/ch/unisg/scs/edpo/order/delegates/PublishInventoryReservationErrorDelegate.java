@@ -29,7 +29,7 @@ public class PublishInventoryReservationErrorDelegate implements JavaDelegate {
     @Override
     public void execute(DelegateExecution execution) {
         String orderId = getOrderId(execution);
-        String correlationId = UUID.randomUUID().toString();
+        String correlationId = getOrCreateCorrelationId(execution);
         String message = getMessage(execution);
 
         Map<String, Object> payload = Map.of(
@@ -40,7 +40,7 @@ public class PublishInventoryReservationErrorDelegate implements JavaDelegate {
 
         try {
             String serialized = objectMapper.writeValueAsString(payload);
-            kafkaTemplate.send(errorTopic, orderId, serialized);
+            kafkaTemplate.send(errorTopic, "0", serialized);
             execution.setVariable("correlationId", correlationId);
         } catch (Exception e) {
             // Best-effort notification: process should continue on technical-failure branch.
@@ -59,5 +59,16 @@ public class PublishInventoryReservationErrorDelegate implements JavaDelegate {
             return "Inventory service unavailable: " + value;
         }
         return "Inventory service unavailable during reservation.";
+    }
+
+    private String getOrCreateCorrelationId(DelegateExecution execution) {
+        Object value = execution.getVariable("correlationId");
+        if (value != null && !value.toString().isBlank()) {
+            return value.toString();
+        }
+
+        String correlationId = UUID.randomUUID().toString();
+        execution.setVariable("correlationId", correlationId);
+        return correlationId;
     }
 }
