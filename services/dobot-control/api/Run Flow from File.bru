@@ -1,0 +1,20 @@
+meta {
+  name: Run Flow from File
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:{{port}}/run_flow?filename=move-block.yaml
+  body: none
+  auth: none
+}
+
+params:query {
+  filename: move-block.yaml
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
