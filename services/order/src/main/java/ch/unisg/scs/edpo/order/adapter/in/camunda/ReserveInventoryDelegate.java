@@ -6,6 +6,7 @@ import ch.unisg.scs.edpo.order.application.port.in.ReserveInventoryOutcome;
 import org.operaton.bpm.engine.delegate.BpmnError;
 import org.operaton.bpm.engine.delegate.DelegateExecution;
 import org.operaton.bpm.engine.delegate.JavaDelegate;
+import org.operaton.bpm.engine.runtime.Job;
 import org.springframework.stereotype.Component;
 
 @Component("reserveInventoryDelegate")
@@ -41,7 +42,27 @@ public class ReserveInventoryDelegate implements JavaDelegate {
         execution.setVariable("inventoryReservationErrorMessage", outcome.errorMessage());
 
         if (!outcome.success() && outcome.technicalFailure()) {
-            throw new BpmnError(ERROR_CODE, "Inventory service not available: " + outcome.errorMessage());
+            if (isFinalRetryAttempt(execution)) {
+                throw new BpmnError(ERROR_CODE, "Inventory service not available: " + outcome.errorMessage());
+            }
+            throw new RuntimeException("Inventory service not available: " + outcome.errorMessage());
+        }
+    }
+
+    private boolean isFinalRetryAttempt(DelegateExecution execution) {
+        try {
+            Job currentJob = execution.getProcessEngineServices()
+                    .getManagementService()
+                    .createJobQuery()
+                    .processInstanceId(execution.getProcessInstanceId())
+                    .activityId(execution.getCurrentActivityId())
+                    .singleResult();
+
+            // If retries is 1, another technical failure would produce an incident.
+            return currentJob != null && currentJob.getRetries() <= 1;
+        } catch (Exception ignored) {
+            // Fall back to technical retry path when job context cannot be resolved.
+            return false;
         }
     }
 
