@@ -43,7 +43,10 @@
         "columns": 8
       },
       "id": "Field_1o4nhye",
-      "key": "select_item"
+      "key": "select_item",
+      "validate": {
+        "required": true
+      }
     },
     {
       "label": "Select color",
@@ -71,7 +74,10 @@
         "columns": null
       },
       "id": "Field_1v9hor7",
-      "key": "select_color"
+      "key": "select_color",
+      "validate": {
+        "required": true
+      }
     },
     {
       "label": "Order",

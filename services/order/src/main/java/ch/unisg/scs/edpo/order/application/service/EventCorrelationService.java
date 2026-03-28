@@ -38,7 +38,7 @@ public class EventCorrelationService implements EventCorrelationUseCase {
             return false;
         }
         return messageCorrelationPort.correlate(
-                "error.v1",
+            "error.v1",
                 command.orderId(),
                 command.correlationId(),
                 Map.of(

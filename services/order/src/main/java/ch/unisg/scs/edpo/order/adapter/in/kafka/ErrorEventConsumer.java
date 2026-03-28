@@ -34,7 +34,7 @@ public class ErrorEventConsumer {
             );
 
             if (!correlated) {
-                LOG.warn("No matching process instance for error.v1 payload: {}", payload);
+                LOG.debug("No matching process instance for error.v1 payload: {}", payload);
                 return;
             }
             LOG.info("Correlated error.v1 for orderId={} correlationId={}", orderId, correlationId);
