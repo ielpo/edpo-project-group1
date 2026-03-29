@@ -282,7 +282,6 @@ behaviour.
 <consumer-experiments>
 === Consumer Lag & Data Loss Risks
 <consumer-lag-data-loss-risks>
-Full source code:
 
 ==== Setup
 <setup>
