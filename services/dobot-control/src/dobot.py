@@ -1,9 +1,16 @@
 import logging
+from enum import Enum, auto
 
 import pydobotplus
 from pydobotplus import CustomPosition
-from commands import Command, MovementCommand, MovementSpeedCommand, SuctionCupCommand
-from enum import Enum, auto
+
+from commands import (
+    Command,
+    MovementCommand,
+    MovementSpeedCommand,
+    SuctionCupCommand,
+    ConveyorCommand,
+)
 
 
 class Status(Enum):
@@ -44,7 +51,7 @@ class Dobot:
                         position = CustomPosition(
                             command.x, command.y, command.z, command.r
                         )
-                        self.device.move_to(mode=command.mode, position=position)
+                        self.device.move_to(mode=command.mode.value, position=position)
                     case MovementSpeedCommand():
                         self.set_speed(command.speed, command.acceleration)
                     case SuctionCupCommand():
@@ -63,6 +70,14 @@ class Dobot:
             self.acceleration = acceleration
         else:
             self.device.speed(speed)
+
+    def move_conveyor(self, command: ConveyorCommand):
+        self.device.conveyor_belt_distance(
+            command.speed, command.distance, command.direction
+        )
+
+    def run_conveyor(self, command: ConveyorCommand):
+        self.device.conveyor_belt(command.speed, command.direction)
 
     def read_color(self) -> tuple[str, list[int]]:
         color_raw: list[int] = self.device.get_color()

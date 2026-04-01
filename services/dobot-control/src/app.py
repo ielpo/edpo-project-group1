@@ -1,5 +1,9 @@
+import argparse
 import logging
+import os
+import xml.etree.ElementTree as ET
 
+import yaml
 from flask import Flask, request
 
 from commands import (
@@ -10,24 +14,67 @@ from commands import (
 )
 from config_model import Config
 from dobot import Dobot
-
-import os
-import yaml
-import argparse
+from dobot_fake import DobotFake
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s"
 )
+logger = logging.Logger(__name__)
 
 app = Flask(__name__)
 dobot: Dobot | None = None
-logger = logging.Logger(__name__)
+
+
+def _parse_xml_flow(content: str) -> list[dict]:
+    root = ET.fromstring(content)
+    command_list_raw: list[dict] = []
+    previous_suction_state: bool | None = None
+
+    for row in root:
+        if not row.tag.startswith("row") or not row.tag[3:].isdigit():
+            continue
+
+        row_values = {child.tag: (child.text or "").strip() for child in row}
+        movement = {
+            "x": float(row_values["item_2"]),
+            "y": float(row_values["item_3"]),
+            "z": float(row_values["item_4"]),
+            "r": float(row_values["item_5"]),
+        }
+        command_list_raw.append({"MovementCommand": movement})
+
+        suction_text = row_values.get("item_12")
+        if suction_text:
+            suction_state = bool(int(float(suction_text)))
+            if (
+                previous_suction_state is None
+                or suction_state != previous_suction_state
+            ):
+                command_list_raw.append({"SuctionCupCommand": {"suck": suction_state}})
+                previous_suction_state = suction_state
+
+    return command_list_raw
 
 
 @app.before_request
 def log_request_info():
+    headers = "\n\t".join(f"{k}: {v}" for k, v in request.headers.items())
+    if request.args:
+        arguments = "\n\t".join(f"{k}: {v}" for k, v in request.args.items())
+    else:
+        arguments = None
+
+    body = request.get_data(as_text=True)
+    body = body if body else None
+
     logging.debug(
-        f"Request: {request.method} {request.path} - Args: {request.args} - Body: {request.get_data(as_text=True)}"
+        f"--- Incoming Request ---\n"
+        f"Method: {request.method}\n"
+        f"Path: {request.path}\n"
+        f"Args:\n{arguments}\n"
+        f"Body:\n{body}\n"
+        f"Headers:\n    {headers}\n"
+        f"-----------------------"
     )
 
 
@@ -35,14 +82,30 @@ def log_request_info():
 def run_flow() -> dict:
     filename = request.args.get("filename")
     if filename:
-        file_path = os.path.join(os.getcwd(), filename)
+        file_path = os.path.join(os.getcwd(), "flows", filename)
         with open(file_path, "r") as f:
-            command_list_json: dict = yaml.safe_load(f)
+            flow_content = f.read()
     else:
-        command_list_json: dict = yaml.safe_load(request.get_data())
+        flow_content = request.get_data(as_text=True)
+
+    # Default to YAML
+    flow_format = "yaml"
+    if filename:
+        _, ext = os.path.splitext(filename.lower())
+        if ext in {".xml", ".playback"}:
+            flow_format = "xml"
+        if ext in {".yaml", ".yml"}:
+            flow_format = "yaml"
+
+    if flow_format == "xml":
+        command_list_raw = _parse_xml_flow(flow_content)
+    else:
+        command_list_raw = yaml.safe_load(flow_content)
 
     command_list: list[Command] = [
-        command_type_map[cmd.type].model_validate(cmd) for cmd in command_list_json
+        command_type_map[key].model_validate(value)
+        for cmd in command_list_raw
+        for key, value in cmd.items()
     ]
 
     logger.info(f"Executing {len(command_list)} movement commands")
@@ -59,7 +122,7 @@ def run_conveyor() -> dict:
     command = ConveyorCommand.model_validate(request.get_json())
 
     if dobot.name == "left":
-        dobot.device.conveyor_belt(command.speed, command.direction)
+        dobot.run_conveyor(command)
         return {"message": "Conveyor speed and direction set."}
     else:
         return {"message": "Right Robot does not control conveyor."}
@@ -70,9 +133,7 @@ def move_conveyor() -> dict:
     command = ConveyorCommand.model_validate(request.get_json())
 
     if dobot.name == "left":
-        dobot.device.conveyor_belt_distance(
-            command.speed, command.distance, command.direction
-        )
+        dobot.move_conveyor(command)
         return {"message": "Conveyor change added to queue."}
     else:
         return {"message": "Right Robot does not control conveyor."}
@@ -125,16 +186,27 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--robot", choices=config.robots.keys(), help="Robot to be connected"
+        "-r", "--robot", choices=config.robots.keys(), help="Robot to be connected"
+    )
+    parser.add_argument(
+        "-s",
+        "--simulation",
+        action="store_true",
+        help="Enables simulation, when running without robots",
     )
     args = parser.parse_args()
 
     # Get the selected robot configuration, resort to default if no commandline parameter given
     robot_name = args.robot if args.robot else config.default_robot
     runtime_config = config.robots[robot_name]
-    dobot = Dobot(robot_name, runtime_config.robot_port)
 
-    app.run(host="0.0.0.0", port=runtime_config.server_port, debug=False, threaded=True)
+    if args.simulation:
+        logger.info("Running in simulation mode")
+        dobot = DobotFake(robot_name)
+    else:
+        dobot = Dobot(robot_name, runtime_config.robot_port)
+
+    app.run(host="0.0.0.0", port=runtime_config.server_port, debug=True, threaded=True)
 
 
 if __name__ == "__main__":
