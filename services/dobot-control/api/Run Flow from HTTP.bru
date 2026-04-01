@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://localhost:{{port}}/run_flow
+  url: http://localhost:{{port}}/run-flow
   body: text
   auth: none
 }
@@ -33,12 +33,21 @@ body:json {
 }
 
 body:text {
-  - MoveCommand:
-      x: 10
-      y: 20
-  - ConveyorCommand:
-      speed: 100
-      direction: forward
+  - MovementCommand:
+      x: 180
+      y: -180
+      z: 100
+      r: 0
+  - MovementCommand:
+      x: 50
+      y: -180
+      z: 100
+      r: 0
+  - MovementCommand:
+      x: 50
+      y: -180
+      z: 150
+      r: 0
 }
 
 settings {
