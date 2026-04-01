@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Factory Inventory</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    h1 { margin-bottom: 32px; font-size: 1.6rem; letter-spacing: 1px; }
+
+    #grid-wrapper {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 36px;
+    }
+
+    #col-labels {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 6px;
+      padding-left: 36px;
+    }
+
+    .axis-label {
+      width: 64px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    #row-labels {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .row-label {
+      width: 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    #grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cell {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      border: 2px solid rgba(255,255,255,0.15);
+      transition: background 0.3s, opacity 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.6);
+      cursor: default;
+    }
+
+    .cell.empty {
+      background: #2a2a3e;
+      opacity: 0.4;
+    }
+
+    .cell.occupied {
+      opacity: 1;
+    }
+
+    .cell.reserved {
+      opacity: 0.6;
+      outline: 2px dashed rgba(255,255,255,0.5);
+      outline-offset: -4px;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .form-panel {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-panel h2 {
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .row-inputs {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    select, input[type="number"], input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #0f3460;
+      color: #eee;
+      font-size: 0.95rem;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: bold;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+
+    .btn-reserve  { background: #e74c3c; color: #fff; }
+    .btn-fetch    { background: #e67e22; color: #fff; }
+    .btn-restore  { background: #2ecc71; color: #1a1a2e; width: 100%; }
+
+    #message {
+      margin-top: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      max-width: 400px;
+      width: 100%;
+      display: none;
+    }
+    #message.success { background: #1e4d2b; border: 1px solid #2ecc71; color: #2ecc71; }
+    #message.error   { background: #4d1e1e; border: 1px solid #e74c3c; color: #e74c3c; }
+
+    #events-section {
+      margin-top: 36px;
+      width: 100%;
+      max-width: 700px;
+    }
+
+    #events-section h2 {
+      font-size: 1rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    #events-status {
+      font-size: 0.75rem;
+      margin-bottom: 8px;
+    }
+    #events-status.connected    { color: #2ecc71; }
+    #events-status.disconnected { color: #e74c3c; }
+
+    #event-log {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .event-entry {
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      border-left: 4px solid;
+    }
+    .event-entry.info  { background: #0d2137; border-color: #3498db; }
+    .event-entry.error { background: #2b0d0d; border-color: #e74c3c; }
+
+    .event-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .event-badge {
+      font-size: 0.65rem;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .event-badge.info  { background: #3498db; color: #fff; }
+    .event-badge.error { background: #e74c3c; color: #fff; }
+
+    .event-time  { color: #666; font-size: 0.75rem; }
+    .event-order { color: #888; font-size: 0.75rem; font-family: monospace; }
+
+    .event-message { color: #ccc; word-break: break-word; }
+
+    /* --- Order Tracker --- */
+    #tracker-section {
+      margin-top: 36px;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    #tracker-section h2 {
+      font-size: 1rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    #tracker-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .tracker-card {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+
+    .tracker-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .tracker-order-id {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .tracker-order-type {
+      font-size: 0.8rem;
+      color: #aaa;
+      background: #0f3460;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .tracker-steps {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .tracker-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      position: relative;
+    }
+
+    .tracker-step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 100%;
+      height: 3px;
+      background: #2a2a4e;
+      z-index: 0;
+      transition: background 0.4s;
+    }
+
+    .tracker-step.done:not(:last-child)::after {
+      background: #2ecc71;
+    }
+
+    .tracker-step.failed:not(:last-child)::after,
+    .tracker-step.done.next-failed:not(:last-child)::after {
+      background: #e74c3c;
+    }
+
+    .step-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #2a2a4e;
+      border: 3px solid #2a2a4e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      transition: background 0.4s, border-color 0.4s;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .tracker-step.done .step-circle {
+      background: #2ecc71;
+      border-color: #2ecc71;
+      color: #1a1a2e;
+    }
+
+    .tracker-step.active .step-circle {
+      background: #3498db;
+      border-color: #3498db;
+      color: #fff;
+      animation: pulse-step 1.2s infinite;
+    }
+
+    .tracker-step.failed .step-circle {
+      background: #e74c3c;
+      border-color: #e74c3c;
+      color: #fff;
+    }
+
+    @keyframes pulse-step {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(52,152,219,0.4); }
+      50%       { box-shadow: 0 0 0 6px rgba(52,152,219,0); }
+    }
+
+    .step-label {
+      margin-top: 6px;
+      font-size: 0.68rem;
+      color: #666;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .tracker-step.done   .step-label  { color: #2ecc71; }
+    .tracker-step.active .step-label  { color: #3498db; }
+    .tracker-step.failed .step-label  { color: #e74c3c; }
+
+    .tracker-last-msg {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: #666;
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #tracker-empty {
+      color: #555;
+      font-size: 0.8rem;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Factory Inventory</h1>
+
+<div>
+  <div id="col-labels"></div>
+  <div id="grid-wrapper">
+    <div id="row-labels"></div>
+    <div id="grid"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="form-panel">
+    <h2>Reserve Blocks</h2>
+    <div class="row-inputs">
+      <select id="reserve-colour">
+        <option value="RED">Red</option>
+        <option value="GREEN">Green</option>
+        <option value="BLUE">Blue</option>
+        <option value="YELLOW">Yellow</option>
+      </select>
+      <input type="number" id="reserve-count" value="1" min="1" max="5" />
+      <input type="text" id="reserve-order" placeholder="Order UUID" style="flex:2" />
+    </div>
+    <button class="btn-reserve" onclick="reserveBlocks()">Reserve</button>
+  </div>
+
+  <div class="form-panel">
+    <h2>Fetch Reserved Blocks</h2>
+    <div class="row-inputs">
+      <input type="text" id="fetch-order" placeholder="Order UUID" />
+    </div>
+    <button class="btn-fetch" onclick="fetchBlocks()">Fetch</button>
+  </div>
+
+  <div class="form-panel">
+    <h2>Restore</h2>
+    <div class="row-inputs">
+      <input type="text" id="restore-order" placeholder="Order UUID (leave empty to restore all)" />
+    </div>
+    <button class="btn-restore" onclick="restoreInventory()">Restore</button>
+  </div>
+</div>
+
+<div id="message"></div>
+
+<section id="tracker-section">
+  <h2>Order Status</h2>
+  <div id="tracker-list"><span id="tracker-empty">No orders tracked yet…</span></div>
+</section>
+
+<section id="events-section">
+  <h2>Order Events</h2>
+  <div id="events-status" class="disconnected">● Disconnected</div>
+  <div id="event-log"><em style="color:#555;font-size:0.8rem">Waiting for events…</em></div>
+</section>
+
+<script>
+  const COLOR_HEX = {
+    RED: "#e74c3c",
+    GREEN: "#2ecc71",
+    BLUE: "#3498db",
+    YELLOW: "#f1c40f",
+  };
+
+  async function loadInventory() {
+    const res = await fetch("/inventory");
+    const data = await res.json();
+    renderGrid(data);
+  }
+
+  function renderGrid(data) {
+    const { grid, rows, cols } = data;
+
+    // Column labels (y axis)
+    const colLabels = document.getElementById("col-labels");
+    colLabels.innerHTML = "";
+    for (let y = 0; y < cols; y++) {
+      const lbl = document.createElement("div");
+      lbl.className = "axis-label";
+      lbl.textContent = `y=${y}`;
+      colLabels.appendChild(lbl);
+    }
+
+    // Row labels (x axis)
+    const rowLabels = document.getElementById("row-labels");
+    rowLabels.innerHTML = "";
+    for (let x = 0; x < rows; x++) {
+      const lbl = document.createElement("div");
+      lbl.className = "row-label";
+      lbl.textContent = `x=${x}`;
+      rowLabels.appendChild(lbl);
+    }
+
+    // Grid cells
+    const gridEl = document.getElementById("grid");
+    gridEl.style.gridTemplateColumns = `repeat(${cols}, 64px)`;
+    gridEl.innerHTML = "";
+
+    for (let x = 0; x < rows; x++) {
+      for (let y = 0; y < cols; y++) {
+        const cell = grid[x][y];
+        const div = document.createElement("div");
+
+        if (cell === null) {
+          div.className = "cell empty";
+        } else {
+          div.className = `cell occupied${cell.reserved ? " reserved" : ""}`;
+          div.style.background = COLOR_HEX[cell.color] || "#555";
+          if (cell.reserved) {
+            div.title = `Reserved for order: ${cell.order_id}`;
+            div.textContent = "reserved";
+          }
+        }
+
+        gridEl.appendChild(div);
+      }
+    }
+  }
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  async function reserveBlocks() {
+    const color = document.getElementById("reserve-colour").value;
+    const count = parseInt(document.getElementById("reserve-count").value);
+    const orderId = document.getElementById("reserve-order").value.trim();
+    if (!UUID_RE.test(orderId)) {
+      showMessage("Order ID must be a valid UUID", "error");
+      return;
+    }
+    try {
+      const res = await fetch(`/reserve/${encodeURIComponent(orderId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count, color }),
+      });
+      if (res.status === 200 && res.headers.get("content-length") === "0") {
+        // No body on success — reload inventory separately
+        showMessage(`Reserved ${count} ${color} block(s) for order '${orderId}'`, "success");
+        await loadInventory();
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.message || data.detail, "error");
+      } else {
+        showMessage(`Reserved ${count} ${color} block(s) for order '${orderId}'`, "success");
+        await loadInventory();
+      }
+    } catch (e) {
+      showMessage("Request failed", "error");
+    }
+  }
+
+  async function fetchBlocks() {
+    const orderId = document.getElementById("fetch-order").value.trim();
+    if (!UUID_RE.test(orderId)) {
+      showMessage("Order ID must be a valid UUID", "error");
+      return;
+    }
+    try {
+      const res = await fetch(`/fetch/${encodeURIComponent(orderId)}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.detail, "error");
+      } else {
+        showMessage(`Fetched ${data.fetched.length} block(s) for order '${orderId}'`, "success");
+        renderGrid(data);
+      }
+    } catch (e) {
+      showMessage("Request failed", "error");
+    }
+  }
+
+  async function restoreInventory() {
+    const orderId = document.getElementById("restore-order").value.trim() || null;
+    try {
+      const res = await fetch("/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(data.detail, "error");
+      } else {
+        showMessage(data.message, "success");
+        renderGrid(data);
+      }
+    } catch (e) {
+      showMessage("Request failed", "error");
+    }
+  }
+
+  function showMessage(text, type) {
+    const el = document.getElementById("message");
+    el.textContent = text;
+    el.className = type;
+    el.style.display = "block";
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.display = "none"; }, 5000);
+  }
+
+  loadInventory();
+  setInterval(loadInventory, 3000);
+
+  // --- Event log via WebSocket ---
+  const MAX_EVENTS = 50;
+
+  function connectEventSocket() {
+    const ws = new WebSocket(`ws://${location.host}/ws/events`);
+    const statusEl = document.getElementById("events-status");
+    const logEl    = document.getElementById("event-log");
+
+    ws.onopen = () => {
+      statusEl.textContent = "● Connected";
+      statusEl.className = "connected";
+    };
+
+    ws.onclose = () => {
+      statusEl.textContent = "● Disconnected — reconnecting…";
+      statusEl.className = "disconnected";
+      setTimeout(connectEventSocket, 3000);
+    };
+
+    ws.onmessage = (e) => {
+      const event = JSON.parse(e.data);
+      const topic = event._topic || "";
+      const type  = topic.startsWith("error") ? "error" : "info";
+
+      // Update order tracker
+      upsertTracker(event, type === "error");
+
+      // Clear placeholder
+      if (logEl.querySelector("em")) logEl.innerHTML = "";
+
+      const entry = document.createElement("div");
+      entry.className = `event-entry ${type}`;
+
+      const time = event.timestamp
+        ? new Date(event.timestamp).toLocaleTimeString()
+        : new Date().toLocaleTimeString();
+
+      const orderId = event.orderId || "";
+      const message = event.message || JSON.stringify(event);
+
+      entry.innerHTML = `
+        <div class="event-header">
+          <span class="event-badge ${type}">${type}</span>
+          <span class="event-time">${time}</span>
+          ${orderId ? `<span class="event-order">order: ${orderId.slice(0, 8)}…</span>` : ""}
+        </div>
+        <div class="event-message">${escapeHtml(message)}</div>
+      `;
+
+      logEl.prepend(entry);
+
+      // Trim to max
+      while (logEl.children.length > MAX_EVENTS) {
+        logEl.removeChild(logEl.lastChild);
+      }
+    };
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // --- Order tracker ---
+  // Steps: 0=Order Received, 1=Inventory Reserved, 2=Manufacturing, 3=Completed/Failed
+  const STEPS = ["Order Received", "Inventory\nReserved", "Manufacturing", "Completed"];
+
+  // orderTrackers: orderId → { step: 0-3, failed: bool, itemType: str|null, lastMsg: str, ts: number }
+  const orderTrackers = {};
+
+  function detectStep(event, isError) {
+    const title = (event.infoTitle || "").toLowerCase();
+    const msg   = (event.message   || "").toLowerCase();
+    const text  = title + " " + msg;
+
+    if (isError) {
+      // Errors during reservation keep step 0→failed; after that advance to last step
+      if (text.includes("manufactur") || text.includes("restock") || text.includes("restore")) return { step: 3, failed: true };
+      if (text.includes("inventor"))  return { step: 1, failed: true };
+      return { step: 3, failed: true };
+    }
+    if (text.includes("complete") || text.includes("finish") || text.includes("deliver")) return { step: 3, failed: false };
+    if (text.includes("manufactur") || text.includes("production") || text.includes("robot")) return { step: 2, failed: false };
+    if (text.includes("reserv") || text.includes("inventor"))                               return { step: 1, failed: false };
+    return null; // no step change — just record the message
+  }
+
+  function inferItemType(event) {
+    const text = (event.message || "") + " " + (event.infoText || "");
+    const match = text.match(/\b(CHAIR|TABLE|SHELF|CLOSET)\b/i);
+    return match ? match[1].toUpperCase() : null;
+  }
+
+  function upsertTracker(event, isError) {
+    const orderId = event.orderId;
+    if (!orderId) return;
+
+    if (!orderTrackers[orderId]) {
+      orderTrackers[orderId] = { step: 0, failed: false, itemType: null, lastMsg: "", ts: Date.now() };
+    }
+    const t = orderTrackers[orderId];
+
+    const detected = detectStep(event, isError);
+    if (detected && detected.step >= t.step) {
+      t.step   = detected.step;
+      t.failed = detected.failed;
+    }
+
+    const type = inferItemType(event);
+    if (type) t.itemType = type;
+
+    const displayMsg = event.infoText || event.message || "";
+    if (displayMsg) t.lastMsg = displayMsg;
+    t.ts = Date.now();
+
+    renderTrackers();
+  }
+
+  function renderTrackers() {
+    const list = document.getElementById("tracker-list");
+    const empty = document.getElementById("tracker-empty");
+
+    const ids = Object.keys(orderTrackers);
+    if (ids.length === 0) { if (empty) empty.style.display = ""; return; }
+    if (empty) empty.style.display = "none";
+
+    // Sort: most recently updated first
+    ids.sort((a, b) => orderTrackers[b].ts - orderTrackers[a].ts);
+
+    // Keep at most 20 cards
+    list.innerHTML = "";
+    ids.slice(0, 20).forEach(orderId => {
+      const t = orderTrackers[orderId];
+      const card = document.createElement("div");
+      card.className = "tracker-card";
+      card.innerHTML = `
+        <div class="tracker-card-header">
+          <span class="tracker-order-id">${orderId}</span>
+          ${t.itemType ? `<span class="tracker-order-type">${t.itemType}</span>` : ""}
+        </div>
+        <div class="tracker-steps">${buildSteps(t)}</div>
+        ${t.lastMsg ? `<div class="tracker-last-msg">${escapeHtml(t.lastMsg)}</div>` : ""}
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function buildSteps(t) {
+    return STEPS.map((label, i) => {
+      let cls = "";
+      if (i < t.step)       cls = "done";
+      else if (i === t.step) cls = t.failed ? "failed" : (t.step === STEPS.length - 1 ? "done" : "active");
+
+      const icon = cls === "done" ? "✓" : cls === "failed" ? "✕" : i + 1;
+      const lines = label.split("\n").join("<br>");
+      return `<div class="tracker-step ${cls}">
+        <div class="step-circle">${icon}</div>
+        <div class="step-label">${lines}</div>
+      </div>`;
+    }).join("");
+  }
+
+  connectEventSocket();
+</script>
+</body>
+</html>
