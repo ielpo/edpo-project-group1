@@ -1,0 +1,26 @@
+meta {
+  name: Absolute Move
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:{{port}}/move
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "x": 100.,
+    "y": 20.,
+    "z": 50.,
+    "r": 45.,
+    "mode": "MOVE_JOINT"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

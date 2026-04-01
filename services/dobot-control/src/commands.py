@@ -10,8 +10,8 @@ class Mode(Enum):
 
 
 class Direction(Enum):
-    STOP = 0
     FORWARD = 1
+    STOP = 0
     REVERSE = -1
 
 
@@ -29,13 +29,25 @@ class MovementCommand(Command):
     y: float = 0.0
     z: float = 0.0
     r: float = 0.0
-    mode: Mode = Mode.MOVE_LINEAR
+    mode: Mode = Mode.MOVE_JOINT
 
 
-class ConveyorCommand(Command):
+class RelativeMovementCommand(Command):
+    x: float | None = None
+    y: float | None = None
+    z: float | None = None
+    r: float | None = None
+
+
+class MoveConveyorCommand(Command):
     direction: Direction = Direction.STOP
     speed: float = 0.0
     distance: float = 0.0
+
+
+class RunConveyorCommand(Command):
+    direction: Direction = Direction.STOP
+    speed: float = 0.0
 
 
 class SuctionCupCommand(Command):
@@ -53,7 +65,9 @@ class MovementSpeedCommand(BaseModel):
 
 command_type_map = {
     "MovementCommand": MovementCommand,
-    "ConveyorCommand": ConveyorCommand,
+    "RelativeMovementCommand": RelativeMovementCommand,
+    "RunConveyorCommand": RunConveyorCommand,
+    "MoveConveyorCommand": MoveConveyorCommand,
     "SuctionCupCommand": SuctionCupCommand,
     "GripperCommand": GripperCommand,
     "MovementSpeedCommand": MovementSpeedCommand,

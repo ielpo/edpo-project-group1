@@ -1,9 +1,16 @@
 import logging
-
 import pydobotplus
-from pydobotplus import CustomPosition
-from commands import Command, MovementCommand, MovementSpeedCommand, SuctionCupCommand
 from enum import Enum, auto
+
+from commands import (
+    Command,
+    MovementCommand,
+    MovementSpeedCommand,
+    SuctionCupCommand,
+    RelativeMovementCommand,
+    MoveConveyorCommand,
+    RunConveyorCommand,
+)
 
 
 class Status(Enum):
@@ -34,21 +41,32 @@ class Dobot:
 
     def execute_dobot_commands(self, commands: list[Command]):
         """
-        Execute a series of movement commands on the Dobot.
+        Execute a series of commands on the Dobot.
         """
         self.status = Status.ACTIVE
         for command in commands:
             try:
                 match command:
                     case MovementCommand():
-                        position = CustomPosition(
-                            command.x, command.y, command.z, command.r
+                        self.device.move_to(
+                            command.x,
+                            command.y,
+                            command.z,
+                            command.r,
+                            mode=command.mode.value,
                         )
-                        self.device.move_to(mode=command.mode, position=position)
+                    case RelativeMovementCommand():
+                        self.device.move_rel(command.x, command.y, command.z, command.r)
                     case MovementSpeedCommand():
                         self.set_speed(command.speed, command.acceleration)
                     case SuctionCupCommand():
                         self.device.suck(command.suck)
+                    case MoveConveyorCommand():
+                        self.device.conveyor_belt_distance(
+                            command.speed, command.distance, command.direction
+                        )
+                    case RunConveyorCommand():
+                        self.device.conveyor_belt(command.speed, command.direction)
 
             except Exception as e:
                 self.logger.error(f"Error executing command: {e}")
