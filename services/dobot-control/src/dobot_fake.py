@@ -1,12 +1,13 @@
 import logging
 from enum import Enum, auto
-
 from pydobotplus import CustomPosition
 
 from commands import (
     Command,
-    ConveyorCommand,
+    RunConveyorCommand,
+    MoveConveyorCommand,
     MovementCommand,
+    RelativeMovementCommand,
     MovementSpeedCommand,
     SuctionCupCommand,
 )
@@ -54,15 +55,29 @@ class DobotFake:
                 self.logger.info("[%s] EXECUTE -> %s", self.name, command)
                 match command:
                     case MovementCommand():
+                        self.logger.info(
+                            "[%s] MOVE ABSOLUTE -> mode=%s position=%s",
+                            self.name,
+                            command.mode.name,
+                            (command.x, command.y, command.z, command.r),
+                        )
                         self.position = CustomPosition(
                             command.x, command.y, command.z, command.r
                         )
+                    case RelativeMovementCommand():
                         self.logger.info(
-                            "[%s] MOVE -> mode=%s position=%s",
+                            "[%s] MOVE RELATIVE -> position=%s",
                             self.name,
-                            command.mode.name,
-                            self.position,
+                            (command.x, command.y, command.z, command.r),
                         )
+                        if command.x:
+                            self.position.x += command.x
+                        if command.y:
+                            self.position.y += command.y
+                        if command.z:
+                            self.position.z += command.z
+                        if command.r:
+                            self.position.r += command.r
                     case MovementSpeedCommand():
                         self.set_speed(command.speed, command.acceleration)
                     case SuctionCupCommand():
@@ -72,11 +87,10 @@ class DobotFake:
                             self.name,
                             self.suction_enabled,
                         )
-                    case ConveyorCommand():
-                        if command.distance:
-                            self.move_conveyor(command)
-                        else:
-                            self.run_conveyor(command)
+                    case RunConveyorCommand():
+                        self.run_conveyor(command)
+                    case MoveConveyorCommand():
+                        self.move_conveyor(command)
                     case _:
                         self.logger.warning(
                             "[%s] Unsupported fake command ignored: %s",
@@ -87,6 +101,11 @@ class DobotFake:
             except Exception as e:
                 self.logger.error(f"Error executing command: {e}")
 
+        self.logger.info(
+            "[%s] Final position -> %s",
+            self.name,
+            (self.position.x, self.position.y, self.position.z, self.position.r),
+        )
         self.status = Status.INACTIVE
 
     def stop_robot(self) -> None:
@@ -106,7 +125,7 @@ class DobotFake:
         else:
             self.logger.info("[%s] SPEED -> speed=%s", self.name, self.speed)
 
-    def move_conveyor(self, command: ConveyorCommand):
+    def move_conveyor(self, command: MoveConveyorCommand):
         self.conveyor_speed = command.speed
         self.conveyor_distance = command.distance
         self.conveyor_direction = command.direction
@@ -118,7 +137,7 @@ class DobotFake:
             command.direction.name,
         )
 
-    def run_conveyor(self, command: ConveyorCommand):
+    def run_conveyor(self, command: RunConveyorCommand):
         self.conveyor_speed = command.speed
         self.conveyor_direction = command.direction
         self.logger.info(

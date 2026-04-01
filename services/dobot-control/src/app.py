@@ -2,15 +2,18 @@ import argparse
 import logging
 import os
 import xml.etree.ElementTree as ET
-
 import yaml
 from flask import Flask, request
 
 from commands import (
     Command,
-    ConveyorCommand,
     MovementSpeedCommand,
     command_type_map,
+    SuctionCupCommand,
+    MovementCommand,
+    RunConveyorCommand,
+    MoveConveyorCommand,
+    RelativeMovementCommand,
 )
 from config_model import Config
 from dobot import Dobot
@@ -117,12 +120,25 @@ def run_flow() -> dict:
     return {"message": "Dobot has finished executing commands."}
 
 
+@app.route("/move", methods=["PUT"])
+def move_robot() -> dict:
+    command = MovementCommand.model_validate(request.get_json())
+    dobot.execute_dobot_commands([command])
+    return {"message": "Absolute movement command executed."}
+
+
+@app.route("/move-relative", methods=["PUT"])
+def relative_move_robot() -> dict:
+    command = RelativeMovementCommand.model_validate(request.get_json())
+    dobot.execute_dobot_commands([command])
+    return {"message": "Relative movement command executed."}
+
+
 @app.route("/run-conveyor", methods=["PUT"])
 def run_conveyor() -> dict:
-    command = ConveyorCommand.model_validate(request.get_json())
-
+    command = RunConveyorCommand.model_validate(request.get_json())
     if dobot.name == "left":
-        dobot.run_conveyor(command)
+        dobot.execute_dobot_commands([command])
         return {"message": "Conveyor speed and direction set."}
     else:
         return {"message": "Right Robot does not control conveyor."}
@@ -130,13 +146,19 @@ def run_conveyor() -> dict:
 
 @app.route("/move-conveyor", methods=["POST"])
 def move_conveyor() -> dict:
-    command = ConveyorCommand.model_validate(request.get_json())
-
+    command = MoveConveyorCommand.model_validate(request.get_json())
     if dobot.name == "left":
-        dobot.move_conveyor(command)
-        return {"message": "Conveyor change added to queue."}
+        dobot.execute_dobot_commands([command])
+        return {"message": "Conveyor moved."}
     else:
         return {"message": "Right Robot does not control conveyor."}
+
+
+@app.route("/suction-cup", methods=["PUT"])
+def suction_cup_command() -> dict:
+    command = SuctionCupCommand.model_validate(request.get_json())
+    dobot.execute_dobot_commands([command])
+    return {"message": "Suction cup command executed"}
 
 
 @app.route("/set-speed", methods=["PUT"])

@@ -1,15 +1,15 @@
 import logging
-from enum import Enum, auto
-
 import pydobotplus
-from pydobotplus import CustomPosition
+from enum import Enum, auto
 
 from commands import (
     Command,
     MovementCommand,
     MovementSpeedCommand,
     SuctionCupCommand,
-    ConveyorCommand,
+    RelativeMovementCommand,
+    MoveConveyorCommand,
+    RunConveyorCommand,
 )
 
 
@@ -41,21 +41,32 @@ class Dobot:
 
     def execute_dobot_commands(self, commands: list[Command]):
         """
-        Execute a series of movement commands on the Dobot.
+        Execute a series of commands on the Dobot.
         """
         self.status = Status.ACTIVE
         for command in commands:
             try:
                 match command:
                     case MovementCommand():
-                        position = CustomPosition(
-                            command.x, command.y, command.z, command.r
+                        self.device.move_to(
+                            command.x,
+                            command.y,
+                            command.z,
+                            command.r,
+                            mode=command.mode.value,
                         )
-                        self.device.move_to(mode=command.mode.value, position=position)
+                    case RelativeMovementCommand():
+                        self.device.move_rel(command.x, command.y, command.z, command.r)
                     case MovementSpeedCommand():
                         self.set_speed(command.speed, command.acceleration)
                     case SuctionCupCommand():
                         self.device.suck(command.suck)
+                    case MoveConveyorCommand():
+                        self.device.conveyor_belt_distance(
+                            command.speed, command.distance, command.direction
+                        )
+                    case RunConveyorCommand():
+                        self.device.conveyor_belt(command.speed, command.direction)
 
             except Exception as e:
                 self.logger.error(f"Error executing command: {e}")
@@ -70,14 +81,6 @@ class Dobot:
             self.acceleration = acceleration
         else:
             self.device.speed(speed)
-
-    def move_conveyor(self, command: ConveyorCommand):
-        self.device.conveyor_belt_distance(
-            command.speed, command.distance, command.direction
-        )
-
-    def run_conveyor(self, command: ConveyorCommand):
-        self.device.conveyor_belt(command.speed, command.direction)
 
     def read_color(self) -> tuple[str, list[int]]:
         color_raw: list[int] = self.device.get_color()
