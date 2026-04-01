@@ -4,6 +4,8 @@ This repository contains all code related to the project and assignments.
 # Project Description
 The project simulates a factory that produces custom furniture on order.
 The customer can select a type of furniture (chair, table, shelf, closet) and a color, the factory then fetches the components from inventory and assembles them using the robot arms.
+Besides the Inventory Service, the system includes an Order Service, a Factory Service, and a Customer Service for status updates.
+Communication with the Inventory Service uses HTTP/REST APIs, while communication between the other services is event-driven via Kafka.
 
 # Sequence Diagram
 
@@ -29,6 +31,18 @@ sequenceDiagram
 ## Failure During Manufacturing
 
 ## Inventory not Sufficient
+```mermaid
+sequenceDiagram
+  actor Customer
+    participant order as Order Service
+  participant inventory as Inventory Service
+
+  Customer ->> order: Select furniture and submit form
+  activate order
+  order ->> inventory: Check and reserve components
+  inventory -->> order: 409 Conflict (not enough blocks)
+  deactivate order
+```
 
 # Inventory Management
 The inventory is represented by a grid, each cell can either contain a block of a certain color, or be empty.
@@ -176,7 +190,7 @@ The requested orderId is not known (might not have been reserved).
 | positions | List<InventoryPositionDto> | List of positions to take from inventory |
 
 # Kafka Topics
-Customer service subscribes to all topics and displays live information form the received events.
+Customer service subscribes to all topics and displays live information from the received events.
 
 ## Error
 Error messages, feedback from Factory to Order service:
