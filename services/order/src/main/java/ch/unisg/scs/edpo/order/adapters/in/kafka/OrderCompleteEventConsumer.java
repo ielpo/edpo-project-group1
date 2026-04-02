@@ -1,4 +1,4 @@
-package ch.unisg.scs.edpo.order.adapter.in.kafka;
+package ch.unisg.scs.edpo.order.adapters.in.kafka;
 
 import ch.unisg.scs.edpo.order.application.port.in.CorrelateEventCommand;
 import ch.unisg.scs.edpo.order.application.port.in.EventCorrelationUseCase;
