@@ -1,9 +1,9 @@
 robots:
   left:
-    robot_port: COM3
+    robot_port: /dev/ttyACM1
     server_port: 5000
   right:
-    robot_port: COM4
+    robot_port: /dev/ttyACM0
     server_port: 5001
 
 default_robot: right

@@ -1,5 +1,8 @@
     <row0>
         <!-- Motion Style -->
+        <!-- 0: JUMP -->
+        <!-- 1: MOVJ -->
+        <!-- Motion Style -->
         <item_0>1</item_0>
         <!-- Name -->
         <item_1>Conveyor belt</item_1>
