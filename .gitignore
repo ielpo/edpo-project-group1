@@ -42,4 +42,4 @@ __pycache__/
 *.pyo
 
 # Database files
-.db
+*.db
