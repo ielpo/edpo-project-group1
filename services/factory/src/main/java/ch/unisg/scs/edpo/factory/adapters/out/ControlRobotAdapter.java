@@ -5,7 +5,6 @@ import ch.unisg.scs.edpo.factory.adapters.out.dtos.SuctionCupCommandDto;
 import ch.unisg.scs.edpo.factory.application.ports.out.MoveBlockPort;
 import ch.unisg.scs.edpo.factory.domain.AssemblyPositionDto;
 import ch.unisg.scs.edpo.factory.domain.InventoryPositionDto;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -32,7 +31,7 @@ public class ControlRobotAdapter implements MoveBlockPort {
         }
     }
 
-    @PostConstruct
+    @Override
     public void initialize(){
         var status = restClient.put().uri("/home").retrieve().toBodilessEntity().getStatusCode();
         if(status.value() != 200){

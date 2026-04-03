@@ -1,6 +1,5 @@
 package ch.unisg.scs.edpo.factory.application.services;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -20,12 +20,10 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class MqttService {
     private final Environment environment;
-    private final BlockingQueue<MqttMessage> messageQueue;
+    private final BlockingQueue<MqttMessage> messageQueue = new LinkedBlockingQueue<>();
 
     private MqttClient client;
 
-
-    @PostConstruct
     public void start() throws MqttException {
         client = new MqttClient(environment.getRequiredProperty("mqtt.broker-uri"), environment.getRequiredProperty("mqtt.client-id"), new MemoryPersistence());
         client.setCallback(

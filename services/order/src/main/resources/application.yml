@@ -1,4 +1,4 @@
-spring.datasource.url: jdbc:h2:file:./operaton-h2-database
+spring.datasource.url: jdbc:h2:file:./operaton-h2-database-order
 
 operaton:
   bpm:

@@ -49,6 +49,13 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
 
     @Override
     public void assemble(@NotNull List<InventoryPositionDto> positions, @NotNull OrderDto order) {
+        moveBlock.initialize();
+        try{
+            mqttService.start();
+        } catch (Exception e){
+            log.error("Exception on MQTT service start: {}", e.getMessage());
+        }
+
         // Determine positions of blocks for assembly
         List<AssemblyPositionDto> assembly = new ArrayList<>(switch (order.itemType()) {
             case CHAIR -> CHAIR_ASSEMBLY;
