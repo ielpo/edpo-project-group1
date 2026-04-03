@@ -40,3 +40,6 @@ replay_pid*
 __pycache__/
 *.pyc
 *.pyo
+
+# Database files
+.db
