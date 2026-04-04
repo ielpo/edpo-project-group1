@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_05lis1e" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.45.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
   <bpmn:process id="factory-process" name="Factory Manufacturing Process" isExecutable="true" camunda:versionTag="1" camunda:historyTimeToLive="P1D">
-    <bpmn:serviceTask id="Activity_0m93oww" name="Request components from inventory" camunda:class="ch.unisg.scs.edpo.factory.adapters.in.RequestComponentsFromInventoryDelegate">
-      <bpmn:extensionElements />
+    <bpmn:serviceTask id="Activity_0m93oww" name="Request components from inventory" camunda:asyncBefore="true" camunda:delegateExpression="${requestComponentsFromInventoryDelegate}">
+      <bpmn:extensionElements>
+        <camunda:failedJobRetryTimeCycle>R3/PT10S</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
       <bpmn:incoming>Flow_1bop0o4</bpmn:incoming>
       <bpmn:outgoing>Flow_1nr3b4s</bpmn:outgoing>
       <bpmn:property id="Property_1dtgv54" name="__targetRef_placeholder" />
@@ -19,7 +21,7 @@
       <bpmn:incoming>Flow_0auhfpx</bpmn:incoming>
       <bpmn:messageEventDefinition id="MessageEventDefinition_022ujo2" camunda:delegateExpression="" />
     </bpmn:endEvent>
-    <bpmn:serviceTask id="Activity_0c2fjw1" name="Assemble order" camunda:delegateExpression="">
+    <bpmn:serviceTask id="Activity_0c2fjw1" name="Assemble order" camunda:delegateExpression="${assembleOrderDelegate}">
       <bpmn:incoming>Flow_07tgord</bpmn:incoming>
       <bpmn:outgoing>Flow_0auhfpx</bpmn:outgoing>
       <bpmn:property id="Property_1t5ni11" name="__targetRef_placeholder" />
@@ -36,25 +38,9 @@
     <bpmn:sequenceFlow id="Flow_1nr3b4s" sourceRef="Activity_0m93oww" targetRef="Event_1pwj3ob" />
     <bpmn:sequenceFlow id="Flow_07tgord" sourceRef="Event_1pwj3ob" targetRef="Activity_0c2fjw1" />
     <bpmn:sequenceFlow id="Flow_0auhfpx" sourceRef="Activity_0c2fjw1" targetRef="Event_0cn7sjz" />
-    <bpmn:boundaryEvent id="Event_0tf18oi" name="5 min" attachedToRef="Activity_0m93oww">
-      <bpmn:outgoing>Flow_1qmyfku</bpmn:outgoing>
-      <bpmn:timerEventDefinition id="TimerEventDefinition_1vuniaf">
-        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
-      </bpmn:timerEventDefinition>
-    </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_04gq0dp" name="Error" attachedToRef="Activity_0m93oww">
       <bpmn:outgoing>Flow_1a1f0qb</bpmn:outgoing>
-      <bpmn:errorEventDefinition id="ErrorEventDefinition_1lo4x9m" />
-    </bpmn:boundaryEvent>
-    <bpmn:endEvent id="Event_18xoxyu" name="Manufacturing timeout">
-      <bpmn:incoming>Flow_1ivyj5e</bpmn:incoming>
-      <bpmn:messageEventDefinition id="MessageEventDefinition_06io5q6" camunda:delegateExpression="" />
-    </bpmn:endEvent>
-    <bpmn:boundaryEvent id="Event_0jl2ivt" name="5 min" attachedToRef="Activity_0c2fjw1">
-      <bpmn:outgoing>Flow_1ivyj5e</bpmn:outgoing>
-      <bpmn:timerEventDefinition id="TimerEventDefinition_04thub3">
-        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
-      </bpmn:timerEventDefinition>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_1lo4x9m" errorRef="Error_inventoryFetchFailed" camunda:errorCodeVariable="inventoryFetchErrorCode" camunda:errorMessageVariable="inventoryFetchErrorMessage" />
     </bpmn:boundaryEvent>
     <bpmn:endEvent id="Event_1jb8ukc" name="Manufacturing failure">
       <bpmn:incoming>Flow_1o85tvk</bpmn:incoming>
@@ -67,17 +53,11 @@
     <bpmn:sequenceFlow id="Flow_1bop0o4" sourceRef="Kafka_StartManufacturing" targetRef="Activity_0m93oww" />
     <bpmn:endEvent id="Event_1tdwn0v" name="Inventory service failure">
       <bpmn:incoming>Flow_1a1f0qb</bpmn:incoming>
-      <bpmn:messageEventDefinition id="MessageEventDefinition_1vsug4q">
+      <bpmn:messageEventDefinition id="MessageEventDefinition_1vsug4q" camunda:delegateExpression="${publishInventoryFetchErrorDelegate}">
         <bpmn:extensionElements />
       </bpmn:messageEventDefinition>
     </bpmn:endEvent>
-    <bpmn:endEvent id="Event_1yq3sx9" name="Inventory timeout">
-      <bpmn:incoming>Flow_1qmyfku</bpmn:incoming>
-      <bpmn:messageEventDefinition id="MessageEventDefinition_0jb6ewf" camunda:delegateExpression="" />
-    </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1qmyfku" sourceRef="Event_0tf18oi" targetRef="Event_1yq3sx9" />
     <bpmn:sequenceFlow id="Flow_1a1f0qb" sourceRef="Event_04gq0dp" targetRef="Event_1tdwn0v" />
-    <bpmn:sequenceFlow id="Flow_1ivyj5e" sourceRef="Event_0jl2ivt" targetRef="Event_18xoxyu" />
     <bpmn:sequenceFlow id="Flow_1o85tvk" sourceRef="Event_0d4jxc2" targetRef="Event_1jb8ukc" />
     <bpmn:startEvent id="Kafka_StartManufacturing" name="Manufacture Order">
       <bpmn:outgoing>Flow_1bop0o4</bpmn:outgoing>
@@ -95,6 +75,17 @@
     <bpmn:dataObject id="DataObject_0dcvrvu" />
     <bpmn:dataObjectReference id="DataObjectReference_0b94570" name="inventory" dataObjectRef="DataObject_1fpk8f0" />
     <bpmn:dataObject id="DataObject_1fpk8f0" />
+    <bpmn:endEvent id="Event_18xoxyu" name="Manufacturing timeout">
+      <bpmn:incoming>Flow_1ivyj5e</bpmn:incoming>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_06io5q6" camunda:delegateExpression="" />
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="Event_0jl2ivt" name="5 min" attachedToRef="Activity_0c2fjw1">
+      <bpmn:outgoing>Flow_1ivyj5e</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerEventDefinition_04thub3">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_1ivyj5e" sourceRef="Event_0jl2ivt" targetRef="Event_18xoxyu" />
     <bpmn:textAnnotation id="TextAnnotation_0hqpttt">
       <bpmn:text>Command robots</bpmn:text>
     </bpmn:textAnnotation>
@@ -108,7 +99,7 @@
     </bpmn:textAnnotation>
     <bpmn:association id="Association_0k6fj7q" associationDirection="None" sourceRef="Activity_0m93oww" targetRef="TextAnnotation_132pg9h" />
   </bpmn:process>
-  <bpmn:error id="Error_10d70dp" name="Error_0o6km9q" />
+  <bpmn:error id="Error_inventoryFetchFailed" name="INVENTORY_FETCH_FAILED" errorCode="INVENTORY_FETCH_FAILED" camunda:errorMessage="INVENTORY_FETCH_FAILED" />
   <bpmn:message id="Message_2b276f8" name="orderMessage" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="factory-process">
@@ -143,18 +134,6 @@
           <dc:Bounds x="585" y="503" width="70" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_1cnj1db" bpmnElement="Event_1tdwn0v">
-        <dc:Bounds x="342" y="460" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="318" y="503" width="84" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_1357pph" bpmnElement="Event_1yq3sx9">
-        <dc:Bounds x="392" y="372" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="368" y="415" width="85" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0dx6j4n_di" bpmnElement="Kafka_StartManufacturing">
         <dc:Bounds x="212" y="260" width="36" height="36" />
         <bpmndi:BPMNLabel>
@@ -179,6 +158,18 @@
           <dc:Bounds x="517" y="83" width="45" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1cnj1db" bpmnElement="Event_1tdwn0v">
+        <dc:Bounds x="372" y="460" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="348" y="503" width="84" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0fte5mt_di" bpmnElement="Event_04gq0dp">
+        <dc:Bounds x="372" y="300" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="347" y="341" width="25" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="TextAnnotation_0hqpttt_di" bpmnElement="TextAnnotation_0hqpttt">
         <dc:Bounds x="680" y="150" width="100" height="40" />
         <bpmndi:BPMNLabel />
@@ -194,25 +185,13 @@
       <bpmndi:BPMNShape id="BPMNShape_14o9m8l" bpmnElement="Event_0d4jxc2">
         <dc:Bounds x="602" y="300" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="541" y="343" width="78" height="14" />
+          <dc:Bounds x="531" y="343" width="77" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_09ht2p6_di" bpmnElement="Event_0jl2ivt">
         <dc:Bounds x="652" y="300" width="36" height="36" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="676" y="341" width="27" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0fte5mt_di" bpmnElement="Event_04gq0dp">
-        <dc:Bounds x="342" y="300" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="317" y="341" width="25" height="14" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_03yheny_di" bpmnElement="Event_0tf18oi">
-        <dc:Bounds x="392" y="300" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="416" y="341" width="27" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="DataInputAssociation_1x4ddlx_di" bpmnElement="DataInputAssociation_1x4ddlx">
@@ -243,13 +222,9 @@
         <di:waypoint x="248" y="278" />
         <di:waypoint x="320" y="278" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1qmyfku_di" bpmnElement="Flow_1qmyfku">
-        <di:waypoint x="410" y="336" />
-        <di:waypoint x="410" y="372" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1a1f0qb_di" bpmnElement="Flow_1a1f0qb">
-        <di:waypoint x="360" y="336" />
-        <di:waypoint x="360" y="460" />
+        <di:waypoint x="390" y="336" />
+        <di:waypoint x="390" y="460" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1ivyj5e_di" bpmnElement="Flow_1ivyj5e">
         <di:waypoint x="670" y="336" />
