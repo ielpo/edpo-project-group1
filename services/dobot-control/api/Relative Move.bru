@@ -1,0 +1,23 @@
+meta {
+  name: Relative Move
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:{{port}}/move-relative
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "x": 10.,
+    "y": 20.,
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

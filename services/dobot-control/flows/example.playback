@@ -1,0 +1,68 @@
+<root>
+    <DobotType>
+        <item_0>Magician</item_0>
+    </DobotType>
+    <row_StudioVersion>
+        <item_0>Ver-194</item_0>
+    </row_StudioVersion>
+    <row0>
+        <item_0>1</item_0>
+        <item_1 />
+        <item_2>60.4412</item_2>
+        <item_3>230.0994</item_3>
+        <item_4>26.3893</item_4>
+        <item_5>75.2823</item_5>
+        <item_10>0.0</item_10>
+        <item_12>0</item_12>
+    </row0>
+    <row1>
+        <item_0>1</item_0>
+        <item_1 />
+        <item_2>60.112200000000001</item_2>
+        <item_3>229.8646</item_3>
+        <item_4>-40.7669</item_4>
+        <item_5>74.647</item_5>
+        <item_10>0.0</item_10>
+        <item_12>1</item_12>
+    </row1>
+    <row2>
+        <item_0>1</item_0>
+        <item_1 />
+        <item_2>61.7599</item_2>
+        <item_3>235.1198</item_3>
+        <item_4>29.8408</item_4>
+        <item_5>75.2823</item_5>
+        <item_10>0.0</item_10>
+        <item_12>1</item_12>
+    </row2>
+    <row3>
+        <item_0>1</item_0>
+        <item_1 />
+        <item_2>169.0054</item_2>
+        <item_3>132.3491</item_3>
+        <item_4>37.5768</item_4>
+        <item_5>38.0647</item_5>
+        <item_10>0.0</item_10>
+        <item_12>1</item_12>
+    </row3>
+    <row4>
+        <item_0>1</item_0>
+        <item_1>NFC_position</item_1>
+        <item_2>168.3162</item_2>
+        <item_3>132.0605</item_3>
+        <item_4>-33.0158</item_4>
+        <item_5>38.1176</item_5>
+        <item_10>0.0</item_10>
+        <item_12>0</item_12>
+    </row4>
+    <row5>
+        <item_0>1</item_0>
+        <item_1 />
+        <item_2>169.0054</item_2>
+        <item_3>132.3491</item_3>
+        <item_4>37.5768</item_4>
+        <item_5>38.0647</item_5>
+        <item_10>0.0</item_10>
+        <item_12>0</item_12>
+    </row5>
+</root>

@@ -1,0 +1,111 @@
+{
+  "components": [
+    {
+      "type": "image",
+      "layout": {
+        "row": "Row_0p0kz0x",
+        "columns": 2
+      },
+      "id": "Field_01471ax",
+      "source": "https://i.postimg.cc/66G8xRfN/7beba1fd-694e-4380-b3ee-f69fa9efd12a.png"
+    },
+    {
+      "text": "# Browse, select and order",
+      "type": "text",
+      "layout": {
+        "row": "Row_0p0kz0x",
+        "columns": null
+      },
+      "id": "Field_0spqg44"
+    },
+    {
+      "type": "separator",
+      "layout": {
+        "row": "Row_0hyx6r0",
+        "columns": null
+      },
+      "id": "Field_10e02di"
+    },
+    {
+      "label": "Select item",
+      "values": [
+        {
+          "label": "Chair (1 block)",
+          "value": "Chair"
+        },
+        {
+          "label": "Table (2 blocks horizontal)",
+          "value": "Table"
+        },
+        {
+          "label": "Shelf (2 blocks vertical)",
+          "value": "Shelf"
+        },
+        {
+          "label": "Closet (3 blocks vertical)",
+          "value": "Closet"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_03b2jml",
+        "columns": 8
+      },
+      "id": "Field_1o4nhye",
+      "key": "select_item",
+      "validate": {
+        "required": true
+      }
+    },
+    {
+      "label": "Select color",
+      "values": [
+        {
+          "label": "Red",
+          "value": "Red"
+        },
+        {
+          "label": "Green",
+          "value": "Green"
+        },
+        {
+          "label": "Blue",
+          "value": "Blue"
+        },
+        {
+          "label": "Yellow",
+          "value": "Yellow"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_03b2jml",
+        "columns": null
+      },
+      "id": "Field_1v9hor7",
+      "key": "select_color",
+      "validate": {
+        "required": true
+      }
+    },
+    {
+      "label": "Order",
+      "action": "submit",
+      "type": "button",
+      "layout": {
+        "row": "Row_0ebpm1k",
+        "columns": 2
+      },
+      "id": "Field_0vijs0p"
+    }
+  ],
+  "type": "default",
+  "id": "form_1",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.45.0"
+  },
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.24.0",
+  "schemaVersion": 19
+}
