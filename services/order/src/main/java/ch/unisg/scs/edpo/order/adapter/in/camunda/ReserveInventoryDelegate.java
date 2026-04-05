@@ -1,6 +1,9 @@
 package ch.unisg.scs.edpo.order.adapter.in.camunda;
 
+import ch.unisg.scs.edpo.order.application.port.in.EventPublishingUseCase;
 import ch.unisg.scs.edpo.order.application.port.in.InventoryWorkflowUseCase;
+import ch.unisg.scs.edpo.order.application.port.in.PublishNotificationCommand;
+import ch.unisg.scs.edpo.order.application.port.in.PublishResult;
 import ch.unisg.scs.edpo.order.application.port.in.ReserveInventoryCommand;
 import ch.unisg.scs.edpo.order.application.port.in.ReserveInventoryOutcome;
 import org.operaton.bpm.engine.delegate.BpmnError;
@@ -14,9 +17,11 @@ public class ReserveInventoryDelegate implements JavaDelegate {
 
     private static final String ERROR_CODE = "INVENTORY_SERVICE_UNAVAILABLE";
     private final InventoryWorkflowUseCase inventoryWorkflowUseCase;
+    private final EventPublishingUseCase eventPublishingUseCase;
 
-    public ReserveInventoryDelegate(InventoryWorkflowUseCase inventoryWorkflowUseCase) {
+    public ReserveInventoryDelegate(InventoryWorkflowUseCase inventoryWorkflowUseCase, EventPublishingUseCase eventPublishingUseCase) {
         this.inventoryWorkflowUseCase = inventoryWorkflowUseCase;
+        this.eventPublishingUseCase = eventPublishingUseCase;
     }
 
     @Override
@@ -40,6 +45,19 @@ public class ReserveInventoryDelegate implements JavaDelegate {
         execution.setVariable("inventoryReservationSuccess", outcome.success());
         execution.setVariable("inventoryReservationFailureType", outcome.failureType());
         execution.setVariable("inventoryReservationErrorMessage", outcome.errorMessage());
+
+        String correlationId = asString(execution.getVariable("correlationId"));
+
+        PublishResult started = eventPublishingUseCase.publishInfo(new PublishNotificationCommand(
+                outcome.orderId(), correlationId, "Order received"
+        ));
+        execution.setVariable("correlationId", started.correlationId());
+
+        if (outcome.success()) {
+            eventPublishingUseCase.publishInfo(new PublishNotificationCommand(
+                    outcome.orderId(), started.correlationId(), "Inventory reserved"
+            ));
+        }
 
         if (!outcome.success() && outcome.technicalFailure()) {
             if (isFinalRetryAttempt(execution)) {
