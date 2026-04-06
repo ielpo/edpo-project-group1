@@ -1,5 +1,5 @@
 #set document(
-title: [Exercise 3: Process Orchestration \ Exercise 4: Orchestration vs Choreography],
+title: "Exercise 3: Process Orchestration \n Exercise 4: Orchestration vs Choreography",
 )
 
 #set page(
@@ -20,6 +20,9 @@ size: 12pt
   Group 1, Team Members: \
   Michael Schütz, Gianluca Ielpo, Eva Amromin
 ]
+
+#outline()
+#pagebreak()
 
 = Context Map
 
