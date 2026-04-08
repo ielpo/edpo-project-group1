@@ -1,11 +1,13 @@
 package ch.unisg.scs.edpo.factory.application.services;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
@@ -22,10 +24,27 @@ public class MqttService {
     private final Environment environment;
     private final BlockingQueue<MqttMessage> messageQueue = new LinkedBlockingQueue<>();
 
+    @Value("${mqtt.broker-uri}")
+    private String brokerUri;
+
+    @Value("${mqtt.client-id}")
+    private String clientId;
+
+    @Value("${mqtt.username:ftsim}")
+    private String username;
+
+    @Value("${mqtt.password:unisg}")
+    private String password;
+
     private MqttClient client;
 
+    @PostConstruct
     public void start() throws MqttException {
-        client = new MqttClient(environment.getRequiredProperty("mqtt.broker-uri"), environment.getRequiredProperty("mqtt.client-id"), new MemoryPersistence());
+        var options = new MqttConnectOptions();
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
+
+        client = new MqttClient(brokerUri, clientId, new MemoryPersistence());
         client.setCallback(
                 new MqttCallback() {
                     @Override
@@ -41,7 +60,7 @@ public class MqttService {
                     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) { }
                 }
         );
-        client.connect();
+        client.connect(options);
         client.subscribe(environment.getRequiredProperty("mqtt.topic"));
     }
 
@@ -57,7 +76,7 @@ public class MqttService {
         try {
             var message = messageQueue.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (message == null) throw new RuntimeException("Timeout waiting for MQTT message");
-            return Arrays.toString(message.getPayload());
+            return message.toString();
         } catch (InterruptedException e) {
             log.error("Interrupted while waiting for MQTT message {}", e.getMessage());
             throw new RuntimeException(e);
