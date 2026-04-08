@@ -2,55 +2,72 @@ package ch.unisg.scs.edpo.factory.application.services;
 
 import ch.unisg.scs.edpo.factory.application.ports.in.EventPublishingUseCase;
 import ch.unisg.scs.edpo.factory.application.ports.in.PublishNotificationCommand;
-import ch.unisg.scs.edpo.factory.application.ports.in.PublishResult;
 import ch.unisg.scs.edpo.factory.application.ports.out.EventPublisherPort;
+import ch.unisg.scs.edpo.factory.domain.ErrorEventDto;
+import ch.unisg.scs.edpo.factory.domain.InfoEventDto;
+import ch.unisg.scs.edpo.factory.domain.ManufacturingCompleteEventDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
 import java.util.UUID;
 
+@RequiredArgsConstructor
+@Slf4j
 @Service
 public class EventPublishingService implements EventPublishingUseCase {
 
     private final EventPublisherPort eventPublisherPort;
     private final ObjectMapper objectMapper;
-    private final String errorTopic;
 
-    public EventPublishingService(
-            EventPublisherPort eventPublisherPort,
-            ObjectMapper objectMapper,
-            @Value("${kafka.topics.error:error.v1}") String errorTopic) {
-        this.eventPublisherPort = eventPublisherPort;
-        this.objectMapper = objectMapper;
-        this.errorTopic = errorTopic;
+    @Value("${kafka.topics.error:error.v1}")
+    private String errorTopic;
+
+    @Value("${kafka.topics.info:info.v1}")
+    private String infoTopic;
+
+    @Value("${kafka.topics.order-complete:order.complete.v1}")
+    private String orderCompleteTopic;
+
+    @Override
+    public void publishError(PublishNotificationCommand command) throws RuntimeException {
+        var correlationId = command.correlationId();
+        var orderId = command.orderId();
+        var payload = new ErrorEventDto(command.message(), orderId.toString(), correlationId.toString());
+        try {
+            eventPublisherPort.publish(errorTopic, null, objectMapper.writeValueAsString(payload));
+        } catch (JsonProcessingException e) {
+            log.error("Could not serialize ErrorTopicDto to JSON: {}", e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public PublishResult publishError(PublishNotificationCommand command) {
-        String correlationId = resolveCorrelationId(command.correlationId());
-        String orderId = command.orderId() == null || command.orderId().isBlank()
-                ? "unknown-order"
-                : command.orderId();
+    public void publishInfo(PublishNotificationCommand command) throws RuntimeException {
+        var correlationId = command.correlationId();
+        var orderId = command.orderId();
+        var payload = new InfoEventDto(command.message(), orderId.toString(), correlationId.toString());
         try {
-            Map<String, Object> payload = Map.of(
-                    "message", command.message(),
-                    "orderId", orderId,
-                    "correlationId", correlationId
-            );
-            String serialized = objectMapper.writeValueAsString(payload);
-            eventPublisherPort.publish(errorTopic, "0", serialized);
-            return new PublishResult(correlationId, null);
-        } catch (Exception e) {
-            return new PublishResult(correlationId, e.getMessage());
+            eventPublisherPort.publish(infoTopic, null, objectMapper.writeValueAsString(payload));
+        } catch (JsonProcessingException e) {
+            log.error("Could not serialize InfoTopicDto to JSON: {}", e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
-    private String resolveCorrelationId(String existingCorrelationId) {
-        if (existingCorrelationId != null && !existingCorrelationId.isBlank()) {
-            return existingCorrelationId;
+    @Override
+    public void publishOrderComplete(@NotNull UUID orderId, @NotNull UUID correlationId){
+        log.debug("Order complete message");
+        var payload = new ManufacturingCompleteEventDto(orderId.toString(), correlationId.toString());
+        try {
+            eventPublisherPort.publish(orderCompleteTopic, null, objectMapper.writeValueAsString(payload));
+        } catch (JsonProcessingException e) {
+            log.error("Could not serialize ManufacturingCompleteEventDto to JSON: {}", e.getMessage());
+            throw new RuntimeException(e);
         }
-        return UUID.randomUUID().toString();
     }
 }
