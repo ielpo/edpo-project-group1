@@ -70,17 +70,6 @@ public class ControlRobotAdapter implements MoveBlockPort {
         log.info("Moving to selected block");
 
         response = restClient.put()
-                .uri("/move-relative")
-                .body(new RelativeMovementCommandDto(zPickup))
-                .retrieve()
-                .toBodilessEntity()
-                .getStatusCode();
-        if(response.value() != 200){
-            log.error("Could not move pickup position, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to pickup position");
-        }
-
-        response = restClient.put()
                 .uri("/suction-cup")
                 .body(new SuctionCupCommandDto(true))
                 .retrieve()
@@ -91,9 +80,20 @@ public class ControlRobotAdapter implements MoveBlockPort {
             throw new RuntimeException("Could not activate suction cup");
         }
 
-        response = restClient.put()
+        response = restClient.post()
                 .uri("/move-relative")
-                .body(new RelativeMovementCommandDto(-zPickup))
+                .body(new RelativeMovementCommandDto(zPickup))
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
+        if(response.value() != 200){
+            log.error("Could not move pickup position, HTTP response {}", response.value());
+            throw new RuntimeException("Could not move to pickup position");
+        }
+
+        response = restClient.post()
+                .uri("/move-relative")
+                .body(new RelativeMovementCommandDto(-4 * zPickup))
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
