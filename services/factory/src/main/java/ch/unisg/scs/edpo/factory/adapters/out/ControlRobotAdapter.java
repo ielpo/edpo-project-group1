@@ -3,10 +3,10 @@ package ch.unisg.scs.edpo.factory.adapters.out;
 import ch.unisg.scs.edpo.factory.adapters.out.dtos.RelativeMovementCommandDto;
 import ch.unisg.scs.edpo.factory.adapters.out.dtos.SuctionCupCommandDto;
 import ch.unisg.scs.edpo.factory.application.ports.out.MoveBlockPort;
+import ch.unisg.scs.edpo.factory.config.RobotProperties;
 import ch.unisg.scs.edpo.factory.domain.AssemblyPositionDto;
 import ch.unisg.scs.edpo.factory.domain.InventoryPositionDto;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -14,17 +14,21 @@ import org.springframework.web.client.RestClient;
 @Slf4j
 public class ControlRobotAdapter implements MoveBlockPort {
     private final RestClient restClient;
-    private final Environment environment;
+    private final RobotProperties config;
 
-    public ControlRobotAdapter(RestClient.Builder restClientBuilder, Environment environment) {
-        this.environment = environment;
+    public ControlRobotAdapter(RestClient.Builder restClientBuilder, RobotProperties robotProperties) {
+        this.config = robotProperties;
         this.restClient = restClientBuilder
-                .baseUrl(environment.getRequiredProperty("edpo.robot.right.url"))
+                .baseUrl(config.right().url())
                 .build();
     }
 
     private void toHoldingPosition(){
-        var response = restClient.post().uri("/run-flow?filename=" + environment.getRequiredProperty("edpo.robot.flows.to-holding-position")).retrieve().toBodilessEntity().getStatusCode();
+        var response = restClient.post()
+                .uri("/run-flow?filename=" + config.flows().toHoldingPosition())
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
         if(response.value() != 200){
             log.error("Could not move to holding position, HTTP response {}", response.value());
             throw new RuntimeException("Could not move to holding position");
@@ -33,7 +37,11 @@ public class ControlRobotAdapter implements MoveBlockPort {
 
     @Override
     public void initialize(){
-        var status = restClient.put().uri("/home").retrieve().toBodilessEntity().getStatusCode();
+        var status = restClient.put()
+                .uri("/home")
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
         if(status.value() != 200){
             log.error("Could not home robot, HTTP response {}", status.value());
             throw new RuntimeException("Could not home robot");
@@ -42,12 +50,12 @@ public class ControlRobotAdapter implements MoveBlockPort {
 
     @Override
     public void fromInventory(InventoryPositionDto position) {
-        var xOffset = Float.parseFloat(environment.getRequiredProperty("edpo.robot.inventory.x-step")) * position.x();
-        var yOffset = Float.parseFloat(environment.getRequiredProperty("edpo.robot.inventory.y-step")) * position.y();
-        var zPickup = Float.parseFloat(environment.getRequiredProperty("edpo.robot.inventory.z-pickup"));
+        var xOffset = config.inventory().xStep() * position.x();
+        var yOffset = config.inventory().yStep() * position.y();
+        var zPickup = config.inventory().zPickup();
 
         var response = restClient.post()
-                .uri("/run-flow?filename=" + environment.getRequiredProperty("edpo.robot.flows.to-inventory"))
+                .uri("/run-flow?filename=" + config.flows().toInventory())
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
@@ -109,7 +117,7 @@ public class ControlRobotAdapter implements MoveBlockPort {
     @Override
     public void toColor() {
         var response = restClient.post()
-                .uri("/run-flow?filename=" + environment.getRequiredProperty("edpo.robot.flows.to-color-sensor"))
+                .uri("/run-flow?filename=" + config.flows().toColorSensor())
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
@@ -122,7 +130,7 @@ public class ControlRobotAdapter implements MoveBlockPort {
     @Override
     public void toDistanceSensor() {
         var response = restClient.post()
-                .uri("/run-flow?filename=" + environment.getRequiredProperty("edpo.robot.flows.to-distance-sensor"))
+                .uri("/run-flow?filename=" + config.flows().toDistanceSensor())
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
@@ -139,11 +147,19 @@ public class ControlRobotAdapter implements MoveBlockPort {
 
     @Override
     public void toAssembly(AssemblyPositionDto position) {
-        // TODO: implement logic to place blocks using relative movements
-        var response = restClient.post().uri("/run-flow?filename=" + environment.getRequiredProperty("edpo.robot.flows.to-assembly")).retrieve().toBodilessEntity().getStatusCode();
+        var response = restClient.post()
+                .uri("/run-flow?filename=" + config.flows().toBuildArea())
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
         if(response.value() != 200){
             log.error("Could not move to assembly position, HTTP response {}", response.value());
             throw new RuntimeException("Could not move to assembly position");
         }
+
+        // TODO: implement logic to place blocks using relative movements
+        final var targetHeight = config.assembly().cubeSize() * position.z();
+
+        var command = new RelativeMovementCommandDto(0f, 0f, 0f, 0f);
     }
 }
