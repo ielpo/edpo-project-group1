@@ -1,4 +1,9 @@
 package ch.unisg.scs.edpo.factory.application.ports.in;
 
-public record PublishNotificationCommand(String orderId, String correlationId, String message) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.util.UUID;
+
+public record PublishNotificationCommand(@NotNull UUID orderId, @NotNull UUID correlationId, @NotBlank String message) {
 }
