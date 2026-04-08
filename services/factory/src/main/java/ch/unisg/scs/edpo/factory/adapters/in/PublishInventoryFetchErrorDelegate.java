@@ -2,7 +2,6 @@ package ch.unisg.scs.edpo.factory.adapters.in;
 
 import ch.unisg.scs.edpo.factory.application.ports.in.EventPublishingUseCase;
 import ch.unisg.scs.edpo.factory.application.ports.in.PublishNotificationCommand;
-import ch.unisg.scs.edpo.factory.application.ports.in.PublishResult;
 import ch.unisg.scs.edpo.factory.domain.OrderDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
