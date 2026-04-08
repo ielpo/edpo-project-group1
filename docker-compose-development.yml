@@ -27,3 +27,7 @@ services:
     ports:
       - "3030:3030"
 
+  inventory:
+    build: services/inventory
+    ports:
+      - "8000:8000"
