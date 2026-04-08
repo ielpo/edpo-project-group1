@@ -3,7 +3,9 @@ package ch.unisg.scs.edpo.factory.adapters.in;
 import ch.unisg.scs.edpo.factory.application.ports.in.RequestItemsFromInventoryPort;
 import ch.unisg.scs.edpo.factory.domain.ItemType;
 import ch.unisg.scs.edpo.factory.domain.OrderDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.operaton.bpm.engine.delegate.BpmnError;
 import org.operaton.bpm.engine.delegate.DelegateExecution;
 import org.operaton.bpm.engine.delegate.JavaDelegate;
@@ -13,31 +15,26 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Component("requestComponentsFromInventoryDelegate")
 @RequiredArgsConstructor
 public class RequestComponentsFromInventoryDelegate implements JavaDelegate {
     private static final String ERROR_CODE = "INVENTORY_FETCH_FAILED";
 
     private final RequestItemsFromInventoryPort requestItemsFromInventory;
+    private final ObjectMapper objectMapper;
     
     @Override
     public void execute(DelegateExecution delegateExecution) {
         try {
-            var order = readOrder(delegateExecution.getVariable("order"));
+            var order = objectMapper.readValue(delegateExecution.getVariable("order").toString(), OrderDto.class);
             var fetchInventory = requestItemsFromInventory.request(order);
-            var inventoryVariable = fetchInventory.positions().stream()
-                .map(position -> Map.of(
-                    "x", position.x(),
-                    "y", position.y(),
-                    "color", position.color().name()
-                ))
-                .toList();
-            delegateExecution.setVariable("inventory", inventoryVariable);
-        } catch (RuntimeException ex) {
+            delegateExecution.setVariable("inventory", objectMapper.writeValueAsString(fetchInventory.positions()));
+        } catch (Exception ex) {
+            log.error("Could not fetch inventory: {}", ex.getMessage());
             if (isFinalRetryAttempt(delegateExecution)) {
                 throw new BpmnError(ERROR_CODE, "Failed to fetch inventory: " + ex.getMessage());
             }
-            throw ex;
         }
     }
 
@@ -54,23 +51,5 @@ public class RequestComponentsFromInventoryDelegate implements JavaDelegate {
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private OrderDto readOrder(Object orderVariable) {
-        if (orderVariable instanceof OrderDto orderDto) {
-            return orderDto;
-        }
-        if (orderVariable instanceof Map<?, ?> map) {
-            Object orderIdRaw = map.get("orderId");
-            Object itemTypeRaw = map.get("itemType");
-            if (orderIdRaw == null || itemTypeRaw == null) {
-                throw new IllegalArgumentException("Missing order fields in process variable 'order'");
-            }
-            return new OrderDto(
-                    UUID.fromString(orderIdRaw.toString()),
-                    ItemType.valueOf(itemTypeRaw.toString())
-            );
-        }
-        throw new IllegalArgumentException("Unsupported process variable type for 'order': " + orderVariable);
     }
 }
