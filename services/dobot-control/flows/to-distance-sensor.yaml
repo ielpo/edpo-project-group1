@@ -1,0 +1,5 @@
+- MovementCommand:
+    x: 150
+    y: -110
+    z: 30
+    r: 0
