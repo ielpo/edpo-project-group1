@@ -7,6 +7,36 @@ The customer can select a type of furniture (chair, table, shelf, closet) and a 
 Besides the Inventory Service, the system includes an Order Service, a Factory Service, and a Customer Service for status updates.
 Communication with the Inventory Service uses HTTP/REST APIs, while communication between the other services is event-driven via Kafka.
 
+# Development
+For development a separate Docker compose configuration is available, this enables the simulation mode for services with device drivers.
+The Spring Boot _local_ configuration shall be used.
+
+**TODO**
+| Service             | URL            |
+|---------------------|----------------| 
+| Order               | localhost:8100 |
+| Factory             | localhost:8101 |
+| Inventory           | localhost:8102 |
+| Dobot Control Right | localhost:8103 |
+| Dobot Control Left  | localhost:8104 |
+| Color Sensor        | localhost:8105 |
+| Kafka Broker        | localhost:9092 |
+| MQTT                | localhost:1883 |
+
+# Deployment
+**TODO**
+| Service             | URL               |
+|---------------------|-------------------| 
+| Order               | localhost:8100    |
+| Factory             | localhost:8101    |
+| Inventory           | localhost:8102    |
+| Dobot Control Right | localhost:8103    |
+| Dobot Control Left  | localhost:8104    |
+| Color Sensor        | 192.168.0.120:80  |
+| Kafka Broker        | localhost:9092    |
+| MQTT                | 192.168.0.21:1883 |
+
+
 # Sequence Diagram
 
 ## Successful Order Flow 
