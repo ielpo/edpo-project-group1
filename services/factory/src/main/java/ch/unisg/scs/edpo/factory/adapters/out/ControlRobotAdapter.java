@@ -142,7 +142,7 @@ public class ControlRobotAdapter implements MoveBlockPort {
 
     @Override
     public void toDiscard() {
-
+        log.info("To discard not implemented");
     }
 
     @Override
@@ -157,9 +157,17 @@ public class ControlRobotAdapter implements MoveBlockPort {
             throw new RuntimeException("Could not move to assembly position");
         }
 
-        // TODO: implement logic to place blocks using relative movements
-        final var targetHeight = config.assembly().cubeSize() * position.z();
-
-        var command = new RelativeMovementCommandDto(0f, 0f, 0f, 0f);
+        final var xOffset = config.assembly().cubeSize() * position.x();
+        final var zOffset = config.assembly().zInitial() - config.assembly().cubeSize() * position.z();
+        response = restClient.post()
+                .uri("/move-relative")
+                .body(new RelativeMovementCommandDto(xOffset, 0f, zOffset, 0f))
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
+        if(response.value() != 200){
+            log.error("Could not place block in build area, HTTP response {}", response.value());
+            throw new RuntimeException("Could not pick up block");
+        }
     }
 }
