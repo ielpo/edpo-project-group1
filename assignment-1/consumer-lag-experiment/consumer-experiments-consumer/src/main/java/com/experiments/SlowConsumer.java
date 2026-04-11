@@ -39,7 +39,7 @@ public class SlowConsumer {
 
     // ── Experiment knobs ────────────────────────────────────────────────────
     private static final String PROPERTIES_FILE     = "consumer-baseline.properties";
-    private static final long   PROCESSING_DELAY_MS = 0;
+    private static final long   PROCESSING_DELAY_MS = 200;
     // ────────────────────────────────────────────────────────────────────────
 
     public static void main(String[] args) throws IOException, InterruptedException {
