@@ -1,0 +1,22 @@
+meta {
+  name: Suction Cup
+  type: http
+  seq: 13
+}
+
+put {
+  url: http://localhost:{{port}}//suction-cup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "suck": false
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

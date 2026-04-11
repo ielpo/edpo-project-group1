@@ -12,10 +12,8 @@ in the repository root folder.
 ## Running the Service
 
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8001
 ```
-
-The UI is available at `http://localhost:8000`.
 
 ## API
 
@@ -25,7 +23,7 @@ The UI is available at `http://localhost:8000`.
 Returns the full grid state.
 
 ```bash
-curl http://localhost:8000/inventory
+curl http://localhost:8001/inventory
 ```
 
 ---
@@ -36,7 +34,7 @@ curl http://localhost:8000/inventory
 Reserves a number of blocks of a given color for an order.
 
 ```bash
-curl -X POST "http://localhost:8000/reserve?orderId=550e8400-e29b-41d4-a716-446655440000" -H "Content-Type: application/json" -d '{"count": 2, "color": "RED"}'
+curl -X POST "http://localhost:8001/reserve?orderId=550e8400-e29b-41d4-a716-446655440000" -H "Content-Type: application/json" -d '{"count": 2, "color": "RED"}'
 ```
 
 **Request body**
@@ -58,7 +56,7 @@ curl -X POST "http://localhost:8000/reserve?orderId=550e8400-e29b-41d4-a716-4466
 Returns the grid positions reserved for an order.
 
 ```bash
-curl http://localhost:8000/reserve?orderId=550e8400-e29b-41d4-a716-446655440000
+curl http://localhost:8001/reserve?orderId=550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response: 200**
@@ -81,7 +79,7 @@ curl http://localhost:8000/reserve?orderId=550e8400-e29b-41d4-a716-446655440000
 Removes the reserved blocks from the grid (used when manufacturing starts).
 
 ```bash
-curl -X POST http://localhost:8000/fetch?orderId=550e8400-e29b-41d4-a716-446655440000
+curl -X POST http://localhost:8001/fetch?orderId=550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Responses**
@@ -97,12 +95,12 @@ Restores blocks for a specific order or resets the entire grid.
 
 **Restore a specific order:**
 ```bash
-curl -X POST http://localhost:8000/restore -H "Content-Type: application/json" -d '{"orderId": "550e8400-e29b-41d4-a716-446655440000"}'
+curl -X POST http://localhost:8001/restore -H "Content-Type: application/json" -d '{"orderId": "550e8400-e29b-41d4-a716-446655440000"}'
 ```
 
 **Reset entire grid:**
 ```bash
-curl -X POST http://localhost:8000/restore -H "Content-Type: application/json" -d '{}'
+curl -X POST http://localhost:8001/restore -H "Content-Type: application/json" -d '{}'
 ```
 
 - `200` — inventory restored

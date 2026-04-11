@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local Operaton/H2 database files
+operaton-h2-database*
+*.mv.db
+*.trace.db

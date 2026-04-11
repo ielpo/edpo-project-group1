@@ -1,0 +1,17 @@
+# MQTT Configuration
+mqtt:
+  broker-uri: tcp://localhost:1883
+  client-id: factory-service
+  username: ftsim
+  password: unisg
+  topic: distance-sensor
+
+edpo:
+  # Inventory Service
+  inventory:
+    url: http://localhost:8000
+
+  # Color Sensor Service
+  sensor:
+    color:
+      url: http://localhost:3030

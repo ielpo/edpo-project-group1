@@ -23,6 +23,9 @@ public class InventoryAdapter implements FetchInventoryPort {
 
     @Override
     public FetchInventoryDto getInventoryPositions(@NotNull UUID orderId) {
-        return restClient.get().uri("/inventory?orderId={}", orderId).retrieve().body(FetchInventoryDto.class);
+        return restClient.post()
+                .uri("/fetch?orderId=" + orderId)
+                .retrieve()
+                .body(FetchInventoryDto.class);
     }
 }

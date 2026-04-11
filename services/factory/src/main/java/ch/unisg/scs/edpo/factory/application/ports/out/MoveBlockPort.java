@@ -5,6 +5,7 @@ import ch.unisg.scs.edpo.factory.domain.InventoryPositionDto;
 import jakarta.validation.constraints.NotNull;
 
 public interface MoveBlockPort {
+    void initialize();
     void fromInventory(@NotNull InventoryPositionDto position);
     void toColor();
     void toDistanceSensor();

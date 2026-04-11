@@ -1,0 +1,6 @@
+- MovementCommand:
+    x: 140
+    y: -220
+    z: 85
+    r: 0
+    mode: 9
