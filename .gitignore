@@ -41,6 +41,5 @@ __pycache__/
 *.pyc
 *.pyo
 
-# H2 database files
-*.mv.db
-*.trace.db
+# Database files
+*.db

@@ -21,7 +21,10 @@ public class ColorSensorAdapter implements ReadColorPort {
     private record RgbColor(int r, int g, int b){}
 
     public BlockColor get(){
-        var colors = restClient.get().uri("/color").retrieve().body(RgbColor.class);
+        var colors = restClient.get()
+                .uri("/color")
+                .retrieve()
+                .body(RgbColor.class);
         if(colors == null){
             log.warn("No valid response from color sensor");
             return BlockColor.UNKNOWN;

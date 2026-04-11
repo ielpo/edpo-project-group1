@@ -14,7 +14,7 @@ PICO_LED = Pin("LED", Pin.OUT)
 PICO_LED_STATE = False
 
 # --- Wi-Fi config ---
-SSID = "TP-Link_F700"
+SSID = "obiwlankenobi"
 PASSWORD = "70660180"
 
 # IP configuration (optional, else DHCP): IP, Netmask, Gateway, DNS

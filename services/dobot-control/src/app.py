@@ -127,7 +127,7 @@ def move_robot() -> dict:
     return {"message": "Absolute movement command executed."}
 
 
-@app.route("/move-relative", methods=["PUT"])
+@app.route("/move-relative", methods=["POST"])
 def relative_move_robot() -> dict:
     command = RelativeMovementCommand.model_validate(request.get_json())
     dobot.execute_dobot_commands([command])

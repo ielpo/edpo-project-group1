@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -41,14 +42,18 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
     private final MoveBlockPort moveBlock;
     private final ReadColorPort readColor;
     private final MqttService mqttService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public FetchInventoryDto request(@NonNull OrderDto order) {
+        // TODO: handle error cases
         return fetchInventory.getInventoryPositions(order.orderId());
     }
 
     @Override
     public void assemble(@NotNull List<InventoryPositionDto> positions, @NotNull OrderDto order) {
+        moveBlock.initialize();
+
         // Determine positions of blocks for assembly
         List<AssemblyPositionDto> assembly = new ArrayList<>(switch (order.itemType()) {
             case CHAIR -> CHAIR_ASSEMBLY;
@@ -62,8 +67,9 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             log.info("Picking up block from x:{} y:{}", block.x(), block.y());
             moveBlock.fromInventory(block);
             moveBlock.toDistanceSensor();
-            var distance = DistanceMeasurementDto.fromJson(mqttService.waitForMessage(Duration.ofSeconds(30))).distance();
-            if (distance > 30.0) {
+            var distanceResponse = mqttService.waitForMessage(Duration.ofSeconds(30));
+            var distance = objectMapper.readTree(distanceResponse).get("distance").asFloat();
+            if (distance > 25.0) {
                 moveBlock.toDiscard();
                 log.error("No block detected, verify robot vacuum and inventory");
                 throw new RuntimeException("No block picked up, aborting process");

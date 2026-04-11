@@ -1,0 +1,15 @@
+info:
+  name: Read RGB Color
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: 192.168.0.120/color
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

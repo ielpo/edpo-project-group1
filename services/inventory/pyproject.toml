@@ -1,6 +1,11 @@
 [project]
 name = "inventory"
-version = "0.1.0"
-requires-python = ">=3.11"
+version = "1"
+requires-python = ">=3.13"
 description = "Inventory service"
-dependencies = []
+readme = "README.md"
+
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+]
