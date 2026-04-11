@@ -1,4 +1,4 @@
-package ch.unisg.scs.edpo.order.adapter.in.camunda;
+package ch.unisg.scs.edpo.order.adapters.in.camunda;
 
 import ch.unisg.scs.edpo.order.application.port.in.EventPublishingUseCase;
 import ch.unisg.scs.edpo.order.application.port.in.PublishNotificationCommand;

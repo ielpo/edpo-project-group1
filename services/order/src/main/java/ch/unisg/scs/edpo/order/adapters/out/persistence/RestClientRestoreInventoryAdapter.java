@@ -1,4 +1,4 @@
-package ch.unisg.scs.edpo.order.adapter.out.persistence;
+package ch.unisg.scs.edpo.order.adapters.out.persistence;
 
 import ch.unisg.scs.edpo.order.application.port.out.RestoreInventoryPort;
 import ch.unisg.scs.edpo.order.application.port.out.RestoreInventoryResult;
