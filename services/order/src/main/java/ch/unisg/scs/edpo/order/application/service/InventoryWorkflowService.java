@@ -20,7 +20,7 @@ import java.util.UUID;
 @Service
 public class InventoryWorkflowService implements InventoryWorkflowUseCase {
 
-    private static final String DEFAULT_URL = "http://localhost:8000";
+    private static final String DEFAULT_URL = "http://localhost:8001";
 
     private final ReserveInventoryPort reserveInventoryPort;
     private final RestoreInventoryPort restoreInventoryPort;
