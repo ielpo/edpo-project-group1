@@ -1,0 +1,71 @@
+# Spring Boot Configuration
+spring:
+  application:
+    name: factory
+  datasource:
+    url: jdbc:h2:file:./operaton-h2-database-factory
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: factory-service
+      auto-offset-reset: latest
+
+# Server Configuration
+server:
+  port: 8090
+
+# Operaton Configuration
+operaton:
+  bpm:
+    admin-user:
+      id: demo
+      password: demo
+    generic-properties:
+      properties:
+        historyTimeToLive: P1D
+
+# MQTT Configuration
+mqtt:
+  broker-uri: tcp://192.168.0.21:1883
+  client-id: factory-service
+  username: ftsim
+  password: unisg
+  topic: Tinkerforge/Conveyor/distance_IR_short_2a7C
+
+# Inventory Service
+edpo:
+  inventory:
+    url: http://localhost:8000
+
+  # Color Sensor Service
+  sensor:
+    color:
+      url: http://192.168.0.120:80
+
+  # Robot Service
+  robot:
+    right:
+      url: http://localhost:5001
+    # left:
+    #   url: http://192.168.0.43:5000
+    
+    flows:
+      to-holding-position: to-holding-position.yaml
+      to-inventory: to-inventory.yaml
+      to-color-sensor: to-color-sensor.yaml
+      to-distance-sensor: to-distance-sensor.yaml
+      to-build-area: to-build-area.yaml
+
+    # Inventory coordinates
+    inventory:
+      x-step: 27
+      y-step: 27
+      z-pickup: -12
+
+    # Assembly coordinates
+    assembly:
+      z-initial: 85
+      cube-size: 25
+      x-count: 2
+      z-count: 3
+
