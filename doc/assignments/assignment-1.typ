@@ -350,3 +350,15 @@ Without Event-Carried State Transfer, the Cashier would query the Product Catalo
 
 // TODO: insert figure showing idea
 
+#pagebreak()
+
+= Contributions
+
+#table(
+  columns: (30%, 70%),
+  table.header([*Person*], [*Tasks*]),
+  [Michael], [Producer Experiments],
+  [Eva], [Consumer Experiments, Software Project],
+  [Gianluca], [Fault Tolerance Experiment],
+)
+

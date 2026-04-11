@@ -35,7 +35,7 @@ The context map provides a simplified overview of the main service relationships
 
 = Process Orchestration
 
-The process begins when a customer places an order for furniture using an order form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item per order; however, it is designed to be extendable to multiple items if time permits.
+The process begins when a customer places an order for furniture using an order form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
 
 #figure(
   image("order_form.png"),
@@ -58,3 +58,13 @@ The inventory is implemented as a separate REST service that exposes its API for
 The factory process manufactures the requested item and emits events to inform other services about the progress and completion of the order.
 
 The customer service is responsible for presenting relevant information to the user. It receives updates from both the order service and the factory process and displays the current status of the order to the customer.
+
+= Contributions
+
+#table(
+  columns: (30%, 70%),
+  table.header([*Person*], [*Tasks*]),
+  [Michael], [Model processes, Report],
+  [Eva], [Model processes, ADRs],
+  [Gianluca], [Model processes, ADRs, Report],
+)
