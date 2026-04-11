@@ -1,4 +1,4 @@
-package ch.unisg.scs.edpo.order.adapter.out.persistence;
+package ch.unisg.scs.edpo.order.adapters.out.persistence;
 
 import ch.unisg.scs.edpo.order.application.port.out.EventPublisherPort;
 import org.springframework.kafka.core.KafkaTemplate;

@@ -1,4 +1,4 @@
-package ch.unisg.scs.edpo.order.adapter.out.camunda;
+package ch.unisg.scs.edpo.order.adapters.out.camunda;
 
 import ch.unisg.scs.edpo.order.application.port.out.MessageCorrelationPort;
 import org.operaton.bpm.engine.runtime.Execution;
