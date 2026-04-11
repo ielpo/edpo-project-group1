@@ -40,3 +40,7 @@ replay_pid*
 __pycache__/
 *.pyc
 *.pyo
+
+# H2 database files
+*.mv.db
+*.trace.db

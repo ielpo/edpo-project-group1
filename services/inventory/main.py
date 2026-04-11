@@ -1,11 +1,12 @@
 from uuid import UUID
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 
 app = FastAPI(title="Inventory Service")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 ROWS = 5
 COLS = 4
@@ -160,6 +161,3 @@ def restore_inventory(req: RestoreRequest = RestoreRequest()):
         raise HTTPException(status_code=404, detail=f"No blocks found for order '{order_id}'")
 
     return grid_response(message=f"Restored {len(restored)} block(s) for order '{order_id}'", restored=restored)
-
-
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
