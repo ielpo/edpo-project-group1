@@ -44,6 +44,11 @@ The human intervention pattern is used for recovery steps that are very hard to 
 
 Only after this manual step is completed we continue with the technical restore flow. This keeps process control explicit: automation handles technical issues, while operational recovery is delegated to a human when the situation is too complex to handle for the system.
 
+== Epic Saga Pattern
+The overall flow follows the traditional #emph[Epic Saga] idea with one clear orchestrator. In our case, the Order service coordinates the transaction-like business request and monitors whether all required steps complete.
+
+If a later step fails, we do not leave already performed actions as-is. Instead, we trigger compensating actions (most importantly inventory restore) to reverse earlier writes inside the distributed transaction scope. However, true transaction isolation across services is not guaranteed — intermediate state changes may be visible to other parts of the system before a rollback occurs, and compensating actions themselves could potentially fail.
+
 #pagebreak()
 
 = Contributions
