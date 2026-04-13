@@ -12,14 +12,16 @@ For development a separate Docker compose configuration is available, this enabl
 The Spring Boot _local_ configuration shall be used.
 
 **TODO**
+
 | Service             | URL            |
 |---------------------|----------------| 
-| Order               | localhost:8100 |
-| Factory             | localhost:8101 |
-| Inventory           | localhost:8102 |
-| Dobot Control Right | localhost:8103 |
-| Dobot Control Left  | localhost:8104 |
-| Color Sensor        | localhost:8105 |
+| Dashboard           | localhost:8100 |
+| Order               | localhost:8101 |
+| Factory             | localhost:8102 |
+| Inventory           | localhost:8103 |
+| Dobot Control Right | localhost:8200 |
+| Dobot Control Left  | localhost:8201 |
+| Color Sensor        | localhost:8202 |
 | Kafka Broker        | localhost:9092 |
 | MQTT                | localhost:1883 |
 

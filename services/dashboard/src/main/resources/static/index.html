@@ -299,6 +299,24 @@
 </head>
 <body>
 
+<section id="tracker-section">
+  <h2>Order Status</h2>
+  <div id="tracker-list">
+    <div id="tracker-empty" class="tracker-card">
+      <div class="tracker-card-header">
+        <span class="tracker-order-id">Waiting for orders…</span>
+      </div>
+      <div class="tracker-steps">
+        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Order Received</span></div></div>
+        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Inventory Reserved</span></div></div>
+        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Manufacturing</span></div></div>
+        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Completed</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
 <h1>Factory Inventory</h1>
 
 <div>
@@ -344,22 +362,6 @@
 
 <div id="message"></div>
 
-<section id="tracker-section">
-  <h2>Order Status</h2>
-  <div id="tracker-list">
-    <div id="tracker-empty" class="tracker-card">
-      <div class="tracker-card-header">
-        <span class="tracker-order-id">Waiting for orders…</span>
-      </div>
-      <div class="tracker-steps">
-        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Order Received</span></div></div>
-        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Inventory Reserved</span></div></div>
-        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Manufacturing</span></div></div>
-        <div class="tracker-step"><div class="step-circle"></div><div class="step-meta"><span class="step-label">Completed</span></div></div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <script>
   const COLOR_HEX = { RED: "#e74c3c", GREEN: "#2ecc71", BLUE: "#3498db", YELLOW: "#f1c40f" };
