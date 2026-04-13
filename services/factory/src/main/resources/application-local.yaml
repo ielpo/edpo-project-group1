@@ -7,11 +7,5 @@ mqtt:
   topic: distance-sensor
 
 edpo:
-  # Inventory Service
-  inventory:
-    url: http://localhost:8000
-
   # Color Sensor Service
-  sensor:
-    color:
-      url: http://localhost:3030
+  sensor.color.url: http://localhost:8202

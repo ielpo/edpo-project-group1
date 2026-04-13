@@ -67,6 +67,8 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             log.info("Picking up block from x:{} y:{}", block.x(), block.y());
             moveBlock.fromInventory(block);
             moveBlock.toDistanceSensor();
+
+            log.info("Verifying block pickup with distance sensor, wait for MQTT message");
             var distanceResponse = mqttService.waitForMessage(Duration.ofSeconds(30));
             var distance = objectMapper.readTree(distanceResponse).get("distance").asFloat();
             if (distance > 25.0) {
@@ -74,6 +76,8 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
                 log.error("No block detected, verify robot vacuum and inventory");
                 throw new RuntimeException("No block picked up, aborting process");
             }
+
+            log.info("Verifying block color");
             moveBlock.toColor();
             var actualColour = readColor.get();
             if (actualColour != block.color()) {
@@ -81,6 +85,7 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
                 log.error("Unexpected color: {} instead of {}", actualColour, block.color());
                 throw new RuntimeException("Unexpected color, aborting process");
             }
+            log.info("Moving block to assembly position");
             moveBlock.toAssembly(assembly.removeFirst());
         }
     }
