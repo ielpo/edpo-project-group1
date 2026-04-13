@@ -30,6 +30,7 @@ size: 12pt
 
 
 = Contributions
+The contributions are listed in more detail in the individual exercises, but here is a high-level overview of who did what:
 
 #table(
   columns: (30%, 70%),
