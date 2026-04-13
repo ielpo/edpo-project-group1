@@ -5,7 +5,7 @@ spring:
     bootstrap-servers: ${kafka.bootstrap-address}
     consumer:
       group-id: order-service-correlation
-      auto-offset-reset: earliest
+      auto-offset-reset: latest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
@@ -24,6 +24,9 @@ operaton:
     generic-properties:
       properties:
         historyTimeToLive: P1D
+    deployment-resource-pattern:
+      - "classpath*:**/*.bpmn"
+      - "classpath*:**/*.form"
 
 kafka:
   bootstrap-address: localhost:9092
