@@ -26,7 +26,7 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
     );
     private static final List<AssemblyPositionDto> TABLE_ASSEMBLY = List.of(
             new AssemblyPositionDto(0, 0, 0),
-            new AssemblyPositionDto(0, 1, 0)
+            new AssemblyPositionDto(1, 0, 0)
     );
     private static final List<AssemblyPositionDto> SHELF_ASSEMBLY = List.of(
             new AssemblyPositionDto(0, 0, 0),
@@ -71,9 +71,10 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             log.info("Verifying block pickup with distance sensor, wait for MQTT message");
             var distanceResponse = mqttService.waitForMessage(Duration.ofSeconds(30));
             var distance = objectMapper.readTree(distanceResponse).get("distance").asFloat();
+            log.info("Got distance {}", distance);
             if (distance > 25.0) {
-                moveBlock.toDiscard();
                 log.error("No block detected, verify robot vacuum and inventory");
+                moveBlock.toDiscard();
                 throw new RuntimeException("No block picked up, aborting process");
             }
 
