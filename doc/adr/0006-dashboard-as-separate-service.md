@@ -1,4 +1,4 @@
-# 5. Dashboard as a Separate Service
+# 6. Dashboard as a Separate Service
 
 Date: 2026-04-04
 

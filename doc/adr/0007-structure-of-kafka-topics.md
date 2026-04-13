@@ -1,4 +1,4 @@
-# 6. Structure of Kafka Topics
+# 7. Structure of Kafka Topics
 
 Date: 2026-04-13
 
