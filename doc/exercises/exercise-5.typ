@@ -1,5 +1,5 @@
 #set document(
-  title: [Exercise 5: Sagas and Stateful Resilience Patterns]
+  title: "Exercise 5: Sagas and Stateful Resilience Patterns",
 )
 
 #set page(

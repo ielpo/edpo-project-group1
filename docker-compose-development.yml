@@ -17,17 +17,18 @@ services:
     ports:
       - "1883:1883"
 
+  inventory:
+    build: services/inventory
+    ports:
+      - "8103:8103"
+
   dobot-control:
     build: services/dobot-control
     ports:
-      - "5001:5001"
+      - "8200:8200"
 
   color-sensor:
     build: services/color-sensor-fake
     ports:
-      - "3030:3030"
+      - "8202:8202"
 
-  inventory:
-    build: services/inventory
-    ports:
-      - "8000:8000"

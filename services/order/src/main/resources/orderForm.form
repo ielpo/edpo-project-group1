@@ -100,12 +100,12 @@
     }
   ],
   "type": "default",
-  "id": "form_1",
+  "id": "orderForm",
   "exporter": {
     "name": "Camunda Modeler",
     "version": "5.45.0"
   },
   "executionPlatform": "Camunda Platform",
   "executionPlatformVersion": "7.24.0",
-  "schemaVersion": 19
+  "versionTag": "1"
 }

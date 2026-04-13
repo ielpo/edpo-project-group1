@@ -12,6 +12,7 @@ import ch.unisg.scs.edpo.order.application.port.out.RestoreInventoryResult;
 import ch.unisg.scs.edpo.order.domain.BlockColor;
 import ch.unisg.scs.edpo.order.domain.ItemType;
 import ch.unisg.scs.edpo.order.domain.ReserveInventoryDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
@@ -20,7 +21,8 @@ import java.util.UUID;
 @Service
 public class InventoryWorkflowService implements InventoryWorkflowUseCase {
 
-    private static final String DEFAULT_URL = "http://localhost:8001";
+    @Value("${edpo.inventory.url:http://localhost:8103}")
+    private String DEFAULT_URL;
 
     private final ReserveInventoryPort reserveInventoryPort;
     private final RestoreInventoryPort restoreInventoryPort;
