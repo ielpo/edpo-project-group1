@@ -39,7 +39,7 @@ public class EventPublishingService implements EventPublishingUseCase {
         var orderId = command.orderId();
         var payload = new ErrorEventDto(command.message(), orderId.toString(), correlationId.toString());
         try {
-            eventPublisherPort.publish(errorTopic, null, objectMapper.writeValueAsString(payload));
+            eventPublisherPort.publish(errorTopic, "0", objectMapper.writeValueAsString(payload));
         } catch (JsonProcessingException e) {
             log.error("Could not serialize ErrorTopicDto to JSON: {}", e.getMessage());
             throw new RuntimeException(e);
@@ -52,7 +52,7 @@ public class EventPublishingService implements EventPublishingUseCase {
         var orderId = command.orderId();
         var payload = new InfoEventDto(command.message(), orderId.toString(), correlationId.toString());
         try {
-            eventPublisherPort.publish(infoTopic, null, objectMapper.writeValueAsString(payload));
+            eventPublisherPort.publish(infoTopic, "0", objectMapper.writeValueAsString(payload));
         } catch (JsonProcessingException e) {
             log.error("Could not serialize InfoTopicDto to JSON: {}", e.getMessage());
             throw new RuntimeException(e);
@@ -64,7 +64,7 @@ public class EventPublishingService implements EventPublishingUseCase {
         log.debug("Order complete message");
         var payload = new ManufacturingCompleteEventDto(orderId.toString(), correlationId.toString());
         try {
-            eventPublisherPort.publish(orderCompleteTopic, null, objectMapper.writeValueAsString(payload));
+            eventPublisherPort.publish(orderCompleteTopic, "0", objectMapper.writeValueAsString(payload));
         } catch (JsonProcessingException e) {
             log.error("Could not serialize ManufacturingCompleteEventDto to JSON: {}", e.getMessage());
             throw new RuntimeException(e);
