@@ -27,7 +27,7 @@ size: 12pt
 = Context Map
 
 #figure(
-  image("contextmap.png", width: 70%),
+  image("../images/contextmap.png", width: 70%),
   caption: [Context map]
 )
 
@@ -38,12 +38,12 @@ The context map provides a simplified overview of the main service relationships
 The process begins when a customer places an order for furniture using an order form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
 
 #figure(
-  image("order_form.png"),
+  image("../images/order_form.png"),
   caption: [Order form presented to customer]
 )
 
 #figure(
-  image("order.png"),
+  image("../images/order.png"),
   caption: [Order process]
 )
 
@@ -51,7 +51,7 @@ The order process is orchestrated by the order service, which coordinates the wo
 The inventory is implemented as a separate REST service that exposes its API for reservation, restocking and retrieval operations. If the reservation succeeded, the order service sends a command to the factory to initiate the manufacturing process.
 
 #figure(
-  image("factory.png"),
+  image("../images/factory.png"),
   caption: [Factory process]
 )
 

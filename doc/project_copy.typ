@@ -47,7 +47,7 @@ The project therefore focuses not only on the happy path, but also on resilience
 = Context Map
 
 #figure(
-    image("assignments/contextmap.png", width: 70%),
+    image("images/contextmap.png", width: 70%),
     caption: [Context map]
 )
 

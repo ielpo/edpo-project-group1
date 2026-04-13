@@ -1,5 +1,5 @@
 #set document(
-  title: "Assignment 1: Process Oriented Architecure - Project Documentation",
+  title: "Assignment 1: Process Oriented Architecture - Project Documentation",
 )
 
 #set page(
