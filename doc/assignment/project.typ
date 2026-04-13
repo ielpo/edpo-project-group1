@@ -23,7 +23,10 @@ size: 12pt
 #outline()
 #pagebreak()
 
-
+#include "overview.typ"
+#include "architecture.typ"
+#include "process.typ"
+#include "services.typ"
 
 
 = Contributions
@@ -31,7 +34,7 @@ size: 12pt
 #table(
   columns: (30%, 70%),
   table.header([*Person*], [*Tasks*]),
-  [Michael], [Producer Experiments],
-  [Eva], [Consumer Experiments, Software Project],
-  [Gianluca], [Fault Tolerance Experiment],
+  [Michael], [Order Service, Documentation],
+  [Eva], [Inventory Service, Dashboard Service, Documentation],
+  [Gianluca], [Factory Service (including hardware), Documentation],
 )
