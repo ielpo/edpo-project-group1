@@ -12,7 +12,6 @@ COPY uv.lock ./
 RUN ["uv", "sync"]
 
 COPY main.py ./
-COPY static/ static/
 
 # Run the application in simulation mode
-ENTRYPOINT ["uv", "run", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["uv", "run", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8103"]

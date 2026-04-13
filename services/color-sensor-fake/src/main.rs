@@ -20,6 +20,6 @@ async fn main() {
 
     // Start the warp server
     warp::serve(color_route)
-        .run(([0, 0, 0, 0], 3030))
+        .run(([0, 0, 0, 0], 8202))
         .await;
 }
