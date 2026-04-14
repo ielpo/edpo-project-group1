@@ -124,7 +124,7 @@ Given the small sample size of three runs per configuration, the results should 
 
 Throughput was found to increase as batch size was increased across all experiments, as was explained in the lecture. Increasing linger time did not significantly affect throughput under this workload. Messages were produced continuously at high speed, so batches filled almost immediately and the linger timer had little impact on batch size.
 
-=== Batch Size & Processing Latency (with artificial delay <batch-size-processing-latency-with-artificial-delay>
+=== Batch Size & Processing Latency (with artificial delay) <batch-size-processing-latency-with-artificial-delay>
 
 An additional experiment introduced a small artificial delay of 0-2 ms between produced messages. The goal was to slightly reduce the production rate and observe its effect on batching behaviour.
 
@@ -254,9 +254,29 @@ partition 1 - committed = 3641, log-end = 82994, lag = 79353
 
 The committed offsets remained frozen at the pre-rebalance values while the log-end offsets continued advancing, explaining the sudden lag spike.
 
+==== Scenario D --- Retention-Based Record Loss <scenario-d-retention-based-record-loss>
+
+To demonstrate that unbounded lag eventually causes permanent data loss, the gaze-events topic was configured with a short retention policy before the run:
+
+`
+retention.ms = 15,000 ms (15 seconds)
+segment.ms = 10,000 ms (10 seconds)
+`
+
+The segment.ms setting was required because Kafka deletes data at the segment level, not record by record. A segment must be closed before it becomes eligible for deletion. With the default segment size of 1 GB, retention would never trigger under normal load, so segment.ms = 10,000 was added to force segment rolls every 10 seconds. SlowConsumer was run with PROCESSING\_DELAY\_MS = 200, identical to Scenario B. LagMonitor was extended to also track logStartOffset---the earliest offset still available on the broker.
+
+After approximately 630 seconds, LagMonitor reported:
+
+`
+[00:19:34] partition=0 | logStart= 37399 | committed= 7645 | logEnd= 38684 | lag= 3103 *** DATA LOSS: 29754 records deleted before consumer reached them ***
+[00:19:34] partition=1 | logStart= 37279 | committed= 5103 | logEnd= 38560 | lag= 33457 *** DATA LOSS: 32176 records deleted before consumer reached them ***
+`
+
+logStartOffset jumped from 0 to 37,399 in a single step as Kafka deleted an entire segment. The consumer's committed offset was only 7,645, a gap of 29,754 records on partition 0 and 32,176 on partition 1 that were permanently lost before the consumer could reach them. This directly confirms the risk described in Scenario B: unchecked lag, combined with time-based retention, leads to silent and irrecoverable data loss.
+
 ==== Conclusion <conclusion-1>
 
-The three scenarios demonstrate a clear progression of risk. When processing keeps pace with production (Scenario A), lag is negligible and consumer group membership is stable. When processing is slower than production (Scenario B), lag accumulates continuously and, if unchecked, will eventually exhaust broker disk space or cause consumers to fall so far behind that time-based retention deletes unconsumed records. The most severe outcome occurs when per-record processing time exceeds max.poll.interval.ms (Scenario C): Kafka evicts the consumer, triggers a rebalance, and re-delivers uncommitted records, leading to duplicate processing. In production systems these risks are mitigated by keeping per-record processing time short (offloading slow work to separate threads), setting max.poll.interval.ms appropriately, and using idempotent consumers or exactly once semantics where duplicate delivery is unacceptable.
+The four scenarios demonstrate a clear progression of risk. When processing keeps pace with production (Scenario A), lag is negligible and consumer group membership is stable. When processing is slower than production (Scenario B), lag accumulates continuously. Scenario D directly demonstrates the consequence of unchecked lag: once the consumer falls far enough behind, Kafka's time-based retention permanently deletes unconsumed records before the consumer can reach them, as observed with 29,754 lost records on partition 0 and 32,176 on partition 1. The most severe outcome in terms of operational disruption occurs when per-record processing time exceeds max.poll.interval.ms (Scenario C): Kafka evicts the consumer, triggers a rebalance, and re-delivers uncommitted records, leading to duplicate processing. In production systems these risks are mitigated by keeping per-record processing time short (offloading slow work to separate threads), setting max.poll.interval.ms appropriately, tuning retention.ms with realistic worst-case lag in mind, and using idempotent consumers or exactly-once semantics where duplicate or missing delivery is unacceptable.
 
 == Fault Tolerance and Reliability <fault-tolerance-and-reliability>
 
@@ -300,7 +320,6 @@ The failure of both brokers in a two-way redundant setup makes the topic unavail
 
 In both cases, the cluster does not assign the replication to a third free broker. This could be due to misconfiguration, or a limitation of Kafka.
 
-// TODO: Update project description
 = Exercise 2: Software Project <exercise-2-software-project>
 
 == Event-carried state transfer <event-carried-state-transfer>
