@@ -325,16 +325,17 @@ In both cases, the cluster does not assign the replication to a third free broke
 == Event-carried state transfer <event-carried-state-transfer>
 === Project Description <project-description>
 
-The project implements a physical robotic checkout system inspired by a retail scenario. Two robotic arms interact via a conveyor belt: the first robot acts as the Customer, selecting colored cubes that represent products with identified prices, and placing them on the belt. The second robot acts as the Cashier, scanning each cube by color, identifying the corresponding product and price, placing it in the basket, and displaying the total to the customer.
+The project is called #strong[KAFKEA], a blend of #emph[Kafka] and #emph[IKEA]. It implements an event-driven manufacturing scenario for custom furniture orders. A customer places an order through a web form selecting a furniture item and colour. The Order service orchestrates the end-to-end process: it reserves the required inventory, commands the Factory service to manufacture the item using a Dobot Magician robot arm, and waits for the outcome. A Dashboard service provides real-time visibility into the order lifecycle for all running flows.
 
-=== Applied EDA Pattern: Event notification and Event-Carried State Transfer <applied-eda-pattern-event-notification-and-event-carried-state-transfer>
-The core idea of Event-Carried State Transfer is that events carry enough data for consumers to act locally, without ever calling back to the source of service. The system is decomposed into four microservices:
+=== Applied EDA Pattern: Event Notification and Event-Carried State Transfer <applied-eda-pattern-event-notification-and-event-carried-state-transfer>
 
-- #strong[Product Catalog Service:] owns the (color-product-price) mapping and publishes a ProductUpdated event to Kafka whenever a mapping or price changes.
+The core idea of Event-Carried State Transfer is that events carry enough data for consumers to act locally, without ever calling back to the source of service. The system applies this pattern across its core services:
 
-- #strong[Customer Service:] publishes a ProductSelected event each time the customer robot picks a cube, and a CheckoutRequested event when it is done selecting.
+- #strong[Order Service:] publishes the `order.manufacture.v1` command carrying all data the Factory needs to start manufacturing. It subscribes to `order.complete.v1` and `error.v1` to continue or compensate the workflow without polling Factory.
 
-- #strong[Cashier Service:] subscribes to all three events: it maintains a local copy of the product catalogue (from ProductUpdated), accumulates the running basket (from ProductSelected), and on CheckoutRequested calculates and displays the total. The cashier does it all without any synchronous call to another service.
+- #strong[Factory Service:] subscribes to `order.manufacture.v1` and executes manufacturing. It publishes `order.complete.v1` carrying the completion state, and emits `info.v1` and `error.v1` events throughout the process.
+
+- #strong[Dashboard Service:] subscribes to `info.v1` and `error.v1` and maintains a local view of all running flows and inventory state — entirely from the events it receives, without querying Order or Factory directly.
 
 The table below shows each event and the state it carries:
 
@@ -344,30 +345,29 @@ The table below shows each event and the state it carries:
     align: (auto, auto, auto, auto),
     table.header([Event], [Producer → Consumer], [State Transferred], [How It Is Used]),
     table.hline(),
-    [ProductUpdated],
-    [Product Catalog → Cashier],
-    [{\"color\":
-      \"YELLOW\", \
-      \"product\": \"Banana\", \
-      \"price\": 0.80}],
-    [Cashier stores a local copy of the full catalog. On scan, price is looked up locally and no synchronous call is needed.],
-    [ProductSelected],
-    [Customer → Cashier],
-    [{\"color\": \"GREEN\", \
-      \"quantity\": 1}],
-    [Cashier resolves product + price from its local catalogue and adds the item to the running basket in memory.],
-    [CheckoutRequested],
-    [Customer → Cashier],
-    [None - Event Notification],
-    [Signal for the customer are done. The cashier calculates the total from its local basket and displays it.],
+    [order.manufacture.v1],
+    [Order → Factory],
+    [orderId, item, colour],
+    [Factory starts manufacturing without querying Order for details.],
+    [order.complete.v1],
+    [Factory → Order, Dashboard],
+    [orderId, result],
+    [Order continues the workflow; Dashboard marks the order as complete.],
+    [info.v1],
+    [Order, Factory → Dashboard],
+    [orderId, status message],
+    [Dashboard displays real-time progress without polling any service.],
+    [error.v1],
+    [Order, Factory → Order, Dashboard],
+    [orderId, error details],
+    [Order triggers compensation; Dashboard displays the failure.],
   )],
   kind: table,
 )
 
-=== Why Not Synchronous Request/Response?
-Without Event-Carried State Transfer, the Cashier would query the Product Catalog on every cube scan. This creates temporal coupling: if the catalog service is slow or unavailable, the conveyor belt stalls. By maintaining a local catalogue copy, the Cashier operates fully independently and resolves products, accumulates the basket, and calculates the total all from local state. The trade-off is eventual consistency: a price change propagates asynchronously, which is acceptable since product prices in this system change infrequently.
+=== Why Not Synchronous Request/Response? <why-not-synchronous>
 
-// TODO: insert figure showing idea
+Without Event-Carried State Transfer, the Dashboard would need to continuously poll Order and Factory for status updates, and Order would need to poll Factory to detect when manufacturing is complete. This creates temporal coupling: if Factory is slow or unavailable, the Order process stalls and the Dashboard goes stale. By publishing events that carry state, each service acts independently on the information it receives. The trade-off is eventual consistency: the Dashboard may briefly lag behind the actual process state, which is acceptable for a status display.
 
 #pagebreak()
 
