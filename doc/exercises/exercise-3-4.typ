@@ -136,43 +136,38 @@ The architecture is grounded in the following accepted ADRs:
 
 = Process Orchestration
 
-The process begins when a customer places an order for furniture using an order form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
+The process begins when a customer fills out the order form (@order-form). This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
 
 #figure(
   image("../images/order_form.png"),
   caption: [Order form presented to customer]
-)
+) <order-form>
+
+== Order Service
+The order service orchestrates the end-to-end business process by coordinating the
+workflow.
 
 #figure(
   image("../images/order.png"),
   caption: [Order process]
 )
 
-The order process is orchestrated by the order service, which coordinates the workflow by first reserving the required components in the inventory via an HTTP call.
-The inventory is implemented as a separate REST service that exposes its API for reservation, restocking and retrieval operations. If the reservation succeeded, the order service sends a command to the factory to initiate the manufacturing process.
+It first reserves the required components in inventory via an HTTP call, then sends the manufacturing command, waits for correlated outcome events, enforces timeout handling, and triggers compensation when needed.
+
+== Inventory Service
+
+The inventory ows stock state ad the reservation lifecycle. It is implemented as a separate REST service that exposes its API for reservation, restocking and retrieval operations. If the reservation succeeded, the order service sends a command to the factory to initiate the manufacturing process.
+
+== Factory Service
+The factory process manufactures the requested item and emits events to inform other services about the progress and completion of the order.
 
 #figure(
   image("../images/factory.png"),
   caption: [Factory process]
 )
 
-The factory process manufactures the requested item and emits events to inform other services about the progress and completion of the order.
-
+== Dashboard Service
 The dashboard service is responsible for presenting relevant information to the user. It receives updates from both the order service and the factory process and displays the current status of the order to the customer.
-
-= Services
-
-== Order
-Orchestrates the end-to-end business process. It reserves inventory, sends the manufacturing command, waits for correlated outcome events, enforces timeout handling, and triggers compensation when needed.
-
-== Factory
-Executes manufacturing after receiving the order command. It fetches reserved components, controls the assembly workflow, and emits completion or error events.
-
-== Inventory
-Owns stock state and reservation lifecycle. It provides REST endpoints to reserve components, fetch reserved positions, and restore stock during compensation paths.
-
-== Dashboard
-Visualizes the current state of the application: inventory stock and running flows. It consumes Kafka status events from both the order and factory services and serves the live frontend using choreography.
 
 == Dobot Control
 Communicates with the Dobot using the serial port and provides a REST API to send commands to the physical robot arm.
@@ -180,6 +175,8 @@ Communicates with the Dobot using the serial port and provides a REST API to sen
 == Color Sensor
 Runs on a RaspberryPi Pico and controls and reads out color using a TDSxxx color sensor. A #emph[color-sensor-fake] variant is available as a development/test double.
 
+
+#pagebreak()
 = Contributions
 
 #table(
