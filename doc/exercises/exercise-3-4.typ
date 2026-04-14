@@ -136,7 +136,7 @@ The architecture is grounded in the following accepted ADRs:
 
 = Process Orchestration
 
-The process begins when a customer fills out the order form (@order-form). This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
+The process begins when a customer fills out the order form seen in @order-form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
 
 #figure(
   image("../images/order_form.png"),
@@ -146,13 +146,13 @@ The process begins when a customer fills out the order form (@order-form). This 
 == Order Service
 The order service orchestrates the end-to-end business process by coordinating the
 workflow.
+As seen in @order-process, the order service first reserves the required components in inventory via an HTTP call, then sends the manufacturing command, waits for correlated outcome events, enforces timeout handling, and triggers compensation when needed.
 
 #figure(
   image("../images/order.png"),
   caption: [Order process]
-)
+) <order-process>
 
-It first reserves the required components in inventory via an HTTP call, then sends the manufacturing command, waits for correlated outcome events, enforces timeout handling, and triggers compensation when needed.
 
 == Inventory Service
 
