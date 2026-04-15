@@ -62,11 +62,11 @@
     </bpmn:intermediateCatchEvent>
     <bpmn:sequenceFlow id="Flow_1x2m4k9" sourceRef="Event_0v1comp" targetRef="Event_0doneok" />
     <bpmn:sequenceFlow id="Flow_0q7x5l1" sourceRef="Gateway_1yfhskd" targetRef="Event_0tm3min" />
-    <bpmn:intermediateCatchEvent id="Event_0tm3min" name="Wait 3 minutes">
+    <bpmn:intermediateCatchEvent id="Event_0tm3min" name="Wait 30 minutes">
       <bpmn:incoming>Flow_0q7x5l1</bpmn:incoming>
       <bpmn:outgoing>Flow_0h3u7p5</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_0f3m9n1">
-        <bpmn:timeDuration>PT3M</bpmn:timeDuration>
+        <bpmn:timeDuration>PT30M</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
     <bpmn:sequenceFlow id="Flow_0h3u7p5" sourceRef="Event_0tm3min" targetRef="Activity_0rv8yvb" />
@@ -213,7 +213,7 @@
       <bpmndi:BPMNShape id="Event_0tm3min_di" bpmnElement="Event_0tm3min">
         <dc:Bounds x="912" y="192" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="895" y="235" width="72" height="14" />
+          <dc:Bounds x="892" y="235" width="79" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1r1p8to_di" bpmnElement="Event_0to3min">
