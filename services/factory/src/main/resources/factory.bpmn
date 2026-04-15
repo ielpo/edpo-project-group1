@@ -96,10 +96,6 @@
       <bpmn:text>Inventory microservice</bpmn:text>
     </bpmn:textAnnotation>
     <bpmn:association id="Association_0k6fj7q" associationDirection="None" sourceRef="Activity_0m93oww" targetRef="TextAnnotation_132pg9h" />
-    <bpmn:textAnnotation id="TextAnnotation_1casdyi">
-      <bpmn:text>Stateful retry: up to 3 attempts every 10s</bpmn:text>
-    </bpmn:textAnnotation>
-    <bpmn:association id="Association_0bxqrre" associationDirection="None" sourceRef="TextAnnotation_1casdyi" targetRef="Activity_0m93oww" />
   </bpmn:process>
   <bpmn:error id="Error_inventoryFetchFailed" name="INVENTORY_FETCH_FAILED" errorCode="INVENTORY_FETCH_FAILED" camunda:errorMessage="INVENTORY_FETCH_FAILED" />
   <bpmn:message id="Message_2b276f8" name="orderMessage" />
@@ -166,10 +162,6 @@
           <dc:Bounds x="635" y="415" width="70" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Association_0bxqrre_di" bpmnElement="Association_0bxqrre">
-        <di:waypoint x="266" y="420" />
-        <di:waypoint x="325" y="317" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="TextAnnotation_0hqpttt_di" bpmnElement="TextAnnotation_0hqpttt">
         <dc:Bounds x="680" y="150" width="100" height="40" />
         <bpmndi:BPMNLabel />
@@ -260,10 +252,6 @@
         <di:waypoint x="320" y="310" />
         <di:waypoint x="236" y="362" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNShape id="TextAnnotation_1casdyi_di" bpmnElement="TextAnnotation_1casdyi">
-        <dc:Bounds x="180" y="420" width="145" height="45" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>
