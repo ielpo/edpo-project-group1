@@ -49,6 +49,31 @@ The overall flow follows the traditional #emph[Epic Saga] idea with one clear or
 
 If a later step fails, we do not leave already performed actions as-is. Instead, we trigger compensating actions (most importantly inventory restore) to reverse earlier writes inside the distributed transaction scope. However, true transaction isolation across services is not guaranteed as intermediate state changes may be visible to other parts of the system before a rollback occurs, and compensating actions themselves could potentially fail.
 
+= Lessons Learned
+
+- Human intervention is essential for systems like ours where real-world state cannot always be reconstructed from software state alone.
+
+= Reflections
+
+What worked well:
+
+- Separating orchestration logic (Order) from execution logic (Factory) kept responsibilities understandable.
+- Combining automation with manual checkpoints made recovery more realistic for physical processes.
+- The services were implemented individually and tested in isolation, which made development more manageable and allowed us to validate each part before integration.
+- The integration was straightforward due to the clear contract of Kafka topics and REST APIs.
+- Hexagonal Architecture worked very well for keeping boundaries and dependencies explicit.
+
+What was challenging:
+
+- The initial Camunda setup was a bit tricky to get right due to all the different required dependencies and configurations.
+- Most of the project has fairly little business logic while Hexagonal Architecture required many interfaces and adapters, which felt like substantial boilerplate.
+
+What we would improve next:
+
+- Replace fixed retry policies with context-aware retry/backoff per failure type.
+- Add more details to the Kafka events (e.g. failure reasons, retry counts) to support better observability and debugging. This would have also made the dashboard simpler to implement.
+- Add some sort of testing.
+
 #pagebreak()
 
 = Contributions
