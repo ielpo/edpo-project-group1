@@ -34,15 +34,16 @@ The robot is controlled via serial using the `pydobotplus` Python library. The e
 
 Additionally, the service allows to execute individual commands including relative coordinate movements, which are required in order to fetch items in the inventory grid and to place the blocks in the assembly area with precision.
 
-
-
 == Color Sensor Service
 The existing color sensor of the Dobot system is very limited and only returns a boolean for each color, rendering the detection of all four colors infeasible.
 To mitigate these issues, a new color sensor was implemented on a raspberry pi pico using a TCS34725. The WiFi interface on the Pico allows the color sensor to offer a REST interface.
 
 To ease debugging and automated testing, a fake color sensor service is implemented in Rust.
 
-
+#figure(
+  image("../images/color-sensor.png", width: 20%),
+  caption: [Color Sensor]
+)
 
 
 == Distance Sensor
