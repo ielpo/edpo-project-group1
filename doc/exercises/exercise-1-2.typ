@@ -283,7 +283,7 @@ The four scenarios demonstrate a clear progression of risk. When processing keep
 === Fault Tolerance on Loss of Brokers <fault-tolerance-on-loss-of-brokers>
 
 ==== Setup <setup-1>
-The Kafka cluster is composed of 3 brokers and 1 controller. A topic is created with one partition and a replication factor of one. The experiment aims at exploring the behaviour of the cluster under different failure scenarios.
+The Kafka cluster is composed of 3 brokers and 1 controller. A topic is created with one partition and a replication factor of two. The experiment aims at exploring the behaviour of the cluster under different failure scenarios.
 
 `
 acks=all
@@ -308,17 +308,17 @@ The follower of the topic is killed.
 
 After the follower is lost, the cluster does not change configuration. The existing leader remains leader and continues to receive and forward messages without interruption. No data loss on acknowledged send.
 
-==== Case <case-3>
+==== Case 3 <case-3>
 Both leader and follower are killed. Simulating a contemporary failure of two brokers.
 
-The cluster does not assign the third unused broker to the topic, effectively rendering the topic unavailable. The producer fails after the configured timeout. Data loss can occur.
+After both assigned replicas are lost, the partition has no remaining in-sync replica, so Kafka cannot elect a new leader and the topic becomes unavailable. The third broker is not automatically added as a replacement replica, because replica placement is fixed unless explicitly reassigned by an admin operation. This is also due to data safety, as adding a new blank replica when no other replicas are available entails possibly breaking message ordering guarantees.
 
 ==== Results <results>
-The failure of a single broker in a two-way redundant setup does not impact data integrity but can lead to short unavailability during the reconfiguration.
+The failure of a single broker in a two-way redundant setup does not impact data integrity but can lead to short unavailability during the election of the new leader.
 
 The failure of both brokers in a two-way redundant setup makes the topic unavailable to send or poll.
 
-In both cases, the cluster does not assign the replication to a third free broker. This could be due to misconfiguration, or a limitation of Kafka.
+In both cases, the cluster does not assign the replication to a third free broker. This is by design and is a consequence of a trade-off between availability and consistency.
 
 = Exercise 2: Software Project <exercise-2-software-project>
 
