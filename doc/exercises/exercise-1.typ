@@ -343,7 +343,7 @@ The table below shows each event and the state it carries:
   align(center)[#table(
     columns: (auto, auto, auto, auto),
     align: (auto, auto, auto, auto),
-    table.header([Event], [Producer → Consumer], [State Transferred], [How It Is Used]),
+    table.header([Topic], [Producer → Consumer], [State Transferred], [How It Is Used]),
     table.hline(),
     [order.manufacture.v1],
     [Order → Factory],
@@ -364,6 +364,8 @@ The table below shows each event and the state it carries:
   )],
   kind: table,
 )
+
+The Inventory service is intentionally excluded here: it is called synchronously over HTTP by the Order service to reserve stock. Since no state is transferred via events, it falls outside the scope of this pattern.
 
 === Why Not Synchronous Request/Response? <why-not-synchronous>
 
