@@ -21,6 +21,34 @@ size: 12pt
   Michael Schütz, Gianluca Ielpo, Eva Amromin
 ]
 
+= Project Overview
+// Block diagram of all components
+
+#figure(
+  image("../images/block-diagram.png", width: 80%),
+  caption: [Block Diagram]
+)
+
+== Dobot Control Service
+The robot is controlled via serial using the `pydobotplus` Python library. The existing control service was very limited and did not fulfill the requirements for this project, therefore it was refactored and improved. The new implementation supports a simulation mode, in which the communication with the robot is faked and always succeeds.
+
+Additionally, the service allows to execute individual commands including relative coordinate movements, which are required in order to fetch items in the inventory grid and to place the blocks in the assembly area with precision.
+
+
+
+== Color Sensor Service
+The existing color sensor of the Dobot system is very limited and only returns a boolean for each color, rendering the detection of all four colors infeasible.
+To mitigate these issues, a new color sensor was implemented on a raspberry pi pico using a TCS34725. The WiFi interface on the Pico allows the color sensor to offer a REST interface.
+
+To ease debugging and automated testing, a fake color sensor service is implemented in Rust.
+
+
+
+
+== Distance Sensor
+The distance sensor is part of the Tinkerforge setup, and publishes messages over MQTT after each measurement. The distance is used to detect if a block was picked up, and avoid issues where the block is lost during transfer or the inventory service had a wrong internal state compared to the physical inventory.
+
+
 = Stateful resilience patterns
 The following resilience patterns are used throughout in the Kafkea Project.
 
