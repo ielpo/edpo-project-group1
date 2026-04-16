@@ -62,11 +62,11 @@
     </bpmn:intermediateCatchEvent>
     <bpmn:sequenceFlow id="Flow_1x2m4k9" sourceRef="Event_0v1comp" targetRef="Event_0doneok" />
     <bpmn:sequenceFlow id="Flow_0q7x5l1" sourceRef="Gateway_1yfhskd" targetRef="Event_0tm3min" />
-    <bpmn:intermediateCatchEvent id="Event_0tm3min" name="Wait 30 minutes">
+    <bpmn:intermediateCatchEvent id="Event_0tm3min" name="Wait 10 minutes">
       <bpmn:incoming>Flow_0q7x5l1</bpmn:incoming>
       <bpmn:outgoing>Flow_0h3u7p5</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_0f3m9n1">
-        <bpmn:timeDuration>PT30M</bpmn:timeDuration>
+        <bpmn:timeDuration>PT10M</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
     <bpmn:sequenceFlow id="Flow_0h3u7p5" sourceRef="Event_0tm3min" targetRef="Activity_0rv8yvb" />
