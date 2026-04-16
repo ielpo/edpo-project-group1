@@ -44,6 +44,26 @@ At an architecture level, the project demonstrates a hybrid model:
 The implementation is intentionally close to real distributed-system constraints: remote calls can fail, processes can be long-running, and consistency across services is eventual rather than immediate.
 The project therefore focuses not only on the happy path, but also on resilience patterns and recovery.
 
+= Architecture Characteristics
+
+The following architecture characteristics were identified as the most relevant driving qualities for KAFKEA.
+They reflect the system's core constraints as a distributed, event-driven manufacturing platform where correctness, resilience, and availability are non-negotiable.
+
+#table(
+  columns: (22%, 78%),
+  table.header([*Characteristic*], [*Relevance to KAFKEA*]),
+  [*Fault Tolerance*],
+  [The system must continue operating when individual components fail. KAFKEA handles this through BPMN error paths, timeout boundaries, retries, and compensation flows, for example restocking inventory when manufacturing fails.],
+  [*Data Consistency*],
+  [State is distributed across Order, Inventory, and Factory services with no shared database. Consistency is eventual and maintained through correlated Kafka events and persisted workflow state rather than synchronous transactions.],
+  [*Interoperability*],
+  [KAFKEA integrates heterogeneous technologies: HTTP REST between services, Kafka for async messaging, a BPMN engine for process control, a serial port connection to the Dobot robot arm, and a color sensor running on a Raspberry Pi Pico. Each boundary requires a deliberate integration contract.],
+  [*Reliability*],
+  [Manufacturing commands and status events must not be lost. KAFKEA relies on Kafka's durability guarantees and BPMN engine persistence to ensure that every order reaches a defined outcome, even across restarts.],
+  [*Availability*],
+  [The system must remain accessible to customers during operation. The current single-node Kafka setup is a deliberate tradeoff for development simplicity; production-grade availability would require a multi-broker cluster with higher replication factors.],
+)
+
 = Context Map
 
 #figure(
