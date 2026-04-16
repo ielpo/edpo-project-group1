@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Dashboard" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="DEBUG_MODE" value="true" />
+    <module name="dashboard" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="ch.unisg.scs.edpo.dashboard.DashboardApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

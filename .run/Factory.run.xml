@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Factory" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="DEBUG_MODE" value="true" />
+    <module name="factory" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="ch.unisg.scs.edpo.factory.FactoryApplication" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="ch.unisg.scs.edpo.factory.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

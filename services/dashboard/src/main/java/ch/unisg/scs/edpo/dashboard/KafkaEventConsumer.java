@@ -17,7 +17,7 @@ public class KafkaEventConsumer {
         this.objectMapper = objectMapper;
     }
 
-    @KafkaListener(topics = {"info.v1", "error.v1"}, groupId = "dashboard")
+    @KafkaListener(topics = {"info.v1", "error.v1", "order.complete.v1"}, groupId = "dashboard")
     public void consume(ConsumerRecord<String, String> record) {
         try {
             ObjectNode payload = (ObjectNode) objectMapper.readTree(record.value());

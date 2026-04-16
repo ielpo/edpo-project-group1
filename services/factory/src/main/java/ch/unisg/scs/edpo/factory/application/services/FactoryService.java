@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.operaton.bpm.engine.delegate.BpmnError;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,7 +27,7 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
     );
     private static final List<AssemblyPositionDto> TABLE_ASSEMBLY = List.of(
             new AssemblyPositionDto(0, 0, 0),
-            new AssemblyPositionDto(0, 1, 0)
+            new AssemblyPositionDto(1, 0, 0)
     );
     private static final List<AssemblyPositionDto> SHELF_ASSEMBLY = List.of(
             new AssemblyPositionDto(0, 0, 0),
@@ -46,7 +47,6 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
 
     @Override
     public FetchInventoryDto request(@NonNull OrderDto order) {
-        // TODO: handle error cases
         return fetchInventory.getInventoryPositions(order.orderId());
     }
 
@@ -71,10 +71,11 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             log.info("Verifying block pickup with distance sensor, wait for MQTT message");
             var distanceResponse = mqttService.waitForMessage(Duration.ofSeconds(30));
             var distance = objectMapper.readTree(distanceResponse).get("distance").asFloat();
+            log.info("Got distance {}", distance);
             if (distance > 25.0) {
-                moveBlock.toDiscard();
                 log.error("No block detected, verify robot vacuum and inventory");
-                throw new RuntimeException("No block picked up, aborting process");
+                moveBlock.toDiscard();
+                throw new BpmnError("No block picked up, aborting process");
             }
 
             log.info("Verifying block color");
@@ -83,10 +84,11 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             if (actualColour != block.color()) {
                 moveBlock.toDiscard();
                 log.error("Unexpected color: {} instead of {}", actualColour, block.color());
-                throw new RuntimeException("Unexpected color, aborting process");
+                throw new BpmnError("Unexpected color, aborting process");
             }
             log.info("Moving block to assembly position");
             moveBlock.toAssembly(assembly.removeFirst());
         }
+        log.info("Assembly complete");
     }
 }
