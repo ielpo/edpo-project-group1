@@ -32,8 +32,8 @@ Instead, we use Operaton's built-in job retry mechanism to handle transient fail
 We applied this in three places:
 
 - Reserving inventory when an order comes in
-- Restoring inventory during compensation if something goes wrong
-- Fetching components from inventory in the factory process
+- Restoring inventory during compensation after a timeout
+- Restoring inventory during compensation after a manufacturing error
 
 All three run async with #emph[R3/PT10S], so the engine retries up to three times, ten seconds apart. The retry state is persisted by the workflow engine, meaning it survives restarts. The caller never has to deal with a "try again later" for what's just a temporary issue.
 
