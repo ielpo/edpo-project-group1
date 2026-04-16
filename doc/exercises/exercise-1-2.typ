@@ -41,8 +41,6 @@ Six experiments were conducted using three batch sizes (16 KB, 64 KB, 128 KB) us
 configuration, 100'000 messages were produced and measured for throughput and latency. \
 Results are presented as averages and reflect a small sample size of three runs per configuration.
 
-The outputs of the experiments are in the project folder under #emph[\/logs/]
-
 ==== Results: linger.ms = 5 ms (Default) <results-linger.ms-5-ms-default>
 
 #strong[Producer Throughput (Average of three runs)]
@@ -80,6 +78,7 @@ Larger batch sizes reduced both the median and the mean latency. Although larger
 
 This observation matches the description of linger time in the documentation (#link("https://kafka.apache.org/41/configuration/producer-configs/#:~:text=This%20linger.ms%20setting%20defaults,linger%20time%20than%20this%20setting.")[kafka.apache.org];).
 
+#pagebreak()
 ==== Results: linger.ms = 100 ms <results-linger.ms-100-ms>
 
 #strong[Producer Throughput (Average of three runs)]
@@ -130,6 +129,7 @@ An additional experiment introduced a small artificial delay of 0-2 ms between p
 
 Due to the increased running time, this experiment was only conducted once.
 
+#pagebreak()
 ==== Results: linger.ms = 5 ms (0--2 ms artificial delay) <results-linger.ms-5-ms-02-ms-artificial-delay>
 
 #strong[Producer Throughput]
@@ -257,7 +257,6 @@ The committed offsets remained frozen at the pre-rebalance values while the log-
 ==== Scenario D --- Retention-Based Record Loss <scenario-d-retention-based-record-loss>
 
 To demonstrate that unbounded lag eventually causes permanent data loss, the gaze-events topic was configured with a short retention policy before the run:
-
 `
 retention.ms = 15,000 ms (15 seconds)
 segment.ms = 10,000 ms (10 seconds)
@@ -266,7 +265,6 @@ segment.ms = 10,000 ms (10 seconds)
 The segment.ms setting was required because Kafka deletes data at the segment level, not record by record. A segment must be closed before it becomes eligible for deletion. With the default segment size of 1 GB, retention would never trigger under normal load, so segment.ms = 10,000 was added to force segment rolls every 10 seconds. SlowConsumer was run with PROCESSING\_DELAY\_MS = 200, identical to Scenario B. LagMonitor was extended to also track logStartOffset---the earliest offset still available on the broker.
 
 After approximately 630 seconds, LagMonitor reported:
-
 `
 [00:19:34] partition=0 | logStart= 37399 | committed= 7645 | logEnd= 38684 | lag= 3103 *** DATA LOSS: 29754 records deleted before consumer reached them ***
 [00:19:34] partition=1 | logStart= 37279 | committed= 5103 | logEnd= 38560 | lag= 33457 *** DATA LOSS: 32176 records deleted before consumer reached them ***
@@ -325,7 +323,8 @@ In both cases, the cluster does not assign the replication to a third free broke
 == Event-carried state transfer <event-carried-state-transfer>
 === Project Description <project-description>
 
-The project is called #strong[KAFKEA], a blend of #emph[Kafka] and #emph[IKEA]. It implements an event-driven manufacturing scenario for custom furniture orders. A customer places an order through a web form selecting a furniture item and colour. The Order service orchestrates the end-to-end process: it reserves the required inventory, commands the Factory service to manufacture the item using a Dobot Magician robot arm, and waits for the outcome. A Dashboard service provides real-time visibility into the order lifecycle for all running flows.
+The project is called #strong[KAFKEA], a blend of #emph[Kafka] and #emph[IKEA] (the version used here is simplified compared to the later exercises, see exercise 3). It implements an event-driven manufacturing scenario for custom furniture orders. \
+A customer places an order through a web form selecting a furniture item and colour. The Order service orchestrates the end-to-end process: it reserves the required inventory, commands the Factory service to manufacture the item using a Dobot Magician robot arm, and waits for the outcome. A Dashboard service provides real-time visibility into the order lifecycle for all running flows.
 
 === Applied EDA Pattern: Event Notification and Event-Carried State Transfer <applied-eda-pattern-event-notification-and-event-carried-state-transfer>
 
@@ -335,8 +334,9 @@ The core idea of Event-Carried State Transfer is that events carry enough data f
 
 - #strong[Factory Service:] subscribes to `order.manufacture.v1` and executes manufacturing. It publishes `order.complete.v1` carrying the completion state, and emits `info.v1` and `error.v1` events throughout the process.
 
-- #strong[Dashboard Service:] subscribes to `info.v1` and `error.v1` and maintains a local view of all running flows and inventory state — entirely from the events it receives, without querying Order or Factory directly.
+- #strong[Dashboard Service:] subscribes to `info.v1` and `error.v1` and maintains a local view of all running flows and inventory state, entirely from the events it receives, without querying Order or Factory directly.
 
+#pagebreak()
 The table below shows each event and the state it carries:
 
 #figure(
