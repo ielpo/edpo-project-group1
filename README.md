@@ -9,9 +9,9 @@ Communication with the Inventory Service uses HTTP/REST APIs, while communicatio
 
 # Development
 For development a separate Docker compose configuration is available, this enables the simulation mode for services with device drivers.
-The Spring Boot _local_ configuration shall be used.
+The Spring Boot _local_ configuration must be used.
 
-**TODO**
+Docker compose `docker-compose-development.yml`
 
 | Service             | URL            |
 |---------------------|----------------| 
@@ -25,158 +25,58 @@ The Spring Boot _local_ configuration shall be used.
 | Kafka Broker        | localhost:9092 |
 | MQTT                | localhost:1883 |
 
+## Running Application
+
+1. Open the project in IntelliJ IDEA. The run configurations in `.run/` are available and can be used directly:
+	- `Dashboard`
+	- `Order`
+	- `FactoryDevelopment` (uses the `local` Spring profile)
+
+2. Start the development dependencies and simulated device services:
+
+```bash
+docker compose -f docker-compose-development.yml up --build -d
+```
+
+3. Start the Spring services from IntelliJ using the run configurations above.
+
+4. To stop the development stack:
+
+```bash
+docker compose -f docker-compose-development.yml down
+```
+
 # Deployment
-**TODO**
+Docker compose `docker-compose.yml`
+
 | Service             | URL               |
-|---------------------|-------------------| 
-| Order               | localhost:8100    |
-| Factory             | localhost:8101    |
-| Inventory           | localhost:8102    |
-| Dobot Control Right | localhost:8103    |
-| Dobot Control Left  | localhost:8104    |
+|---------------------|-------------------|
+| Dashboard           | localhost:8100    | 
+| Order               | localhost:8101    |
+| Factory             | localhost:8102    |
+| Inventory           | localhost:8103    |
+| Dobot Control Right | localhost:8200    |
+| Dobot Control Left  | localhost:8201    |
 | Color Sensor        | 192.168.0.120:80  |
 | Kafka Broker        | localhost:9092    |
 | MQTT                | 192.168.0.21:1883 |
 
+# Services
 
-# Sequence Diagram
+## Color Sensor Service
+[services/color-sensor/README.md](services/color-sensor/README.md)
 
-## Successful Order Flow 
-```mermaid
-sequenceDiagram
-    actor Customer
-        participant order as Order Service
-    participant factory as Factory Service
-    participant inventory as Inventory Service
+## Color Sensor Fake Service
+[services/color-sensor-fake/README.md](services/color-sensor-fake/README.md)
 
-    Customer ->> order: Select furniture and submit form
-    activate order
-    order ->> inventory: Check and reserve components
-    order --) factory: Manufacture order
-    activate factory
-    factory  ->> inventory: Request components for order
-    factory  --) order: Order completed
-    deactivate factory
-    deactivate order
-```
+## Dashboard Service
+[services/dashboard/README.md](services/dashboard/README.md)
 
-## Failure During Manufacturing
+## Dobot Control Service
+[services/dobot-control/README.md](services/dobot-control/README.md)
 
-## Inventory not Sufficient
-```mermaid
-sequenceDiagram
-  actor Customer
-    participant order as Order Service
-  participant inventory as Inventory Service
-
-  Customer ->> order: Select furniture and submit form
-  activate order
-  order ->> inventory: Check and reserve components
-  inventory -->> order: 409 Conflict (not enough blocks)
-  deactivate order
-```
-
-# Inventory Management
-The inventory is represented by a grid, each cell can either contain a block of a certain color, or be empty.
-Additionally, occupied cells can be reserved for an order and not be available for further orders.
-
-Example of inventory grid state:
-```
-+---+---+---+---+
-| R |   |   |   |
-+---+---+---+---+
-| R |   |   | Y |
-+---+---+---+---+
-| R |   |   | Y |
-+---+---+---+---+
-| R | G |   | Y |
-+---+---+---+---+
-| R | G | B | Y |
-+---+---+---+---+
-```
-
-X coordinate represents row, top to bottom.
-Y coordinate represents column, left to right.
-
-Coordinates on grid (x,y):
-```
-+-----+-----+-----+-----+
-| 0,0 | 0,1 | 0,2 | 0,3 |
-+-----+-----+-----+-----+
-| 1,0 | 1,1 | 1,2 | 1,3 |
-+-----+-----+-----+-----+
-| 2,0 | 2,1 | 2,2 | 2,3 |
-+-----+-----+-----+-----+
-| 3,0 | 3,1 | 3,2 | 3,3 |
-+-----+-----+-----+-----+
-| 4,0 | 4,1 | 4,2 | 4,3 |
-+-----+-----+-----+-----+
-```
-
-## Inventory Service API
-Refer to [Inventory Service Readme](services/inventory/README.md)
-Base URL `http://localhost:8000`
-
-### Reserving Blocks from Inventory
-`POST /reserve`
-
-**Request body**  
-Content is _ReserveInventoryDto_  
-Example request body:
-```json
-{
-  "orderId": "UUID",
-  "count": 2,
-  "color": "RED"
-}
-```
-
-**Response: 200 OK**  
-The blocks for this orderId have been reserved, no body.
-
-**Response: 400 Bad Request**  
-The request is not valid.
-```json
-{
-  "message": "Unknown color: purple. Valid colors: ['RED', 'GREEN', 'BLUE', 'YELLOW']"
-}
-```
-
-**Response: 409 Conflict**  
-The inventory does not contain enough free blocks of the requested color.
-```json
-{
-  "detail": "Not enough yellow blocks. Requested: 3, available: 2"
-}
-```
-
-### Fetching Positions of Reserved Blocks
-`GET /reserve?orderId=UUID`
-
-**Response: 200 OK**  
-Returns the list of positions of the reserved blocks.
-Content is _FetchInventoryDto_
-
-```json
-{
-  "positions": [
-    {
-      "x": 1,
-      "y": 0,
-      "color": "RED"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "color": "RED"
-    }
-  ]
-}
-```
-
-**Response: 404 Not Found**  
-The requested orderId is not known (might not have been reserved).
-
+## Inventory Service
+[services/inventory/README.md](services/inventory/README.md)
 
 # Data Structures
 ## Enums
