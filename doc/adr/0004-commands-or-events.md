@@ -24,5 +24,5 @@ The orchestrator sends **commands** to trigger services and services respond wit
 
 - The orchestrator retains explicit control while the factory service remains a smart endpoint, it emits what happened without knowing what the order process does with it.
 - Additional consumers can subscribe to factory outcome events without requiring changes in the factory service.
-- The `Manufacture Order` command schema is a shared contract between order process (producer) and factory service (consumer). Field changes require coordinated evolution (for example explicit versioning and/or schema registry).
-- A correlation key (`orderId`) must be present in the `Manufacture Order` command and echoed in factory outcome events so the order process can correlate replies to the correct process instance.
+- The `Manufacture Order` command schema is a coupling between the order and factory services. Field changes require coordinated evolution (for example explicit versioning and/or schema registry).
+- The correlation ID must be present in the `Manufacture Order` command and echoed in factory outcome events so the order process can correlate replies to the correct process instance.
