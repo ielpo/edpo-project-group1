@@ -27,9 +27,11 @@ size: 12pt
 = Experiments with Kafka <exercise-1-experiments-with-kafka>
 
 The code for these experiments is available at
-#link("https://github.com/ielpo/edpo-project-group1/tree/main/assignment-1")[github.com/ielpo/edpo-project-group1]
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/exercise-1")[github.com/ielpo/edpo-project-group1/exercise-1]
 
 == Producer Experiments <producer-experiments>
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/exercise-1/producer-experiments")[github.com/ielpo/edpo-project-group1/exercise-1/producer-experiments]
 
 === Batch Size & Processing Latency (no artificial delay) <batch-size-processing-latency-no-artificial-delay>
 
@@ -78,7 +80,6 @@ Larger batch sizes reduced both the median and the mean latency. Although larger
 
 This observation matches the description of linger time in the documentation (#link("https://kafka.apache.org/41/configuration/producer-configs/#:~:text=This%20linger.ms%20setting%20defaults,linger%20time%20than%20this%20setting.")[kafka.apache.org];).
 
-#pagebreak()
 ==== Results: linger.ms = 100 ms <results-linger.ms-100-ms>
 
 #strong[Producer Throughput (Average of three runs)]
@@ -129,7 +130,6 @@ An additional experiment introduced a small artificial delay of 0-2 ms between p
 
 Due to the increased running time, this experiment was only conducted once.
 
-#pagebreak()
 ==== Results: linger.ms = 5 ms (0--2 ms artificial delay) <results-linger.ms-5-ms-02-ms-artificial-delay>
 
 #strong[Producer Throughput]
@@ -212,6 +212,8 @@ For the project, linger time and batch size appear to be two promising parameter
 
 == Consumer Experiments <consumer-experiments>
 
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/exercise-1/consumer-experiments")[github.com/ielpo/edpo-project-group1/exercise-1/consumer-experiments]
+
 === Consumer Lag & Data Loss Risks <consumer-lag-data-loss-risks>
 
 ==== Setup <setup>
@@ -278,6 +280,8 @@ The four scenarios demonstrate a clear progression of risk. When processing keep
 
 == Fault Tolerance and Reliability <fault-tolerance-and-reliability>
 
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/exercise-1/reliability-experiments")[github.com/ielpo/edpo-project-group1/exercise-1/reliability-experiments]
+
 === Fault Tolerance on Loss of Brokers <fault-tolerance-on-loss-of-brokers>
 
 ==== Setup <setup-1>
@@ -318,7 +322,11 @@ The failure of both brokers in a two-way redundant setup makes the topic unavail
 
 In both cases, the cluster does not assign the replication to a third free broker. This is by design and is a consequence of a trade-off between availability and consistency.
 
+#pagebreak()
+
 = Exercise 2: Software Project <exercise-2-software-project>
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main")[github.com/ielpo/edpo-project-group1]
 
 == Event-carried state transfer <event-carried-state-transfer>
 === Project Description <project-description>

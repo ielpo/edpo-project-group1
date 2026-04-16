@@ -1,0 +1,15 @@
+sequenceDiagram
+    actor Customer
+    participant order as Order Service
+    participant factory as Factory Service
+    participant inventory as Inventory Service
+
+    Customer ->> order: Select furniture and submit form
+    activate order
+    order ->> inventory: Check and reserve components
+    order --) factory: Manufacture order
+    activate factory
+    factory  ->> inventory: Request components for order
+    factory  --) order: Order completed
+    deactivate factory
+    deactivate order

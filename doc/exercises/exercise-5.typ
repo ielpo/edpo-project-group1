@@ -27,12 +27,26 @@ size: 12pt
   caption: [Block Diagram]
 )
 
+== Successful Order Fulfillment
+#figure(
+  image("../images/flow-success.png", width: 80%),
+  caption: [Sequence Diagram]
+)
+
 == Dobot Control Service
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/dobot-control")[github.com/ielpo/edpo-project-group1/services/dobot-control]
+
 The robot is controlled via serial using the `pydobotplus` Python library. The existing control service was very limited and did not fulfill the requirements for this project, therefore it was refactored and improved. The new implementation supports a simulation mode, in which the communication with the robot is faked and always succeeds.
 
 Additionally, the service allows to execute individual commands including relative coordinate movements, which are required in order to fetch items in the inventory grid and to place the blocks in the assembly area with precision.
 
 == Color Sensor Service
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/color-sensor")[github.com/ielpo/edpo-project-group1/services/color-sensor]
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/color-sensor-fake")[github.com/ielpo/edpo-project-group1/services/color-sensor-fake]
+
 The existing color sensor of the Dobot system is very limited and only returns a boolean for each color, rendering the detection of all four colors infeasible.
 To mitigate these issues, a new color sensor was implemented on a raspberry pi pico using a TCS34725. The WiFi interface on the Pico allows the color sensor to offer a REST interface.
 
@@ -45,11 +59,13 @@ To ease debugging and automated testing, a fake color sensor service is implemen
 
 
 == Distance Sensor
+
 The distance sensor is part of the Tinkerforge setup, and publishes messages over MQTT after each measurement. The distance is used to detect if a block was picked up, and avoid issues where the block is lost during transfer or the inventory service had a wrong internal state compared to the physical inventory.
 
 
 = Stateful resilience patterns
-The following resilience patterns are used throughout in the Kafkea Project.
+
+The following resilience patterns are used throughout the Kafkea Project.
 
 == Stateful retry
 
@@ -67,11 +83,13 @@ All three run async with #emph[R3/PT10S], so the engine retries up to three time
 When retries are genuinely exhausted, our workers check if it's the last attempt and raise a proper BPMN error (e.g. #emph[INVENTORY_SERVICE_UNAVAILABLE]), so the process can react through its error or compensation paths.
 
 == Human Intervention Pattern
+
 The human intervention pattern is used for recovery steps that are very hard to fully automate. In our order process, if manufacturing times out or fails, we don't just continue blindly with automation as the state of the physical inventory is unknown. Instead, the process waits in a user task (#emph[Restock inventory], assignee #emph[demo] (used for convenience)) so a person can return the physical inventory to its original state and confirm the action with a tiny Camunda form.
 
 Only after this manual step is completed we continue with the technical restore flow. This keeps process control explicit: automation handles technical issues, while operational recovery is delegated to a human when the situation is too complex to handle for the system.
 
 == Epic Saga Pattern
+
 The overall flow follows the traditional #emph[Epic Saga] idea with one clear orchestrator. In our case, the Order service coordinates the transaction-like business request and monitors whether all required steps complete.
 
 If a later step fails, we do not leave already performed actions as-is. Instead, we trigger compensating actions (most importantly inventory restore) to reverse earlier writes inside the distributed transaction scope. However, true transaction isolation across services is not guaranteed as intermediate state changes may be visible to other parts of the system before a rollback occurs, and compensating actions themselves could potentially fail.

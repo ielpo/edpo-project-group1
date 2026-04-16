@@ -19,3 +19,4 @@ for file in *.md; do
 done
 
 pandoc combined.md -V geometry:a4paper -o adrs.pdf
+rm combined.md

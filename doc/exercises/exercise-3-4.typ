@@ -26,6 +26,8 @@ size: 12pt
 
 = Overview
 
+#link("https://github.com/ielpo/edpo-project-group1/tree/main")[github.com/ielpo/edpo-project-group1]
+
 This project implements an event-driven manufacturing scenario for custom furniture orders.
 The project is called #strong[KAFKEA], a blend of #emph[Kafka] and #emph[IKEA].
 The core objective is to design and validate how distributed services can coordinate reliably when the business flow spans multiple technical boundaries.
@@ -117,6 +119,9 @@ The process begins when a customer fills out the order form seen in @order-form.
 ) <order-form>
 
 == Order Service
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/order")[github.com/ielpo/edpo-project-group1/services/order]
+
 The order service orchestrates the end-to-end business process by coordinating the
 workflow.
 As seen in @order-process, the order service first reserves the required components in inventory via an HTTP call, then sends the manufacturing command, waits for correlated outcome events, enforces timeout handling, and triggers compensation when needed.
@@ -129,9 +134,14 @@ As seen in @order-process, the order service first reserves the required compone
 
 == Inventory Service
 
-The inventory ows stock state ad the reservation lifecycle. It is implemented as a separate REST service that exposes its API for reservation, restocking and retrieval operations. If the reservation succeeded, the order service sends a command to the factory to initiate the manufacturing process.
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/inventory")[github.com/ielpo/edpo-project-group1/services/inventory]
+
+The inventory owns stock state and the reservation lifecycle. It is implemented as a separate REST service that exposes its API for reservation, restocking and retrieval operations. If the reservation succeeded, the order service sends a command to the factory to initiate the manufacturing process.
 
 == Factory Service
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/factory")[github.com/ielpo/edpo-project-group1/services/factory]
+
 The factory process manufactures the requested item and emits events to inform other services about the progress and completion of the order.
 
 #figure(
@@ -140,13 +150,24 @@ The factory process manufactures the requested item and emits events to inform o
 )
 
 == Dashboard Service
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/dashboard")[github.com/ielpo/edpo-project-group1/services/dashboard]
+
 The dashboard service is responsible for presenting relevant information to the user. It receives updates from both the order service and the factory process and displays the current status of the order to the customer.
 
 == Dobot Control
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/dobot-control")[github.com/ielpo/edpo-project-group1/services/dobot-control]
+
 Communicates with the Dobot using the serial port and provides a REST API to send commands to the physical robot arm.
 
 == Color Sensor
-Runs on a RaspberryPi Pico and controls and reads out color using a TDSxxx color sensor. A #emph[color-sensor-fake] variant is available as a development/test double.
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/color-sensor")[github.com/ielpo/edpo-project-group1/services/color-sensor]
+
+#link("https://github.com/ielpo/edpo-project-group1/tree/main/services/color-sensor-fake")[github.com/ielpo/edpo-project-group1/services/color-sensor-fake]
+
+Runs on a RaspberryPi Pico and controls and reads out color using an I2C color sensor. A #emph[color-sensor-fake] variant is available as a development/test double.
 
 
 #pagebreak()
