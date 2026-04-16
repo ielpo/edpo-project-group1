@@ -1,0 +1,87 @@
+#set document(
+  title: "Exercise 5: Sagas and Stateful Resilience Patterns",
+)
+
+#set page(
+paper: "a4",
+numbering: "1/1")
+
+#set text(
+font: "Nimbus Sans",
+size: 12pt
+)
+
+#show link: underline
+
+#title()
+
+#align(center)[
+  Deadline: 16.04.2026, 23:59 \
+  Group 1, Team Members: \
+  Michael Schütz, Gianluca Ielpo, Eva Amromin
+]
+
+= Stateful resilience patterns
+The following resilience patterns are used throughout in the Kafkea Project.
+
+== Stateful retry
+
+If a downstream service is briefly unavailable, we don't want to immediately push that error back to the user.
+Instead, we use Operaton's built-in job retry mechanism to handle transient failures automatically.
+
+We applied this in three places:
+
+- Reserving inventory when an order comes in
+- Restoring inventory during compensation if something goes wrong
+- Fetching components from inventory in the factory process
+
+All three run async with #emph[R3/PT10S], so the engine retries up to three times, ten seconds apart. The retry state is persisted by the workflow engine, meaning it survives restarts. The caller never has to deal with a "try again later" for what's just a temporary issue.
+
+When retries are genuinely exhausted, our workers check if it's the last attempt and raise a proper BPMN error (e.g. #emph[INVENTORY_SERVICE_UNAVAILABLE]), so the process can react through its error or compensation paths.
+
+== Human Intervention Pattern
+The human intervention pattern is used for recovery steps that are very hard to fully automate. In our order process, if manufacturing times out or fails, we don't just continue blindly with automation as the state of the physical inventory is unknown. Instead, the process waits in a user task (#emph[Restock inventory], assignee #emph[demo] (used for convenience)) so a person can return the physical inventory to its original state and confirm the action with a tiny Camunda form.
+
+Only after this manual step is completed we continue with the technical restore flow. This keeps process control explicit: automation handles technical issues, while operational recovery is delegated to a human when the situation is too complex to handle for the system.
+
+== Epic Saga Pattern
+The overall flow follows the traditional #emph[Epic Saga] idea with one clear orchestrator. In our case, the Order service coordinates the transaction-like business request and monitors whether all required steps complete.
+
+If a later step fails, we do not leave already performed actions as-is. Instead, we trigger compensating actions (most importantly inventory restore) to reverse earlier writes inside the distributed transaction scope. However, true transaction isolation across services is not guaranteed as intermediate state changes may be visible to other parts of the system before a rollback occurs, and compensating actions themselves could potentially fail.
+
+= Lessons Learned
+
+- Human intervention is essential for systems like ours where real-world state cannot always be reconstructed from software state alone.
+
+= Reflections
+
+What worked well:
+
+- Separating orchestration logic (Order) from execution logic (Factory) kept responsibilities understandable.
+- Combining automation with manual checkpoints made recovery more realistic for physical processes.
+- The services were implemented individually and tested in isolation, which made development more manageable and allowed us to validate each part before integration.
+- The integration was straightforward due to the clear contract of Kafka topics and REST APIs.
+- Hexagonal Architecture worked very well for keeping boundaries and dependencies explicit.
+
+What was challenging:
+
+- The initial Camunda setup was a bit tricky to get right due to all the different required dependencies and configurations.
+- Most of the project has fairly little business logic while Hexagonal Architecture required many interfaces and adapters, which felt like substantial boilerplate.
+
+What we would improve next:
+
+- Replace fixed retry policies with context-aware retry/backoff per failure type.
+- Add more details to the Kafka events (e.g. failure reasons, retry counts) to support better observability and debugging. This would have also made the dashboard simpler to implement.
+- Add some sort of testing.
+
+#pagebreak()
+
+= Contributions
+
+#table(
+  columns: (30%, 70%),
+  table.header([*Person*], [*Tasks*]),
+  [Michael], [Order service, Factory service support, ADRs, Documentation, Presentation],
+  [Eva], [Inventory service, Dashboard, Order service support, ADRs, Documentation, Presentation],
+  [Gianluca], [Factory and factory service, ADRs, Documentation, Presentation],
+)
