@@ -1,5 +1,5 @@
 #set document(
-title: "Exercise 3: Process Orchestration \n Exercise 4: Orchestration vs Choreography",
+title: "Exercise 3: Process Orchestration\nExercise 4: Orchestration vs Choreography",
 )
 
 #set page(
@@ -107,19 +107,6 @@ All consumers are configured with #emph[latest] because this system processes li
 - Advertised listener: `PLAINTEXT://localhost:9092`.
 - Default one partition per topic, replication factor 1 (including the internal offsets topic).
 
-== ADRs
-
-The architecture is grounded in the following accepted ADRs:
-
-- #link("../adr/0001-record-architecture-decisions.md")[ADR 0001]: Record architecture decisions using ADRs.
-- #link("../adr/0002-orchestration-vs-choreography.md")[ADR 0002]: Use orchestration for order/manufacturing and choreography for customer-facing updates.
-- #link("../adr/0003-operaton-as-bpmn-engine.md")[ADR 0003]: Use Operaton as BPMN engine.
-- #link("../adr/0004-commands-or-events.md")[ADR 0004]: Use commands to trigger services and events to report outcomes.
-- #link("../adr/0005-item-color-owned-by-inventory.md")[ADR 0005]: Inventory is the source of truth for item color.
-- #link("../adr/0006-dashboard-as-separate-service.md")[ADR 0006]: Dashboard is a separate service for event visualization.
-- #link("../adr/0007-structure-of-kafka-topics.md")[ADR 0007]: Structure of the Kafka topics.
-- #link("../adr/0008-deployment-of-kafka.md")[ADR 0008]: Kafka Deployment and Consumer Offset Policy.
-
 = Process Orchestration
 
 The process begins when a customer fills out the order form seen in @order-form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items.
@@ -163,6 +150,18 @@ Runs on a RaspberryPi Pico and controls and reads out color using a TDSxxx color
 
 
 #pagebreak()
+= ADRs
+The following ADRs are related to these exercises:
+
+- ADR 0001: Record architecture decisions using ADRs
+- ADR 0002: Use orchestration for order/manufacturing and choreography for customer-facing updates.
+- ADR 0003: Use Operaton as BPMN engine.
+- ADR 0004: Use commands to trigger services and events to report outcomes.
+- ADR 0005: Inventory is the source of truth for item color.
+- ADR 0006: Dashboard is a separate service for event visualization.
+- ADR 0007: Structure of the Kafka topics.
+- ADR 0008: Kafka Deployment and Consumer Offset Policy.
+
 = Contributions
 
 #table(
