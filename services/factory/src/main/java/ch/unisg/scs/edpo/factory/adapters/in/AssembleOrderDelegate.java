@@ -3,10 +3,10 @@ package ch.unisg.scs.edpo.factory.adapters.in;
 import ch.unisg.scs.edpo.factory.application.ports.in.AssembleOrderPort;
 import ch.unisg.scs.edpo.factory.domain.InventoryPositionDto;
 import ch.unisg.scs.edpo.factory.domain.OrderDto;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.operaton.bpm.engine.delegate.BpmnError;
 import org.operaton.bpm.engine.delegate.DelegateExecution;
 import org.operaton.bpm.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
@@ -20,6 +20,8 @@ public class AssembleOrderDelegate implements JavaDelegate {
     private final AssembleOrderPort assembleOrder;
     private final ObjectMapper objectMapper;
 
+    private final String ERROR_CODE = "ASSEMBLY_FAILED";
+
     @Override
     public void execute(DelegateExecution delegateExecution) {
         try {
@@ -28,9 +30,8 @@ public class AssembleOrderDelegate implements JavaDelegate {
                     objectMapper.getTypeFactory().constructCollectionType(List.class, InventoryPositionDto.class));
             var order = objectMapper.readValue(delegateExecution.getVariable("order").toString(), OrderDto.class);
             assembleOrder.assemble(inventory, order);
-        } catch (JsonProcessingException e) {
-            log.error("Could not deserialize variables: {}", e.getMessage());
-            throw new RuntimeException();
+        } catch (Exception e) {
+            throw new BpmnError(ERROR_CODE, e.getMessage());
         }
     }
 }

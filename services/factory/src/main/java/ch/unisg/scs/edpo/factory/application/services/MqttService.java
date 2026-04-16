@@ -7,12 +7,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.operaton.bpm.engine.delegate.BpmnError;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -75,12 +75,11 @@ public class MqttService {
         messageQueue.clear();
         try {
             var message = messageQueue.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            if (message == null) throw new RuntimeException("Timeout waiting for MQTT message");
+            if (message == null) throw new BpmnError("Timeout waiting for MQTT message");
             return message.toString();
         } catch (InterruptedException e) {
             log.error("Interrupted while waiting for MQTT message {}", e.getMessage());
-            throw new RuntimeException(e);
+            throw new BpmnError("Interrupted while waiting for MQTT message", e);
         }
     }
-
 }

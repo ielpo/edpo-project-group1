@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.operaton.bpm.engine.delegate.BpmnError;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -46,7 +47,6 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
 
     @Override
     public FetchInventoryDto request(@NonNull OrderDto order) {
-        // TODO: handle error cases
         return fetchInventory.getInventoryPositions(order.orderId());
     }
 
@@ -75,7 +75,7 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             if (distance > 25.0) {
                 log.error("No block detected, verify robot vacuum and inventory");
                 moveBlock.toDiscard();
-                throw new RuntimeException("No block picked up, aborting process");
+                throw new BpmnError("No block picked up, aborting process");
             }
 
             log.info("Verifying block color");
@@ -84,10 +84,11 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
             if (actualColour != block.color()) {
                 moveBlock.toDiscard();
                 log.error("Unexpected color: {} instead of {}", actualColour, block.color());
-                throw new RuntimeException("Unexpected color, aborting process");
+                throw new BpmnError("Unexpected color, aborting process");
             }
             log.info("Moving block to assembly position");
             moveBlock.toAssembly(assembly.removeFirst());
         }
+        log.info("Assembly complete");
     }
 }
