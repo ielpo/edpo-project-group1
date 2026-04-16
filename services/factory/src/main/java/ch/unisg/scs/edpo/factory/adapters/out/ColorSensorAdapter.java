@@ -12,33 +12,35 @@ import org.springframework.web.client.RestClient;
 public class ColorSensorAdapter implements ReadColorPort {
     private final RestClient restClient;
 
-    public ColorSensorAdapter(RestClient.Builder restClientBuilder, Environment environment){
+    public ColorSensorAdapter(RestClient.Builder restClientBuilder, Environment environment) {
         restClient = restClientBuilder
                 .baseUrl(environment.getRequiredProperty("edpo.sensor.color.url"))
                 .build();
     }
 
-    private record RgbColor(int r, int g, int b){}
-
-    public BlockColor get(){
+    public BlockColor get() {
         var colors = restClient.get()
                 .uri("/color")
                 .retrieve()
                 .body(RgbColor.class);
-        if(colors == null){
-            log.warn("No valid response from color sensor");
+        if (colors == null) {
+            log.error("No valid response from color sensor");
             return BlockColor.UNKNOWN;
         }
-        // TODO: verify the logic by reading real-world values
-        if(colors.r > colors.g && colors.r > colors.b){
+        log.debug("Got color: {}", colors);
+        if (colors.r > colors.g && colors.g > colors.b) {
+            return BlockColor.YELLOW;
+        } else if (colors.r > colors.g && colors.r > colors.b) {
             return BlockColor.RED;
-        } else if (colors.g > colors.r && colors.g > colors.b){
+        } else if (colors.g > colors.r && colors.g > colors.b) {
             return BlockColor.GREEN;
-        } else if (colors.b > colors.r && colors.b > colors.g){
+        } else if (colors.b > colors.r && colors.b > colors.g) {
             return BlockColor.BLUE;
         } else {
             return BlockColor.UNKNOWN;
         }
+    }
 
+    private record RgbColor(int r, int g, int b) {
     }
 }

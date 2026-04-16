@@ -57,7 +57,7 @@ edpo:
     # Assembly coordinates
     assembly:
       z-initial: 85
-      cube-size: 25
+      cube-size: 26
       x-count: 2
       z-count: 3
 

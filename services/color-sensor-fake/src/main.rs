@@ -7,14 +7,9 @@ async fn main() {
     let color_route = warp::path("color")
         .map(|| {
             let mut rng = rand::rng();
-            // let r: u8 = rng.random();
-            // let g: u8 = rng.random();
-            // let b: u8 = rng.random();
-
-            // During debugging only select red blocks
-            let r: u8 = 255;
-            let g: u8 = 0;
-            let b: u8 = 0;
+            let r: u8 = rng.random();
+            let g: u8 = rng.random();
+            let b: u8 = rng.random();
 
             warp::reply::json(&serde_json::json!({
                 "r": r,

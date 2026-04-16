@@ -7,8 +7,11 @@ import ch.unisg.scs.edpo.factory.config.RobotProperties;
 import ch.unisg.scs.edpo.factory.domain.AssemblyPositionDto;
 import ch.unisg.scs.edpo.factory.domain.InventoryPositionDto;
 import lombok.extern.slf4j.Slf4j;
+import org.operaton.bpm.engine.delegate.BpmnError;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 @Component
 @Slf4j
@@ -23,29 +26,30 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .build();
     }
 
-    private void toHoldingPosition(){
+    private void toHoldingPosition() {
         var response = restClient.post()
                 .uri("/run-flow?filename=" + config.flows().toHoldingPosition())
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move to holding position, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to holding position");
+            throw new BpmnError("Could not move to holding position");
         }
     }
 
     @Override
-    public void initialize(){
+    public void initialize() {
         var status = restClient.put()
                 .uri("/home")
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(status.value() != 200){
+        if (status.value() != 200) {
             log.error("Could not home robot, HTTP response {}", status.value());
-            throw new RuntimeException("Could not home robot");
+            throw new BpmnError("Could not home robot");
         }
+        wait(Duration.ofSeconds(20));
     }
 
     @Override
@@ -59,9 +63,9 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move to inventory, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to inventory");
+            throw new BpmnError("Could not move to inventory");
         }
         log.info("Moving to inventory");
 
@@ -71,9 +75,9 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move  to block position, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to block position");
+            throw new BpmnError("Could not move to block position");
         }
         log.info("Moving to selected block");
 
@@ -83,9 +87,9 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not activate suction cup, HTTP response {}", response.value());
-            throw new RuntimeException("Could not activate suction cup");
+            throw new BpmnError("Could not activate suction cup");
         }
 
         response = restClient.post()
@@ -94,24 +98,25 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move pickup position, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to pickup position");
+            throw new BpmnError("Could not move to pickup position");
         }
 
         response = restClient.post()
                 .uri("/move-relative")
-                .body(new RelativeMovementCommandDto(-4 * zPickup))
+                .body(new RelativeMovementCommandDto(40f))
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not pick up block, HTTP response {}", response.value());
-            throw new RuntimeException("Could not pick up block");
+            throw new BpmnError("Could not pick up block");
         }
         log.info("Picked up block, moving to holding position");
 
         toHoldingPosition();
+        wait(Duration.ofSeconds(2));
     }
 
     @Override
@@ -121,10 +126,11 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move to color sensor, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to color sensor");
+            throw new BpmnError("Could not move to color sensor");
         }
+        wait(Duration.ofSeconds(2));
     }
 
     @Override
@@ -134,15 +140,15 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move to distance sensor, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to distance sensor");
+            throw new BpmnError("Could not move to distance sensor");
         }
     }
 
     @Override
     public void toDiscard() {
-        log.info("To discard not implemented");
+        log.warn("To discard not implemented");
     }
 
     @Override
@@ -152,22 +158,52 @@ public class ControlRobotAdapter implements MoveBlockPort {
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not move to assembly position, HTTP response {}", response.value());
-            throw new RuntimeException("Could not move to assembly position");
+            throw new BpmnError("Could not move to assembly position");
         }
 
         final var xOffset = config.assembly().cubeSize() * position.x();
-        final var zOffset = config.assembly().zInitial() - config.assembly().cubeSize() * position.z();
+        final var zOffset = -config.assembly().zInitial() + config.assembly().cubeSize() * position.z();
         response = restClient.post()
                 .uri("/move-relative")
-                .body(new RelativeMovementCommandDto(xOffset, 0f, zOffset, 0f))
+                .body(new RelativeMovementCommandDto(xOffset, 0f))
                 .retrieve()
                 .toBodilessEntity()
                 .getStatusCode();
-        if(response.value() != 200){
+        if (response.value() != 200) {
             log.error("Could not place block in build area, HTTP response {}", response.value());
-            throw new RuntimeException("Could not pick up block");
+            throw new BpmnError("Could not place block in build area");
+        }
+        response = restClient.post()
+                .uri("/move-relative")
+                .body(new RelativeMovementCommandDto(zOffset))
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
+        if (response.value() != 200) {
+            log.error("Could not place block in build area, HTTP response {}", response.value());
+            throw new BpmnError("Could not place block in build area");
+        }
+        response = restClient.put()
+                .uri("/suction-cup")
+                .body(new SuctionCupCommandDto(false))
+                .retrieve()
+                .toBodilessEntity()
+                .getStatusCode();
+        if (response.value() != 200) {
+            log.error("Could not deactivate suction cup, HTTP response {}", response.value());
+            throw new BpmnError("Could not deactivate suction cup");
+        }
+        wait(Duration.ofSeconds(2));
+        toHoldingPosition();
+    }
+
+    private void wait(Duration duration) {
+        try {
+            Thread.sleep(duration);
+        } catch (Exception ex) {
+            log.error("Wait interrupted");
         }
     }
 }

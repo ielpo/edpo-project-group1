@@ -1,15 +1,6 @@
 {
   "components": [
     {
-      "type": "image",
-      "layout": {
-        "row": "Row_0p0kz0x",
-        "columns": 2
-      },
-      "id": "Field_01471ax",
-      "source": "https://i.postimg.cc/66G8xRfN/7beba1fd-694e-4380-b3ee-f69fa9efd12a.png"
-    },
-    {
       "text": "# Browse, select and order",
       "type": "text",
       "layout": {
@@ -107,5 +98,6 @@
   },
   "executionPlatform": "Camunda Platform",
   "executionPlatformVersion": "7.24.0",
-  "versionTag": "1"
+  "versionTag": "1",
+  "schemaVersion": 19
 }

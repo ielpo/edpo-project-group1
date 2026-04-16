@@ -4,16 +4,15 @@ import ch.unisg.scs.edpo.order.application.port.in.CorrelateEventCommand;
 import ch.unisg.scs.edpo.order.application.port.in.EventCorrelationUseCase;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class OrderCompleteEventConsumer {
-
-    private static final Logger LOG = LoggerFactory.getLogger(OrderCompleteEventConsumer.class);
-
     private final EventCorrelationUseCase eventCorrelationUseCase;
     private final ObjectMapper objectMapper;
 
@@ -34,12 +33,12 @@ public class OrderCompleteEventConsumer {
             );
 
             if (!correlated) {
-                LOG.warn("No matching process instance for order.complete.v1 payload: {}", payload);
+                log.warn("No matching process instance for order.complete.v1 payload: {}", payload);
                 return;
             }
-            LOG.info("Correlated order.complete.v1 for orderId={} correlationId={}", orderId, correlationId);
+            log.info("Correlated order.complete.v1 for orderId={} correlationId={}", orderId, correlationId);
         } catch (Exception e) {
-            LOG.error("Failed to handle order.complete.v1 payload: {}", payload, e);
+            log.error("Failed to handle order.complete.v1 payload: {}", payload, e);
         }
     }
 
