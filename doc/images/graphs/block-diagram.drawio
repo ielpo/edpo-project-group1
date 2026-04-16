@@ -1,0 +1,109 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6">
+  <diagram name="Page-1" id="42Y82kzHpii39CHeaahU">
+    <mxGraphModel dx="946" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-12" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="240" y="340" />
+              <mxPoint x="240" y="340" />
+            </Array>
+            <mxPoint x="180" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-18" connectable="0" parent="Ujj_NEvlNaljcAJ2rkRq-12" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Publish&lt;br&gt;Subscribe" vertex="1">
+          <mxGeometry relative="1" x="0.1607" y="1" as="geometry">
+            <mxPoint x="6" y="-1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-15" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" value="REST">
+          <mxGeometry relative="1" x="-0.5385" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="490" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Order Service" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-13" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;endArrow=none;endFill=0;" value="Subscribe">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="180" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-14" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="Ujj_NEvlNaljcAJ2rkRq-7" value="REST">
+          <mxGeometry relative="1" x="-0.1429" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="420" y="280" />
+              <mxPoint x="420" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Dashboard Service" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;horizontal=0;connectable=0;" value="Kafka Broker" vertex="1">
+          <mxGeometry height="160" width="40" x="140" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-11" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="180" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-19" connectable="0" parent="Ujj_NEvlNaljcAJ2rkRq-11" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Publish&lt;br&gt;Subscribe" vertex="1">
+          <mxGeometry relative="1" x="-0.1131" y="-1" as="geometry">
+            <mxPoint x="-5" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-16" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" value="REST">
+          <mxGeometry relative="1" x="-0.6842" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="570" y="400" />
+            </Array>
+            <mxPoint x="570" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-20" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Ujj_NEvlNaljcAJ2rkRq-6" value="Subscribe">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-23" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Ujj_NEvlNaljcAJ2rkRq-9" value="REST">
+          <mxGeometry relative="1" x="-0.2308" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Factory Service" vertex="1">
+          <mxGeometry height="40" width="200" x="280" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="MQTT Broker" vertex="1">
+          <mxGeometry height="40" width="100" x="330" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;connectable=0;" value="Inventory Service" vertex="1">
+          <mxGeometry height="40" width="120" x="470" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Dobot Service" vertex="1">
+          <mxGeometry height="40" width="120" x="180" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Color Sensor Service" vertex="1">
+          <mxGeometry height="40" width="120" x="460" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-24" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="Ujj_NEvlNaljcAJ2rkRq-6" value="Publish">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Distance Sensor&lt;br&gt;(Tinkerforge)" vertex="1">
+          <mxGeometry height="40" width="120" x="320" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="Ujj_NEvlNaljcAJ2rkRq-22" edge="1" parent="1" source="Ujj_NEvlNaljcAJ2rkRq-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="Ujj_NEvlNaljcAJ2rkRq-8" value="REST">
+          <mxGeometry relative="1" x="-0.2308" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

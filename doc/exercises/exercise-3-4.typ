@@ -1,5 +1,5 @@
 #set document(
-title: "Exercise 3: Process Orchestration \n Exercise 4: Orchestration vs Choreography",
+title: "Exercise 3: Process Orchestration\nExercise 4: Orchestration vs Choreography",
 )
 
 #set page(
@@ -71,95 +71,48 @@ They reflect the system's core constraints as a distributed, event-driven manufa
   caption: [Context map]
 )
 
-The context map shows how the bounded contexts in the KAFKEA system relate to one another. At the core, three domain services handle the primary business flow: #emph[order], #emph[factory], and #emph[inventory]. Supporting contexts cover visualization (#emph[dashboard]) and hardware integration (#emph[dobot-control], #emph[color-sensor]).
+The context map shows how the bounded contexts in the KAFKEA system relate to one another. At the core, three domain services handle the primary business flow: #emph[order], #emph[factory], and #emph[inventory]. Supporting contexts cover visualization (#emph[dashboard]) and hardware integration which is part of the factory (#emph[dobot-control], #emph[color-sensor]).
 
 = Architecture
-
 == Kafka Communication Design
 
-Kafka is used for cross-service communication whenever the interaction should be asynchronous and decoupled. We intentionally separate command-style and event-style topics:
+Kafka is used for cross-service communication whenever the interaction should be asynchronous and decoupled. Topics are split by intent into commands and events (see ADR 7), and the system runs on a single-node broker with `latest` offset reset across all consumers (see ADR 8).
 
-- #emph[order.manufacture.v1] is a command topic from Order to Factory.
-- #emph[order.complete.v1], #emph[info.v1], and #emph[error.v1] are event topics.
-
-This follows the design principle that orchestrators issue commands, while services publish what happened as events.
-
-=== Topic Overview and Rationale
+=== Topics
 
 #table(
     columns: (24%, 18%, 15%, 15%, 28%),
-    table.header([*Topic*], [*Purpose*], [*Produced by*], [*Consumed by*], [*Why this topic exists*]),
-    [order.manufacture.v1], [Start manufacturing for an accepted order], [Order], [Factory], [Keeps factory startup explicit and controlled by the order orchestrator],
-    [order.complete.v1], [Manufacturing completed successfully], [Factory], [Order, Dashboard], [Lets order process continue asynchronously and lets UI update without tight coupling],
-    [info.v1], [Informational status events], [Order, Factory], [Dashboard], [Provides user-facing progress updates as a separate concern],
-    [error.v1], [Failure and timeout status events], [Order, Factory], [Order, Dashboard], [Consolidates failure communication and supports correlation back to running processes],
+    table.header([*Topic*], [*Purpose*], [*Produced by*], [*Consumed by*], [*Notes*]),
+    [order.manufacture.v1], [Start manufacturing for an accepted order], [Order], [Factory], [Command topic; keeps factory startup explicit and controlled by the orchestrator],
+    [order.complete.v1], [Manufacturing completed successfully], [Factory], [Order, Dashboard], [Lets order process continue asynchronously and UI update without tight coupling],
+    [info.v1], [Informational status events], [Order, Factory], [Dashboard], [User-facing progress updates kept separate from workflow control],
+    [error.v1], [Failure and timeout status events], [Order, Factory], [Order, Dashboard], [Consolidates failure communication; supports correlation back to running processes],
 )
 
-=== Broker and Cluster Setup
-
-The project currently runs Kafka as a local #emph[single-node KRaft] setup:
-
-- one process with both broker and controller role,
-- advertised listener `PLAINTEXT://localhost:9092`,
-- offsets topic replication factor #emph[1].
-
-Why we chose this:
-
-- It minimizes operational complexity for local development and demos.
-- It is sufficient for the project scale and assignment scope.
-- It keeps deployment friction low while preserving real Kafka semantics.
-
-Tradeoff:
-
-- This setup is not fault-tolerant at broker level; production-grade high availability would require multiple brokers and a higher replication factor.
-
-=== Partitions, Keys, and Ordering
-
-Topic partition counts are not explicitly provisioned by project code, so they follow broker defaults in this environment: by default, auto-created topics use #emph[1 partition] (Kafka #emph[num.partitions=1] default).
-
-Replication is effectively #emph[1] in this project because Kafka runs with a single broker; the internal offsets topic is also configured with replication factor #emph[1].
-
-Current producer strategy uses no explicit business keying for topic routing.
-
-Why we chose this:
-
-- For this workload, correlation relies on payload fields (#emph[orderId], #emph[correlationId]) rather than partition-based routing.
-- It keeps producer logic simple while still enabling deterministic process correlation in the orchestrator.
-
-Implication:
-
-- Kafka ordering guarantees remain #emph[per partition], not global across topics.
-
-=== Consumer Groups and Offset Reset Policies
+=== Consumer Groups
 
 #table(
-    columns: (24%, 26%, 18%, 32%),
-    table.header([*Service*], [*Consumer Group*], [*Offset Reset*], [*Main Topics*]),
-    [Order], [order-service-correlation], [latest], [order.complete.v1, error.v1],
-    [Factory], [factory-service], [latest], [order.manufacture.v1],
-    [Dashboard], [dashboard], [latest], [info.v1, error.v1],
+    columns: (24%, 32%, 44%),
+    table.header([*Service*], [*Consumer Group*], [*Main Topics*]),
+    [Order], [order-service-correlation], [order.complete.v1, error.v1],
+    [Factory], [factory-service], [order.manufacture.v1],
+    [Dashboard], [dashboard], [info.v1, error.v1],
 )
 
-All consumers are configured with #emph[latest] because this system processes live workflow traffic and does not rely on startup replay from Kafka history. In this setup, replaying backlog would mostly re-emit stale status updates and historical command/events, while process correlation and recovery are handled through persisted workflow state and service data stores.
+All consumers are configured with #emph[latest] because this system processes live workflow traffic and does not rely on startup replay from Kafka history. In this setup, replaying backlog can re-emit stale status updates and old command/events. Therefore consumers use latest by default. Process progress is primarily recovered from persisted workflow state and service data stores, with Kafka replay not used as the main recovery mechanism.
 
-== ADRs
+=== Broker Configuration
 
-The architecture is grounded in the following accepted ADRs:
-
-- #link("../adr/0001-record-architecture-decisions.md")[ADR 0001]: Record architecture decisions using ADRs.
-- #link("../adr/0002-orchestration-vs-choreography.md")[ADR 0002]: Use orchestration for order/manufacturing and choreography for customer-facing updates.
-- #link("../adr/0003-operaton-as-bpmn-engine.md")[ADR 0003]: Use Operaton as BPMN engine.
-- #link("../adr/0004-commands-or-events.md")[ADR 0004]: Use commands to trigger services and events to report outcomes.
-- #link("../adr/0005-item-color-owned-by-inventory.md")[ADR 0005]: Inventory is the source of truth for item color.
-- #link("../adr/0006-dashboard-as-separate-service.md")[ADR 0006]: Dashboard is a separate service for event visualization.
-- #link("../adr/0007-structure-of-kafka-topics.md")[ADR 0007]: Structure of the Kafka topics.
+- Single-node KRaft, one process as broker and controller.
+- Advertised listener: `PLAINTEXT://localhost:9092`.
+- Default one partition per topic, replication factor 1 (including the internal offsets topic).
 
 = Process Orchestration
 
-The process begins when a customer fills out the order form seen in @order-form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items if time permits.
+The process begins when a customer fills out the order form seen in @order-form. This action represents the start event of the overall order process. Currently, the system supports ordering a single item in a selected colour per order; however, it is designed to be extendable to multiple items.
 
 #figure(
-  image("../images/order_form.png"),
+  image("../images/order_form.png", width: 90%),
   caption: [Order form presented to customer]
 ) <order-form>
 
@@ -182,7 +135,7 @@ The inventory ows stock state ad the reservation lifecycle. It is implemented as
 The factory process manufactures the requested item and emits events to inform other services about the progress and completion of the order.
 
 #figure(
-  image("../images/factory.png"),
+  image("../images/factory.png", width: 80%),
   caption: [Factory process]
 )
 
@@ -197,6 +150,18 @@ Runs on a RaspberryPi Pico and controls and reads out color using a TDSxxx color
 
 
 #pagebreak()
+= ADRs
+The following ADRs are related to these exercises:
+
+- ADR 0001: Record architecture decisions using ADRs
+- ADR 0002: Use orchestration for order/manufacturing and choreography for customer-facing updates.
+- ADR 0003: Use Operaton as BPMN engine.
+- ADR 0004: Use commands to trigger services and events to report outcomes.
+- ADR 0005: Inventory is the source of truth for item color.
+- ADR 0006: Dashboard is a separate service for event visualization.
+- ADR 0007: Structure of the Kafka topics.
+- ADR 0008: Kafka Deployment and Consumer Offset Policy.
+
 = Contributions
 
 #table(

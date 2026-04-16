@@ -21,6 +21,33 @@ size: 12pt
   Michael Schütz, Gianluca Ielpo, Eva Amromin
 ]
 
+= Project Overview
+#figure(
+  image("../images/block-diagram.png", width: 80%),
+  caption: [Block Diagram]
+)
+
+== Dobot Control Service
+The robot is controlled via serial using the `pydobotplus` Python library. The existing control service was very limited and did not fulfill the requirements for this project, therefore it was refactored and improved. The new implementation supports a simulation mode, in which the communication with the robot is faked and always succeeds.
+
+Additionally, the service allows to execute individual commands including relative coordinate movements, which are required in order to fetch items in the inventory grid and to place the blocks in the assembly area with precision.
+
+== Color Sensor Service
+The existing color sensor of the Dobot system is very limited and only returns a boolean for each color, rendering the detection of all four colors infeasible.
+To mitigate these issues, a new color sensor was implemented on a raspberry pi pico using a TCS34725. The WiFi interface on the Pico allows the color sensor to offer a REST interface.
+
+To ease debugging and automated testing, a fake color sensor service is implemented in Rust.
+
+#figure(
+  image("../images/color-sensor.png", width: 20%),
+  caption: [Color Sensor]
+)
+
+
+== Distance Sensor
+The distance sensor is part of the Tinkerforge setup, and publishes messages over MQTT after each measurement. The distance is used to detect if a block was picked up, and avoid issues where the block is lost during transfer or the inventory service had a wrong internal state compared to the physical inventory.
+
+
 = Stateful resilience patterns
 The following resilience patterns are used throughout in the Kafkea Project.
 
@@ -32,8 +59,8 @@ Instead, we use Operaton's built-in job retry mechanism to handle transient fail
 We applied this in three places:
 
 - Reserving inventory when an order comes in
-- Restoring inventory during compensation if something goes wrong
-- Fetching components from inventory in the factory process
+- Restoring inventory during compensation after a timeout
+- Restoring inventory during compensation after a manufacturing error
 
 All three run async with #emph[R3/PT10S], so the engine retries up to three times, ten seconds apart. The retry state is persisted by the workflow engine, meaning it survives restarts. The caller never has to deal with a "try again later" for what's just a temporary issue.
 
@@ -52,6 +79,9 @@ If a later step fails, we do not leave already performed actions as-is. Instead,
 = Lessons Learned
 
 - Human intervention is essential for systems like ours where real-world state cannot always be reconstructed from software state alone.
+- Being able to develop software independently from the hardware is of advantage, it allows for quicker iteration.
+- Error handling by Operaton requires to throw specific exeptions, else the retry mechanism is triggered. In our case this led to the factory trying to fetch blocks for the same order multiple times.
+
 
 = Reflections
 
@@ -67,14 +97,21 @@ What was challenging:
 
 - The initial Camunda setup was a bit tricky to get right due to all the different required dependencies and configurations.
 - Most of the project has fairly little business logic while Hexagonal Architecture required many interfaces and adapters, which felt like substantial boilerplate.
+- Access to the lab is limited, limiting the time spent developing with hardware.
 
 What we would improve next:
 
 - Replace fixed retry policies with context-aware retry/backoff per failure type.
 - Add more details to the Kafka events (e.g. failure reasons, retry counts) to support better observability and debugging. This would have also made the dashboard simpler to implement.
-- Add some sort of testing.
+- Add testing (unit and integration).
+- Implement a proper simulation mode for the factory that can be used for automated testing.
 
 #pagebreak()
+
+= ADRs
+The following ADRs are related to this exercise:
+
+- ADR 0009: Granularity of Factory Service
 
 = Contributions
 
