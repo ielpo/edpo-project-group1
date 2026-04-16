@@ -22,8 +22,6 @@ size: 12pt
 ]
 
 = Project Overview
-// Block diagram of all components
-
 #figure(
   image("../images/block-diagram.png", width: 80%),
   caption: [Block Diagram]
@@ -81,6 +79,9 @@ If a later step fails, we do not leave already performed actions as-is. Instead,
 = Lessons Learned
 
 - Human intervention is essential for systems like ours where real-world state cannot always be reconstructed from software state alone.
+- Being able to develop software independently from the hardware is of advantage, it allows for quicker iteration.
+- Error handling by Operaton requires to throw specific exeptions, else the retry mechanism is triggered. In our case this led to the factory trying to fetch blocks for the same order multiple times.
+
 
 = Reflections
 
@@ -96,14 +97,21 @@ What was challenging:
 
 - The initial Camunda setup was a bit tricky to get right due to all the different required dependencies and configurations.
 - Most of the project has fairly little business logic while Hexagonal Architecture required many interfaces and adapters, which felt like substantial boilerplate.
+- Access to the lab is limited, limiting the time spent developing with hardware.
 
 What we would improve next:
 
 - Replace fixed retry policies with context-aware retry/backoff per failure type.
 - Add more details to the Kafka events (e.g. failure reasons, retry counts) to support better observability and debugging. This would have also made the dashboard simpler to implement.
-- Add some sort of testing.
+- Add testing (unit and integration).
+- Implement a proper simulation mode for the factory that can be used for automated testing.
 
 #pagebreak()
+
+= ADRs
+The following ADRs are related to this exercise:
+
+- ADR 0009: Granularity of Factory Service
 
 = Contributions
 
