@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: 192.168.0.120/color
+  url: "{{url}}/color"
   auth: inherit
 
 settings:
