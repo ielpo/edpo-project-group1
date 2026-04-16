@@ -20,8 +20,6 @@ public class AssembleOrderDelegate implements JavaDelegate {
     private final AssembleOrderPort assembleOrder;
     private final ObjectMapper objectMapper;
 
-    private final String ERROR_CODE = "ASSEMBLY_FAILED";
-
     @Override
     public void execute(DelegateExecution delegateExecution) {
         try {
@@ -31,6 +29,7 @@ public class AssembleOrderDelegate implements JavaDelegate {
             var order = objectMapper.readValue(delegateExecution.getVariable("order").toString(), OrderDto.class);
             assembleOrder.assemble(inventory, order);
         } catch (Exception e) {
+            final String ERROR_CODE = "ASSEMBLY_FAILED";
             throw new BpmnError(ERROR_CODE, e.getMessage());
         }
     }
