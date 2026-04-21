@@ -1,0 +1,189 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Repository structure summary (added by explore-mode assistant)
+structure: |
+  Project: Event-driven furniture factory simulation.
+  Top-level services (folder => runtime, default port):
+    - services/dashboard => Java Spring Boot (Maven), 8100
+    - services/order => Java Spring Boot (Maven), 8101
+    - services/factory => Java Spring Boot (Maven) + MQTT, 8102
+    - services/inventory => Python FastAPI (uv/uvicorn), 8103
+    - services/dobot-control => Python Flask app, 8200/8201 (left/right)
+    - services/color-sensor => MicroPython device firmware, port 80 on device
+    - services/color-sensor-fake => Rust (warp), 8202
+    - services/recorded-data => sample CSVs and playback fixtures
+
+  Messaging and infra:
+    - Kafka used for command/events (topics: order.manufacture.v1, order.complete.v1, info.v1, error.v1)
+    - Inventory uses REST (HTTP) for reserve/fetch/restore
+    - Development compose: docker-compose-development.yml (simulated devices + Kafka + MQTT)
+
+  Notes:
+    - Services are developed in mixed runtimes (Java, Python, Rust, MicroPython).
+    - Dev workflow: start `docker compose -f docker-compose-development.yml up`, then run Spring apps from IDE or Python services locally.
+
+# Project context: used by OpenSpec assistants to shape outputs
+context: |
+  Tech stack: Java 21 (Spring Boot, Maven), Python 3.13 (FastAPI, Flask, uv), Rust (warp), MicroPython
+  Conventions:
+    - Commit messages: Conventional Commits (feat|fix|chore|docs)(scope): message
+    - Java: target Java 21, use Lombok where present
+    - Python: prefer `uv` for dev commands and `uvicorn` for FastAPI
+    - Message topics: use dotted versioned names, e.g. `order.manufacture.v1`
+  Testing: include unit tests for services and integration smoke-tests for messaging flows
+
+# Per-artifact rules (applied by assistants when generating artifacts)
+rules:
+  proposal:
+    - Keep proposals concise: max 400 words
+    - Always include: Summary, Motivation, Non-goals, Risks, Acceptance Criteria
+    - Include a short tasks list and expected owners
+  design:
+    - Provide architecture diagram (ASCII or mermaid)
+    - Document alternatives and tradeoffs (short bullet list)
+    - List concrete contracts: REST endpoints (path+method+sample payload) and Kafka topics (name+schema+example)
+  spec:
+    - Include explicit schemas for APIs and messages (OpenAPI or JSON Schema)
+    - Provide example request/response and validation rules
+  tasks:
+    - Break tasks into units no larger than 2 hours
+    - Each task must include: goal, steps, estimate, acceptance criteria
+  templates:
+    - Use the provided templates below when creating artifacts
+
+# Artifact templates to improve consistency
+templates:
+  proposal: |
+    ## Summary
+    <one-sentence summary>
+
+    ## Motivation
+    <why this change matters>
+
+    ## Non-goals
+    <what this change will not do>
+
+    ## Design Overview
+    <short description or pointer to `design.md`>
+
+    ## Tasks
+    - <task 1> — owner: @team-member — estimate: 1h
+    - <task 2> — owner: @team-member — estimate: 2h
+
+    ## Acceptance Criteria
+    - <measurable criteria>
+
+  design: |
+    ## Context
+    <short context summary>
+
+    ## Architecture Diagram
+    ```
+    (ASCII or mermaid)
+    ```
+
+    ## Components
+    - Component A: responsibilities
+    - Component B: responsibilities
+
+    ## Contracts
+    - REST: `GET /path` → response example
+    - Kafka: `topic.name.v1` → example payload
+
+    ## Tradeoffs
+    - Option A: pros/cons
+    - Option B: pros/cons
+
+  spec: |
+    ## API / Schema
+    - Provide OpenAPI/JSON-schema or clear field table
+
+    ## Examples
+    - Example request/response for each endpoint/topic
+
+# Guidance for assistants
+assistant-guidance: |
+  - Always follow the `rules` section when generating artifacts.
+  - Do not include internal `context` or `rules` verbatim inside generated artifacts.
+  - When in doubt about scope or owner, ask the user.
+  - Prefer short, example-driven documentation for message and REST contracts.
+  - Always indicate which code you generated or modified
+
+# Kafka topics: discovered from service sources (producers, consumers, DTOs)
+kafka:
+  topics:
+    order.manufacture.v1:
+      description: "Command from Order to Factory to start manufacturing an order"
+      producer: services/order (publishes manufacture command)
+      consumer: services/factory (listens and starts process)
+      example_payload: |
+        {
+          "order": { "orderId": "550e8400-e29b-41d4-a716-446655440000", "itemType": "CHAIR" },
+          "correlationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        }
+
+    order.complete.v1:
+      description: "Event published by Factory when manufacturing completes"
+      producer: services/factory
+      consumers:
+        - services/order
+        - services/dashboard
+      example_payload: |
+        {
+          "orderId": "550e8400-e29b-41d4-a716-446655440000",
+          "correlationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        }
+
+    info.v1:
+      description: "Informational messages (human readable) about orders/processes"
+      producers:
+        - services/order
+        - services/factory
+      consumers:
+        - services/dashboard
+      example_payload: |
+        {
+          "message": "Started assembling order",
+          "orderId": "550e8400-e29b-41d4-a716-446655440000",
+          "correlationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        }
+
+    error.v1:
+      description: "Error messages to notify other services and the dashboard"
+      producers:
+        - services/order
+        - services/factory
+      consumers:
+        - services/order
+        - services/dashboard
+      example_payload: |
+        {
+          "message": "Not enough yellow blocks. Requested: 3, available: 2",
+          "orderId": "550e8400-e29b-41d4-a716-446655440000",
+          "correlationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        }
+
+  notes: |
+    - Topic names are configured via `application.yml` in Java services (see `services/order/src/main/resources/application.yml`).
+    - DTOs: `OrderManufactureDto` (order + correlationId), `ManufacturingCompleteEventDto` (orderId, correlationId), `InfoEventDto`/`ErrorEventDto` (message, orderId, correlationId).
+    - Producers use an `EventPublisherPort`/`KafkaTemplate` adapter; consumers use `@KafkaListener` annotations.
+
