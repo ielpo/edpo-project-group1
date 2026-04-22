@@ -10,16 +10,15 @@ services:
       dockerfile: Dockerfile
     image: simulated-factory:dev
     ports:
-      - "8085:8085"
+      - "8400:8400"
     environment:
       - SIMULATOR_BIND=0.0.0.0
-      - SIMULATOR_PORT=8085
+      - SIMULATOR_PORT=8400
       - SIMULATOR_EVENT_BRIDGE=none
       - SIMULATOR_CONFIG_PATH=/data/presets.yml
-      - SIMULATOR_UI_DIR=/app/web/dist
+      - SIMULATOR_BROKER_URL=tcp://mqtt-broker:1883
     volumes:
       - ./services/simulated-factory/presets.yml:/data/presets.yml:ro
-      - ./services/simulated-factory/web/dist:/app/web/dist:ro
 
   mqtt-broker:
     image: eclipse-mosquitto:2.0
@@ -33,10 +32,8 @@ services:
   dobot-control:
     image: dobot-control:dev
     environment:
-      - SIMULATION=true
-      - SIMULATOR_URL=http://simulated-factory:8085
+      - SIMULATOR_URL=http://simulated-factory:8400
       - SIMULATOR_BROKER_URL=tcp://mqtt-broker:1883
-    command: ["--simulation"]
     depends_on:
       - simulated-factory
       - mqtt-broker

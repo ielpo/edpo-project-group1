@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulated Factory</title>
+  <style>
+    :root {
+      --ink: #13212e;
+      --paper: #f6f0e8;
+      --accent: #d15d2f;
+      --accent-soft: #f3c0a2;
+      --teal: #1f6f78;
+      --card: rgba(255, 249, 241, 0.88);
+      --line: rgba(19, 33, 46, 0.16);
+      --shadow: 0 18px 40px rgba(19, 33, 46, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Georgia", "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(209, 93, 47, 0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(31, 111, 120, 0.16), transparent 32%),
+        linear-gradient(145deg, #f9f2e6 0%, #f3eee5 48%, #ebe3d8 100%);
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero {
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      font-size: 0.8rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 4rem);
+      line-height: 0.96;
+    }
+
+    .hero p {
+      max-width: 56ch;
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+
+    .status-badge {
+      justify-self: end;
+      background: linear-gradient(135deg, var(--accent) 0%, #e29f53 100%);
+      color: white;
+      border-radius: 999px;
+      padding: 14px 18px;
+      min-width: 220px;
+    }
+
+    .status-badge strong {
+      display: block;
+      font-size: 0.86rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 6px;
+      opacity: 0.85;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 20px;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1.35rem;
+    }
+
+    .preset-list,
+    .sensor-list,
+    .event-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .preset,
+    .sensor,
+    .event {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.68);
+    }
+
+    .preset header,
+    .sensor header,
+    .event header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .preset h3,
+    .sensor h3,
+    .event h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .muted,
+    .event time {
+      color: rgba(19, 33, 46, 0.68);
+      font-size: 0.92rem;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      background: white;
+      color: var(--ink);
+    }
+
+    button {
+      border: none;
+      background: var(--ink);
+      color: white;
+      cursor: pointer;
+      transition: transform 140ms ease, opacity 140ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .secondary {
+      background: white;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .accent {
+      background: linear-gradient(135deg, var(--accent) 0%, #e29f53 100%);
+    }
+
+    .sensor-form {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .sensor-form input {
+      width: 100%;
+    }
+
+    .event-list {
+      max-height: 620px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+
+    pre {
+      margin: 10px 0 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: #191f25;
+      color: #ebf2f7;
+      overflow: auto;
+      font-family: "SFMono-Regular", "Menlo", monospace;
+      font-size: 0.86rem;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .status-badge {
+        justify-self: start;
+      }
+
+      .sensor-form {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 14px;
+      }
+
+      .hero,
+      .panel {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .sensor-form {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Simulated Factory</div>
+        <h1>Deterministic hardware without the physical line.</h1>
+        <p>Run named presets, inspect the live order flow, and force failures through sensor configuration instead of manual step controls.</p>
+      </div>
+      <div class="status-badge">
+        <strong>Runtime</strong>
+        <div id="status-summary">Idle</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Presets</h2>
+        <div class="muted">Run a deterministic scenario and watch state and events update in real time.</div>
+        <div id="preset-list" class="preset-list"></div>
+        <div class="button-row">
+          <button class="secondary" id="stop-button">Stop</button>
+          <button class="secondary" id="reset-button">Reset</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Sensors</h2>
+        <div class="muted">Edit runtime sensor behavior to reproduce wrong-color or missing-IR cases.</div>
+        <div id="sensor-list" class="sensor-list"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Event History</h2>
+      <div class="muted">REST requests, MQTT publishes, and simulator state changes appear in a single chronological stream.</div>
+      <div id="event-list" class="event-list"></div>
+    </section>
+  </div>
+
+  <script>
+    const statusSummary = document.getElementById("status-summary");
+    const presetList = document.getElementById("preset-list");
+    const sensorList = document.getElementById("sensor-list");
+    const eventList = document.getElementById("event-list");
+    const stopButton = document.getElementById("stop-button");
+    const resetButton = document.getElementById("reset-button");
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+      });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || response.statusText);
+      }
+      return response.headers.get("content-type")?.includes("application/json") ? response.json() : response.text();
+    }
+
+    function renderStatus(state) {
+      statusSummary.textContent = `${state.status.toUpperCase()} · ${state.currentPreset ?? "no preset"} · step ${state.currentStep}`;
+    }
+
+    function renderPresets(payload) {
+      presetList.innerHTML = "";
+      for (const preset of payload.items) {
+        const card = document.createElement("article");
+        card.className = "preset";
+        card.innerHTML = `
+          <header>
+            <h3>${preset.name}</h3>
+            <span class="pill">preset</span>
+          </header>
+          <p class="muted">${preset.description}</p>
+          <div class="button-row">
+            <button class="accent" data-preset="${preset.name}">Run ${preset.name}</button>
+          </div>
+        `;
+        card.querySelector("button").addEventListener("click", async () => {
+          await request("/api/presets/run", {
+            method: "POST",
+            body: JSON.stringify({ preset: preset.name, speed: "normal" }),
+          });
+          await refresh();
+        });
+        presetList.appendChild(card);
+      }
+    }
+
+    function renderSensors(sensors) {
+      sensorList.innerHTML = "";
+      for (const sensor of sensors) {
+        const card = document.createElement("article");
+        card.className = "sensor";
+        const rawValue = Array.isArray(sensor.raw_color) ? sensor.raw_color.join(",") : "";
+        card.innerHTML = `
+          <header>
+            <h3>${sensor.sensorId}</h3>
+            <span class="pill">${sensor.mode}</span>
+          </header>
+          <div class="muted">Current value: ${JSON.stringify(sensor.value)}</div>
+          <form class="sensor-form">
+            <input name="mode" value="${sensor.mode ?? "fixed"}" placeholder="mode">
+            <input name="value" value="${sensor.value ?? ""}" placeholder="value">
+            <input name="raw_color" value="${rawValue}" placeholder="raw color 1,0,0">
+            <button type="submit">Apply</button>
+          </form>
+        `;
+        card.querySelector("form").addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(event.currentTarget);
+          const value = formData.get("value");
+          const raw = String(formData.get("raw_color") || "").split(",").filter(Boolean).map((item) => Number(item.trim()));
+          let parsedValue = value;
+          if (String(value).toLowerCase() === "true") parsedValue = true;
+          if (String(value).toLowerCase() === "false") parsedValue = false;
+          if (!Number.isNaN(Number(value)) && String(value).trim() !== "") parsedValue = Number(value);
+          await request(`/api/config/sensors/${sensor.sensorId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              mode: formData.get("mode"),
+              value: parsedValue,
+              raw_color: raw.length ? raw : undefined,
+            }),
+          });
+          await refresh();
+        });
+        sensorList.appendChild(card);
+      }
+    }
+
+    function renderEvents(payload) {
+      eventList.innerHTML = "";
+      for (const event of payload.items) {
+        const card = document.createElement("article");
+        card.className = "event";
+        const stamp = new Date(event.ts).toLocaleTimeString();
+        card.innerHTML = `
+          <header>
+            <h3>${event.type}</h3>
+            <time>${stamp}</time>
+          </header>
+          <div class="muted">${event.message ?? "No message"}</div>
+          <div class="muted">${event.method ?? ""} ${event.endpoint ?? event.topic ?? ""}</div>
+          <pre>${JSON.stringify(event.payload, null, 2)}</pre>
+        `;
+        eventList.appendChild(card);
+      }
+    }
+
+    async function refresh() {
+      const [status, presets, sensors, events] = await Promise.all([
+        request("/api/status"),
+        request("/api/presets"),
+        request("/api/config/sensors"),
+        request("/api/events?page=1&pageSize=30"),
+      ]);
+      renderStatus(status);
+      renderPresets(presets);
+      renderSensors(sensors);
+      renderEvents(events);
+    }
+
+    stopButton.addEventListener("click", async () => {
+      await request("/api/presets/stop", { method: "POST" });
+      await refresh();
+    });
+
+    resetButton.addEventListener("click", async () => {
+      await request("/api/presets/reset", { method: "POST" });
+      await refresh();
+    });
+
+    function connectSocket() {
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(`${protocol}://${window.location.host}/ws/status`);
+      socket.addEventListener("message", async () => {
+        await refresh();
+      });
+      socket.addEventListener("close", () => {
+        window.setTimeout(connectSocket, 1000);
+      });
+    }
+
+    refresh().catch((error) => {
+      statusSummary.textContent = error.message;
+    });
+    connectSocket();
+  </script>
+</body>
+</html>

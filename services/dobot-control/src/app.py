@@ -221,10 +221,23 @@ def main():
     # Get the selected robot configuration, resort to default if no commandline parameter given
     robot_name = args.robot if args.robot else config.default_robot
     runtime_config = config.robots[robot_name]
+    simulator_url = os.getenv("SIMULATOR_URL")
 
     if args.simulation:
         logger.info("Running in simulation mode")
-        dobot = DobotFake(robot_name)
+        dobot = DobotFake(
+            robot_name,
+            simulator_url=simulator_url
+            or (config.simulator.url if config.simulator else None),
+            sensor_timeout_seconds=(
+                config.simulator.sensor_timeout_seconds if config.simulator else 1.0
+            ),
+            command_timeout_seconds=(
+                config.simulator.command_timeout_seconds
+                if config.simulator
+                else 1.0
+            ),
+        )
     else:
         dobot = Dobot(robot_name, runtime_config.robot_port)
 

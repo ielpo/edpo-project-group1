@@ -1,0 +1,82 @@
+defaults:
+  sensors:
+    color-left:
+      mode: fixed
+      value: RED
+      raw_color: [1, 0, 0]
+    ir-left:
+      mode: fixed
+      value: true
+    distance-conveyor:
+      mode: scripted
+      value: 30.0
+      scripted_values: [30.0, 12.5, 6.2, 30.0]
+      mqtt_topic: sensors/distance/Conveyor/distance_IR_short_left
+      uid: TFu
+      location: Conveyor
+      message_type: distance_IR_short_left
+      cadence_ms: 250
+
+presets:
+  happy-path:
+    description: Deterministic successful order flow with matching color and IR detection.
+    steps:
+      - name: order-received
+        delayMs: 75
+        note: Order accepted and conveyor is idle.
+        publishDistance: 30.0
+      - name: pickup
+        delayMs: 75
+        note: Item reaches the pick-up area.
+        publishDistance: 12.5
+      - name: color-check
+        delayMs: 75
+        note: Color sensor reports the configured block color.
+      - name: place
+        delayMs: 75
+        note: Robot places the item and conveyor clears again.
+        publishDistance: 30.0
+
+  wrong-color:
+    description: The flow continues, but the color sensor deterministically returns blue.
+    sensor_overrides:
+      color-left:
+        value: BLUE
+        raw_color: [0, 0, 1]
+    steps:
+      - name: order-received
+        delayMs: 75
+        note: Order accepted and conveyor is idle.
+        publishDistance: 30.0
+      - name: pickup
+        delayMs: 75
+        note: Item reaches the pick-up area.
+        publishDistance: 11.8
+      - name: color-check
+        delayMs: 75
+        note: Sensor reports the wrong color to trigger a deterministic failure.
+      - name: reject
+        delayMs: 75
+        note: Conveyor clears the item after the mismatch.
+        publishDistance: 30.0
+
+  pickup-failure:
+    description: The IR sensor never detects an item, reproducing a failed pickup.
+    sensor_overrides:
+      ir-left:
+        value: false
+      distance-conveyor:
+        scripted_values: [30.0, 30.0, 30.0, 30.0]
+    steps:
+      - name: order-received
+        delayMs: 75
+        note: Order accepted and system waits for pickup.
+        publishDistance: 30.0
+      - name: pickup-timeout
+        delayMs: 75
+        note: No item reaches the IR sensor, so pickup fails.
+        publishDistance: 30.0
+      - name: abort
+        delayMs: 75
+        note: Simulation ends in a deterministic failure state.
+        publishDistance: 30.0
