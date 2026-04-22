@@ -22,6 +22,7 @@ Docker compose `docker-compose-development.yml`
 | Dobot Control Right | localhost:8200 |
 | Dobot Control Left  | localhost:8201 |
 | Color Sensor        | localhost:8202 |
+| Simulated Factory   | localhost:8400 |
 | Kafka Broker        | localhost:9092 |
 | MQTT                | localhost:1883 |
 
@@ -37,6 +38,13 @@ Docker compose `docker-compose-development.yml`
 ```bash
 docker compose -f docker-compose-development.yml up --build -d
 ```
+To start only the simulated factory and the services it depends on (for development), run:
+
+```bash
+docker compose -f docker-compose-development.yml up --build simulated-factory dobot-control mqtt
+```
+
+Open the simulated factory UI at `http://localhost:8400/`.
 
 3. Start the Spring services from IntelliJ using the run configurations above.
 
@@ -77,6 +85,8 @@ Docker compose `docker-compose.yml`
 
 ## Inventory Service
 [services/inventory/README.md](services/inventory/README.md)
+## Simulated Factory Service
+[services/simulated-factory/README.md](services/simulated-factory/README.md)
 
 # Data Structures
 ## Enums
