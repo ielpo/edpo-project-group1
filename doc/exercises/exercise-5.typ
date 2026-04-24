@@ -22,14 +22,18 @@ size: 12pt
 ]
 
 = Project Overview
+This project coordinates ordering, inventory, and factory execution, the project overview is shown below.
+
 #figure(
   image("../images/block-diagram.png", width: 80%),
   caption: [Block Diagram]
 )
 
 == Successful Order Fulfillment
+The diagram shows the normal path from order submission to completion.
+
 #figure(
-  image("../images/flow-success.png", width: 80%),
+  image("../images/flow-success.png", width: 100%),
   caption: [Sequence Diagram]
 )
 
@@ -72,11 +76,11 @@ The following resilience patterns are used throughout the Kafkea Project.
 If a downstream service is briefly unavailable, we don't want to immediately push that error back to the user.
 Instead, we use Operaton's built-in job retry mechanism to handle transient failures automatically.
 
-We applied this in three places:
+We applied this in three places in the Order process:
 
-- Reserving inventory when an order comes in
-- Restoring inventory during compensation after a timeout
-- Restoring inventory during compensation after a manufacturing error
+- #emph[Reserve inventory] — when an order comes in
+- #emph[Reset inventory] — during compensation after a timeout
+- #emph[Reset inventory] — during compensation after a manufacturing error
 
 All three run async with #emph[R3/PT10S], so the engine retries up to three times, ten seconds apart. The retry state is persisted by the workflow engine, meaning it survives restarts. The caller never has to deal with a "try again later" for what's just a temporary issue.
 
@@ -86,7 +90,7 @@ When retries are genuinely exhausted, our workers check if it's the last attempt
 
 The human intervention pattern is used for recovery steps that are very hard to fully automate. In our order process, if manufacturing times out or fails, we don't just continue blindly with automation as the state of the physical inventory is unknown. Instead, the process waits in a user task (#emph[Restock inventory], assignee #emph[demo] (used for convenience)) so a person can return the physical inventory to its original state and confirm the action with a tiny Camunda form.
 
-Only after this manual step is completed we continue with the technical restore flow. This keeps process control explicit: automation handles technical issues, while operational recovery is delegated to a human when the situation is too complex to handle for the system.
+Only after this manual step is completed we continue with the technical restore flow. This keeps process control explicit: automation handles technical issues, while operational recovery is delegated to a human when the situation is too complex to handle for the system. As a simplification, the process then ends with an error rather than restarting the order.
 
 == Epic Saga Pattern
 

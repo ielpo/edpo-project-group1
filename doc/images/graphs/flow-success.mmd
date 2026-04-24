@@ -10,6 +10,7 @@ sequenceDiagram
     order --) factory: Manufacture order
     activate factory
     factory  ->> inventory: Request components for order
+    Note right of factory: Manufacture order
     factory  --) order: Order completed
     deactivate factory
     deactivate order
