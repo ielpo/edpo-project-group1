@@ -8,6 +8,16 @@
       <span class="chip chip-assist">preset</span>
     </header>
     <p>{{ preset.description }}</p>
+    {% if state and state.currentPreset == preset.name and state.status == 'running' %}
+    <div class="step-pipeline">
+      {% for step in preset.steps %}
+      <div class="step-node {% if loop.index0 < state.currentStep %}step--done{% elif loop.index0 == state.currentStep %}step--active{% else %}step--pending{% endif %}">
+        {{ step.name }}
+      </div>
+      {% if not loop.last %}<div class="step-connector"></div>{% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="btn-row">
       <button
         class="btn btn-filled"

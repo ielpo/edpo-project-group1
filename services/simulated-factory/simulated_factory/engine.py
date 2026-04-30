@@ -77,9 +77,13 @@ class SimulationEngine:
         }
         self.sensors = self._sensor_map_for_preset(None)
 
-    def list_presets(self) -> list[dict[str, str]]:
+    def list_presets(self) -> list[dict[str, object]]:
         return [
-            {"name": preset.name, "description": preset.description}
+            {
+                "name": preset.name,
+                "description": preset.description,
+                "steps": [{"name": step.name} for step in preset.steps],
+            }
             for preset in self.presets.values()
         ]
 

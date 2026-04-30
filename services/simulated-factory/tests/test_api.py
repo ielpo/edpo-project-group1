@@ -112,6 +112,34 @@ def test_fragment_presets_lists_known_presets() -> None:
     assert 'hx-post="/api/presets/run"' in body
 
 
+def test_fragment_presets_shows_pipeline_when_running() -> None:
+    from simulated_factory.models import SimulationStatus
+
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    engine = app.state.engine
+    engine.state.status = SimulationStatus.RUNNING
+    engine.state.currentPreset = "happy-path"
+    engine.state.currentStep = 1
+
+    response = client.get("/fragments/presets")
+    assert response.status_code == 200
+    body = response.text
+    assert "step-pipeline" in body
+    assert "step--active" in body
+    assert "step--done" in body
+
+
+def test_fragment_presets_idle_has_no_pipeline() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/fragments/presets")
+    assert response.status_code == 200
+    assert "step-pipeline" not in response.text
+
+
 def test_sse_status_streams_event_stream() -> None:
     """Verify the /sse/status route registration and media type.
 
