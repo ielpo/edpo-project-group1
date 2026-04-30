@@ -43,7 +43,6 @@ class SensorConfig(BaseModel):
     value: Any = None
     raw_color: list[int] = Field(default_factory=lambda: [0, 0, 0])
     scripted_values: list[Any] = Field(default_factory=list)
-    failRate: float = 0.0
     mqtt_topic: str | None = None
     uid: str = "TFu"
     location: str = "Conveyor"
@@ -111,7 +110,6 @@ class SensorUpdateRequest(BaseModel):
     value: Any = None
     raw_color: list[int] | None = None
     scripted_values: list[Any] | None = None
-    failRate: float | None = None
 
 
 class InteractiveConfig(BaseModel):
