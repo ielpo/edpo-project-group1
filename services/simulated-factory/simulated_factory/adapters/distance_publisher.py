@@ -24,7 +24,10 @@ class DistancePublisher:
         self._message_id = 1279
 
     async def publish(self, sensor: SensorConfig, distance: float) -> dict[str, Any]:
-        topic = sensor.mqtt_topic or f"sensors/distance/{sensor.location}/{sensor.message_type}"
+        topic = (
+            sensor.mqtt_topic
+            or f"sensors/distance/{sensor.location}/{sensor.message_type}"
+        )
         payload = {
             "type": sensor.message_type,
             "UID": sensor.uid,
@@ -53,7 +56,9 @@ class DistancePublisher:
                     port=port,
                 )
             except Exception as exc:
-                self.logger.warning("Failed to publish MQTT message to %s: %s", self.broker_url, exc)
+                self.logger.warning(
+                    "Failed to publish MQTT message to %s: %s", self.broker_url, exc
+                )
 
         return payload
 

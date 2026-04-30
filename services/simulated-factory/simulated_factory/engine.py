@@ -83,9 +83,13 @@ class SimulationEngine:
         ]
 
     def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
-        return self.state.dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(deep=True)
+        return self.state.dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(
+            deep=True
+        )
 
-    async def update_sensor(self, sensor_id: str, update: SensorUpdateRequest) -> SensorConfig:
+    async def update_sensor(
+        self, sensor_id: str, update: SensorUpdateRequest
+    ) -> SensorConfig:
         sensor = self.sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
         payload = update.model_dump(exclude_none=True)
         for field_name, value in payload.items():
@@ -146,7 +150,9 @@ class SimulationEngine:
 
         self.state = self._new_state()
         self.sensors = self._sensor_map_for_preset(None)
-        await self._record_event("STATE", message="Simulation reset", payload={"status": "reset"})
+        await self._record_event(
+            "STATE", message="Simulation reset", payload={"status": "reset"}
+        )
 
     async def handle_dobot_commands(self, robot_name: str, payload: Any) -> str:
         command_list = payload if isinstance(payload, list) else [payload]
@@ -178,13 +184,19 @@ class SimulationEngine:
                     dobot_state.suction_enabled = bool(command.get("enabled", False))
                 case "run-conveyor":
                     dobot_state.conveyor_speed = float(command.get("speed", 0.0))
-                    dobot_state.conveyor_direction = str(command.get("direction", "STOP"))
+                    dobot_state.conveyor_direction = str(
+                        command.get("direction", "STOP")
+                    )
                 case "move-conveyor":
                     dobot_state.conveyor_speed = float(command.get("speed", 0.0))
                     dobot_state.conveyor_distance = float(command.get("distance", 0.0))
-                    dobot_state.conveyor_direction = str(command.get("direction", "STOP"))
+                    dobot_state.conveyor_direction = str(
+                        command.get("direction", "STOP")
+                    )
                 case _:
-                    self.logger.info("Ignoring unsupported simulator command type %s", command_type)
+                    self.logger.info(
+                        "Ignoring unsupported simulator command type %s", command_type
+                    )
 
             dobot_state.last_command = command_type
 
@@ -212,7 +224,9 @@ class SimulationEngine:
         return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
 
     async def record_external_event(self, payload: Any) -> None:
-        await self._record_event("EVENT", message="External event accepted", payload=payload)
+        await self._record_event(
+            "EVENT", message="External event accepted", payload=payload
+        )
 
     async def _execute_preset(self, preset: PresetDefinition, speed: str) -> None:
         try:
@@ -243,13 +257,17 @@ class SimulationEngine:
                 )
 
                 for sensor_id, value in step.sensorUpdates.items():
-                    sensor = self.sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
+                    sensor = self.sensors.setdefault(
+                        sensor_id, SensorConfig(sensorId=sensor_id)
+                    )
                     sensor.value = value
 
                 if step.publishDistance is not None:
                     distance_sensor = self.sensors.get("distance-conveyor")
                     if distance_sensor:
-                        await self.distance_publisher.publish(distance_sensor, float(step.publishDistance))
+                        await self.distance_publisher.publish(
+                            distance_sensor, float(step.publishDistance)
+                        )
 
                 await asyncio.sleep((step.delayMs / 1000.0) * multiplier)
 
@@ -270,7 +288,9 @@ class SimulationEngine:
     def _new_state(self) -> SimulationState:
         return SimulationState()
 
-    def _sensor_map_for_preset(self, preset: PresetDefinition | None) -> dict[str, SensorConfig]:
+    def _sensor_map_for_preset(
+        self, preset: PresetDefinition | None
+    ) -> dict[str, SensorConfig]:
         sensors = {
             sensor_id: config.model_copy(deep=True)
             for sensor_id, config in self._default_sensors.items()
@@ -287,7 +307,9 @@ class SimulationEngine:
 
     def _sensor_for(self, robot_name: str, prefix: str) -> SensorConfig:
         sensor_id = f"{prefix}-{robot_name}"
-        return self.sensors.get(sensor_id) or self.sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
+        return self.sensors.get(sensor_id) or self.sensors.setdefault(
+            sensor_id, SensorConfig(sensorId=sensor_id)
+        )
 
     def _sensor_value(self, sensor: SensorConfig, default: Any) -> Any:
         if sensor.scripted_values:
@@ -297,7 +319,9 @@ class SimulationEngine:
 
         if sensor.mode == "random":
             stable_colors = ["RED", "GREEN", "BLUE", "YELLOW"]
-            stable_index = (len(sensor.sensorId) + len(self.state.currentPreset or "")) % len(stable_colors)
+            stable_index = (
+                len(sensor.sensorId) + len(self.state.currentPreset or "")
+            ) % len(stable_colors)
             return stable_colors[stable_index]
 
         return sensor.value if sensor.value is not None else default
