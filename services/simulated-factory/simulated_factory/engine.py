@@ -13,6 +13,8 @@ from simulated_factory.adapters.distance_publisher import DistancePublisher
 from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.models import (
     DobotRuntimeState,
+    InteractiveConfig,
+    PendingAction,
     Position,
     PresetDefinition,
     SensorConfig,
@@ -45,6 +47,9 @@ class SimulationEngine:
         self._stop_requested = False
         self._run_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
+        self.interactive_config: InteractiveConfig = InteractiveConfig()
+        self._pending: dict[str, PendingAction] = {}
+        self._pending_counter = 0
         self.reload_config()
 
     def reload_config(self) -> None:
@@ -154,11 +159,93 @@ class SimulationEngine:
             "STATE", message="Simulation reset", payload={"status": "reset"}
         )
 
-    async def handle_dobot_commands(self, robot_name: str, payload: Any) -> str:
+    async def handle_dobot_commands(
+        self, robot_name: str, payload: Any
+    ) -> dict[str, Any]:
         command_list = payload if isinstance(payload, list) else [payload]
-        dobot_state = self.state.dobots.setdefault(robot_name, DobotRuntimeState())
         correlation_id = f"cmd-{self.state.id}-{self.state.currentStep + 1}"
 
+        intercepted = self.interactive_config.intercepted
+        command_types = [
+            str(cmd.get("type", "unknown")) if isinstance(cmd, dict) else "unknown"
+            for cmd in command_list
+        ]
+        should_intercept = bool(intercepted) and any(
+            ct in intercepted for ct in command_types
+        )
+
+        if should_intercept:
+            self._pending_counter += 1
+            action_id = f"act-{self._pending_counter:04d}"
+            action = PendingAction(
+                id=action_id,
+                robot_name=robot_name,
+                commands=list(command_list),
+                correlation_id=correlation_id,
+            )
+            self._pending[action_id] = action
+
+            await self._record_event(
+                "PENDING_ACTION",
+                message=f"Pending action {action_id} for {robot_name}",
+                payload={
+                    "actionId": action_id,
+                    "robot": robot_name,
+                    "commands": command_list,
+                    "commandTypes": command_types,
+                    "correlationId": correlation_id,
+                },
+            )
+
+            timeout = max(1, int(self.interactive_config.timeout_seconds))
+            try:
+                await asyncio.wait_for(action._event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                action.outcome = "failure"
+                action.timed_out = True
+                self._pending.pop(action_id, None)
+                await self._record_event(
+                    "ACTION_RESOLVED",
+                    message=f"Action {action_id} timed out",
+                    payload={
+                        "actionId": action_id,
+                        "outcome": "failure",
+                        "timedOut": True,
+                    },
+                )
+
+            outcome = action.outcome or "failure"
+            if outcome == "success":
+                self._apply_commands(robot_name, command_list)
+                self.state.timestamp = utc_now()
+                await self._record_event(
+                    "COMMAND",
+                    message=(
+                        f"Accepted {len(command_list)} command(s) for {robot_name} "
+                        "after interactive resolution"
+                    ),
+                    payload={"robot": robot_name, "commands": command_list},
+                )
+
+            result: dict[str, Any] = {
+                "correlationId": correlation_id,
+                "outcome": outcome,
+            }
+            if action.timed_out:
+                result["timedOut"] = True
+            return result
+
+        self._apply_commands(robot_name, command_list)
+        self.state.timestamp = utc_now()
+        await self._record_event(
+            "COMMAND",
+            message=f"Accepted {len(command_list)} command(s) for {robot_name}",
+            payload={"robot": robot_name, "commands": command_list},
+        )
+        return {"correlationId": correlation_id}
+
+    def _apply_commands(self, robot_name: str, command_list: list[Any]) -> None:
+        dobot_state = self.state.dobots.setdefault(robot_name, DobotRuntimeState())
         for command in command_list:
             command_type = str(command.get("type", "unknown"))
             match command_type:
@@ -200,13 +287,39 @@ class SimulationEngine:
 
             dobot_state.last_command = command_type
 
-        self.state.timestamp = utc_now()
+    async def resolve_action(
+        self, action_id: str, outcome: str, reason: str | None = None
+    ) -> PendingAction:
+        if outcome not in ("success", "failure"):
+            raise ValueError(f"invalid outcome {outcome!r}")
+        action = self._pending.get(action_id)
+        if action is None:
+            raise KeyError(action_id)
+        action.outcome = outcome
+        action.reason = reason
+        action._event.set()
+        self._pending.pop(action_id, None)
         await self._record_event(
-            "COMMAND",
-            message=f"Accepted {len(command_list)} command(s) for {robot_name}",
-            payload={"robot": robot_name, "commands": command_list},
+            "ACTION_RESOLVED",
+            message=f"Action {action_id} resolved: {outcome}",
+            payload={
+                "actionId": action_id,
+                "outcome": outcome,
+                "reason": reason,
+                "timedOut": False,
+            },
         )
-        return correlation_id
+        return action
+
+    def get_pending_actions(self) -> list[dict[str, Any]]:
+        return [action.to_public_dict() for action in self._pending.values()]
+
+    def get_interactive_config(self) -> InteractiveConfig:
+        return self.interactive_config.model_copy(deep=True)
+
+    def set_interactive_config(self, config: InteractiveConfig) -> InteractiveConfig:
+        self.interactive_config = config
+        return self.get_interactive_config()
 
     def read_color(self, robot_name: str) -> tuple[str, list[int]]:
         sensor = self._sensor_for(robot_name, "color")

@@ -47,3 +47,34 @@ def test_dobot_command_and_sensor_aliases() -> None:
     health_response = client.get("/health")
     assert health_response.status_code == 200
     assert health_response.json() == {"status": "ok"}
+
+
+def test_resolve_unknown_action_returns_404() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/interactive/act-does-not-exist/resolve",
+        json={"outcome": "success"},
+    )
+    assert response.status_code == 404
+
+
+def test_interactive_config_round_trip() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    initial = client.get("/api/interactive/config")
+    assert initial.status_code == 200
+    assert initial.json() == {"intercepted": [], "timeoutSeconds": 30}
+
+    updated = client.put(
+        "/api/interactive/config",
+        json={"intercepted": ["move"], "timeoutSeconds": 5},
+    )
+    assert updated.status_code == 200
+    assert updated.json() == {"intercepted": ["move"], "timeoutSeconds": 5}
+
+    pending = client.get("/api/interactive/pending")
+    assert pending.status_code == 200
+    assert pending.json() == {"items": []}

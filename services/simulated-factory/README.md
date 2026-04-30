@@ -97,3 +97,15 @@ curl -X PUT http://localhost:8400/api/config/sensors/color-left \
 
 - Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `presets.yml`.
 - The Docker image defines a healthcheck against `/health`, so the endpoint can be reused for compose or Kubernetes readiness probes.
+
+## Interactive Mode
+
+The simulator supports an optional **interactive mode** that suspends selected Dobot
+command batches until a human approves or rejects them through the UI or
+`POST /api/interactive/{actionId}/resolve`. See [api.md](./api.md#interactive-mode)
+for the full endpoint reference.
+
+When enabling interactive mode, raise the HTTP timeout used by `dobot-control` above
+the configured `timeoutSeconds` (default 30 s; recommended ≥ 35 s) so its requests do
+not abort while waiting for the operator. Interactive mode is in-memory only and
+resets on restart, so CI runs are unaffected.

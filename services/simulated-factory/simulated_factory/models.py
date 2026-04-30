@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -103,3 +105,44 @@ class SensorUpdateRequest(BaseModel):
     raw_color: list[int] | None = None
     scripted_values: list[Any] | None = None
     failRate: float | None = None
+
+
+class InteractiveConfig(BaseModel):
+    intercepted: set[str] = Field(default_factory=set)
+    timeout_seconds: int = 30
+
+
+class InteractiveConfigRequest(BaseModel):
+    intercepted: list[str] = Field(default_factory=list)
+    timeoutSeconds: int = 30
+
+
+class ResolveActionRequest(BaseModel):
+    outcome: str
+    reason: str | None = None
+
+
+@dataclass
+class PendingAction:
+    id: str
+    robot_name: str
+    commands: list[Any]
+    correlation_id: str
+    created_at: datetime = field(default_factory=utc_now)
+    outcome: str | None = None
+    reason: str | None = None
+    timed_out: bool = False
+    _event: asyncio.Event = field(default_factory=asyncio.Event)
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "robotName": self.robot_name,
+            "commands": self.commands,
+            "commandTypes": [
+                str(cmd.get("type", "unknown")) if isinstance(cmd, dict) else "unknown"
+                for cmd in self.commands
+            ],
+            "correlationId": self.correlation_id,
+            "createdAt": self.created_at.isoformat(),
+        }

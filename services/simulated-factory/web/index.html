@@ -293,6 +293,12 @@
       </div>
     </section>
 
+    <section class="panel" id="pending-section" hidden>
+      <h2>Pending Actions</h2>
+      <div class="muted">Interactive mode is intercepting Dobot commands. Resolve each action to release the suspended request.</div>
+      <div id="pending-list" class="event-list"></div>
+    </section>
+
     <section class="panel">
       <h2>Event History</h2>
       <div class="muted">REST requests, MQTT publishes, and simulator state changes appear in a single chronological stream.</div>
@@ -305,6 +311,8 @@
     const presetList = document.getElementById("preset-list");
     const sensorList = document.getElementById("sensor-list");
     const eventList = document.getElementById("event-list");
+    const pendingSection = document.getElementById("pending-section");
+    const pendingList = document.getElementById("pending-list");
     const stopButton = document.getElementById("stop-button");
     const resetButton = document.getElementById("reset-button");
 
@@ -411,17 +419,53 @@
       }
     }
 
+    function renderPending(actions) {
+      pendingList.innerHTML = "";
+      const items = Array.isArray(actions) ? actions : [];
+      pendingSection.hidden = items.length === 0;
+      for (const action of items) {
+        const card = document.createElement("article");
+        card.className = "event";
+        const stamp = new Date(action.createdAt).toLocaleTimeString();
+        const types = (action.commandTypes || []).join(", ") || "unknown";
+        card.innerHTML = `
+          <header>
+            <h3>${action.robotName} · ${action.id}</h3>
+            <time>${stamp}</time>
+          </header>
+          <div class="muted">Command types: ${types}</div>
+          <pre>${JSON.stringify(action.commands, null, 2)}</pre>
+          <div class="button-row">
+            <button class="accent" data-outcome="success">Success</button>
+            <button class="secondary" data-outcome="failure">Failure</button>
+          </div>
+        `;
+        for (const button of card.querySelectorAll("button[data-outcome]")) {
+          button.addEventListener("click", async () => {
+            await request(`/api/interactive/${action.id}/resolve`, {
+              method: "POST",
+              body: JSON.stringify({ outcome: button.dataset.outcome }),
+            });
+            await refresh();
+          });
+        }
+        pendingList.appendChild(card);
+      }
+    }
+
     async function refresh() {
-      const [status, presets, sensors, events] = await Promise.all([
+      const [status, presets, sensors, events, pending] = await Promise.all([
         request("/api/status"),
         request("/api/presets"),
         request("/api/config/sensors"),
         request("/api/events?page=1&pageSize=30"),
+        request("/api/interactive/pending"),
       ]);
       renderStatus(status);
       renderPresets(presets);
       renderSensors(sensors);
       renderEvents(events);
+      renderPending(pending.items);
     }
 
     stopButton.addEventListener("click", async () => {
