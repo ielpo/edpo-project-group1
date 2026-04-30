@@ -1,3 +1,9 @@
+## Purpose
+
+Ensure the Material Design 3 visual styling uses the project's custom color palette instead of the MD3 default purple baseline.
+
+## Requirements
+
 ## MODIFIED Requirements
 
 ### Requirement: Material Design 3 visual styling
