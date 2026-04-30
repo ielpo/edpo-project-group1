@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any
 
+import httpx
 import yaml
 from fastapi.encoders import jsonable_encoder
 
@@ -41,12 +43,18 @@ class SimulationEngine:
         event_store: EventStore,
         distance_publisher: DistancePublisher,
         event_bridge: EventBridge,
+        inventory_url: str | None = None,
     ):
         self.logger = logging.getLogger(__name__)
         self.config_path = Path(config_path)
         self.event_store = event_store
         self.distance_publisher = distance_publisher
         self.event_bridge = event_bridge
+        self._inventory_url = (
+            inventory_url
+            if inventory_url is not None
+            else os.getenv("INVENTORY_URL", "http://localhost:8103")
+        )
         self.state = self._new_state()
         self._default_sensors: dict[str, SensorConfig] = {}
         self.sensors: dict[str, SensorConfig] = {}
@@ -59,6 +67,8 @@ class SimulationEngine:
         self._pending: dict[str, PendingAction] = {}
         self._pending_counter = 0
         self._step_gate: tuple[AwaitRequest, asyncio.Event, PresetStep] | None = None
+        self._inventory_cache: dict | None = None
+        self._inventory_poll_task: asyncio.Task | None = None
         self.reload_config()
 
     def reload_config(self) -> None:
@@ -504,6 +514,55 @@ class SimulationEngine:
 
     def _new_state(self) -> SimulationState:
         return SimulationState()
+
+    # ------------------------------------------------------------------
+    # Inventory cache (background poller)
+    # ------------------------------------------------------------------
+    def get_inventory_cache(self) -> dict:
+        """Return the latest cached inventory grid.
+
+        Falls back to a neutral envelope when the cache is cold or the
+        inventory service has been unreachable since startup.
+        """
+        if self._inventory_cache is None:
+            return {"grid": None, "rows": 0, "cols": 0}
+        return self._inventory_cache
+
+    def start_inventory_poller(self) -> None:
+        """Launch the background asyncio.Task that polls inventory every 3 s.
+
+        Idempotent: if a poller task is already running, this is a no-op.
+        """
+        if self._inventory_poll_task is not None and not self._inventory_poll_task.done():
+            return
+        self._inventory_poll_task = asyncio.create_task(self._inventory_poll_loop())
+
+    async def stop_inventory_poller(self) -> None:
+        task = self._inventory_poll_task
+        self._inventory_poll_task = None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # pragma: no cover - defensive
+            pass
+
+    async def _inventory_poll_loop(self) -> None:
+        url = self._inventory_url.rstrip("/") + "/inventory"
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                while True:
+                    try:
+                        response = await client.get(url)
+                        if response.status_code == 200:
+                            self._inventory_cache = response.json()
+                    except Exception:
+                        # Swallow all transient errors; keep last cache value.
+                        pass
+                    await asyncio.sleep(3.0)
+        except asyncio.CancelledError:
+            raise
 
     def _sensor_map_for_preset(
         self, preset: PresetDefinition | None
