@@ -12,6 +12,22 @@ from fastapi.encoders import jsonable_encoder
 from simulated_factory.models import EventEntry
 
 
+# Event types considered "process-relevant" for the operator-focused view.
+# Kept centralized so renderers, filters, and tests share one source of truth.
+PROCESS_EVENT_TYPES: frozenset[str] = frozenset(
+    {"KAFKA", "COMMAND", "PENDING_ACTION", "ACTION_RESOLVED", "SENSOR_REQUEST"}
+)
+
+
+def _normalize_filter_mode(filter_mode: str | None) -> str:
+    if filter_mode is None:
+        return "full"
+    mode = filter_mode.lower()
+    if mode not in ("full", "process"):
+        return "full"
+    return mode
+
+
 class EventStore:
     def __init__(self, max_entries: int = 500):
         self._events: deque[EventEntry] = deque(maxlen=max_entries)
@@ -58,10 +74,19 @@ class EventStore:
         self._subscribers.discard(queue)
 
     def list_events(
-        self, page: int = 1, page_size: int = 50, filter_text: str | None = None
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        filter_text: str | None = None,
+        filter_mode: str | None = None,
     ) -> tuple[list[dict[str, Any]], int | None]:
         items = [jsonable_encoder(item) for item in self._events]
         items.reverse()
+
+        mode = _normalize_filter_mode(filter_mode)
+        if mode == "process":
+            items = [item for item in items if item.get("type") in PROCESS_EVENT_TYPES]
+
         if filter_text:
             needle = filter_text.lower()
             filtered: list[dict[str, Any]] = []
