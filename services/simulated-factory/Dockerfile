@@ -15,7 +15,7 @@ COPY presets.yml ./
 COPY README.md ./
 COPY api.md ./
 COPY simulated_factory/ simulated_factory/
-COPY web/ web/
+COPY templates/ templates/
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 CMD ["uv", "run", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8400/health', timeout=3)"]
 

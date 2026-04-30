@@ -1,0 +1,23 @@
+<div id="event-panel" class="card"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2>Event History</h2>
+  <div class="supporting">REST requests, MQTT publishes, and simulator state changes appear in a single chronological stream.</div>
+  <div class="event-list">
+    {% for event in events %}
+    <article class="item-card">
+      <header>
+        <h3>{{ event.type }}</h3>
+        <time>{{ event.ts }}</time>
+      </header>
+      <p>{{ event.message or 'No message' }}</p>
+      {% if event.method or event.endpoint or event.topic %}
+      <p><span class="chip">{{ event.method or '' }} {{ event.endpoint or event.topic or '' }}</span></p>
+      {% endif %}
+      {% if event.payload is not none %}
+      <pre class="code">{{ event.payload|tojson(indent=2) }}</pre>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="supporting">No events yet.</div>
+    {% endfor %}
+  </div>
+</div>

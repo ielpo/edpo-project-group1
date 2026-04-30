@@ -1,0 +1,32 @@
+<div id="pending-panel" class="card"{% if oob %} hx-swap-oob="true"{% endif %}{% if not pending %} hidden{% endif %}>
+  <h2>Pending Actions</h2>
+  <div class="supporting">Interactive mode is intercepting Dobot commands. Resolve each action to release the suspended request.</div>
+  {% for action in pending %}
+  <article class="item-card">
+    <header>
+      <h3>{{ action.robotName }} · {{ action.id }}</h3>
+      <time>{{ action.createdAt }}</time>
+    </header>
+    <p>Command types: {{ action.commandTypes|join(', ') or 'unknown' }}</p>
+    <pre class="code">{{ action.commands|tojson(indent=2) }}</pre>
+    <div class="btn-row">
+      <button
+        class="btn btn-filled"
+        hx-post="/api/interactive/{{ action.id }}/resolve"
+        hx-vals='{"outcome": "success"}'
+        hx-ext="json-enc"
+        hx-swap="none"
+      >Approve</button>
+      <button
+        class="btn btn-error"
+        hx-post="/api/interactive/{{ action.id }}/resolve"
+        hx-vals='{"outcome": "failure"}'
+        hx-ext="json-enc"
+        hx-swap="none"
+      >Reject</button>
+    </div>
+  </article>
+  {% else %}
+  <div class="supporting">No pending actions.</div>
+  {% endfor %}
+</div>

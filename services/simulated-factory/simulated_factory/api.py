@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -8,7 +9,8 @@ from typing import Any
 
 from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.templating import Jinja2Templates
 
 from simulated_factory.adapters.distance_publisher import DistancePublisher
 from simulated_factory.engine import SimulationEngine
@@ -21,6 +23,10 @@ from simulated_factory.models import (
     SensorUpdateRequest,
     utc_now,
 )
+
+
+TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def create_app(config_path: str) -> FastAPI:
@@ -80,8 +86,100 @@ def create_app(config_path: str) -> FastAPI:
         return response
 
     @app.get("/", response_class=HTMLResponse)
-    async def index() -> str:
-        return _ui_html()
+    async def index(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(request, "base.html", {})
+
+    # ------------------------------------------------------------------
+    # HTML fragment endpoints (htmx)
+    # ------------------------------------------------------------------
+    def _events_for_view(limit: int = 30) -> list[dict[str, Any]]:
+        items, _ = event_store.list_events(page=1, page_size=limit)
+        return items
+
+    def _render_fragment(
+        request: Request, name: str, *, oob: bool = False, **extra: Any
+    ) -> HTMLResponse:
+        ctx = {"oob": oob, **extra}
+        return templates.TemplateResponse(request, f"fragments/{name}.html", ctx)
+
+    @app.get("/fragments/status", response_class=HTMLResponse)
+    async def fragment_status(request: Request) -> HTMLResponse:
+        return _render_fragment(
+            request, "status", state=jsonable_encoder(engine.get_status())
+        )
+
+    @app.get("/fragments/presets", response_class=HTMLResponse)
+    async def fragment_presets(request: Request) -> HTMLResponse:
+        return _render_fragment(request, "presets", presets=engine.list_presets())
+
+    @app.get("/fragments/sensors", response_class=HTMLResponse)
+    async def fragment_sensors(request: Request) -> HTMLResponse:
+        return _render_fragment(
+            request, "sensors", sensors=jsonable_encoder(engine.get_sensor_configs())
+        )
+
+    @app.get("/fragments/events", response_class=HTMLResponse)
+    async def fragment_events(request: Request) -> HTMLResponse:
+        return _render_fragment(request, "events", events=_events_for_view())
+
+    @app.get("/fragments/pending", response_class=HTMLResponse)
+    async def fragment_pending(request: Request) -> HTMLResponse:
+        return _render_fragment(
+            request, "pending", pending=engine.get_pending_actions()
+        )
+
+    # ------------------------------------------------------------------
+    # Server-Sent Events live stream
+    # ------------------------------------------------------------------
+    def _render_all_oob(request: Request) -> str:
+        """Render every panel as an out-of-band swap fragment."""
+        parts: list[str] = []
+        renderers = [
+            ("status", {"state": jsonable_encoder(engine.get_status())}),
+            ("presets", {"presets": engine.list_presets()}),
+            ("sensors", {"sensors": jsonable_encoder(engine.get_sensor_configs())}),
+            ("events", {"events": _events_for_view()}),
+            ("pending", {"pending": engine.get_pending_actions()}),
+        ]
+        for name, ctx in renderers:
+            response = templates.TemplateResponse(
+                request,
+                f"fragments/{name}.html",
+                {"oob": True, **ctx},
+            )
+            parts.append(response.body.decode("utf-8"))
+        return "".join(parts)
+
+    @app.get("/sse/status")
+    async def sse_status(request: Request) -> StreamingResponse:
+        queue = event_store.subscribe()
+
+        def _format_sse(data: str, event: str = "update") -> bytes:
+            # Each data line must be prefixed; collapse newlines into multiple data: lines
+            payload_lines = data.splitlines() or [""]
+            body = "\n".join(f"data: {line}" for line in payload_lines)
+            return f"event: {event}\n{body}\n\n".encode("utf-8")
+
+        async def event_generator():
+            try:
+                yield _format_sse(_render_all_oob(request))
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        await asyncio.wait_for(queue.get(), timeout=1.0)
+                    except asyncio.TimeoutError:
+                        yield b": ping\n\n"
+                        continue
+                    yield _format_sse(_render_all_oob(request))
+            finally:
+                event_store.unsubscribe(queue)
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -124,11 +222,58 @@ def create_app(config_path: str) -> FastAPI:
     async def list_sensor_configs() -> JSONResponse:
         return JSONResponse(jsonable_encoder(engine.get_sensor_configs()))
 
-    @app.put("/api/config/sensors/{sensor_id}")
+    @app.put("/api/config/sensors/{sensor_id}", response_model=None)
     async def update_sensor(
-        sensor_id: str, request_body: SensorUpdateRequest
-    ) -> JSONResponse:
-        sensor = await engine.update_sensor(sensor_id, request_body)
+        sensor_id: str, request: Request
+    ) -> JSONResponse | HTMLResponse:
+        body = await request.body()
+        if not body:
+            payload: dict[str, Any] = {}
+        else:
+            try:
+                payload = json.loads(body.decode("utf-8"))
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="invalid JSON body")
+
+        # Coerce values that may arrive as strings via htmx forms (json-enc).
+        raw = payload.get("raw_color")
+        if isinstance(raw, str):
+            tokens = [t.strip() for t in raw.split(",") if t.strip()]
+            try:
+                payload["raw_color"] = [int(t) for t in tokens] if tokens else None
+            except ValueError:
+                payload["raw_color"] = None
+        if "value" in payload and isinstance(payload["value"], str):
+            value_str = payload["value"].strip()
+            lowered = value_str.lower()
+            if lowered == "true":
+                payload["value"] = True
+            elif lowered == "false":
+                payload["value"] = False
+            elif value_str == "":
+                payload["value"] = None
+            else:
+                try:
+                    if "." in value_str:
+                        payload["value"] = float(value_str)
+                    else:
+                        payload["value"] = int(value_str)
+                except ValueError:
+                    payload["value"] = value_str
+
+        try:
+            update = SensorUpdateRequest(**payload)
+        except Exception as exc:  # pydantic ValidationError
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        sensor = await engine.update_sensor(sensor_id, update)
+
+        if request.headers.get("HX-Request") == "true":
+            return templates.TemplateResponse(
+                request,
+                "fragments/_sensor_card.html",
+                {"sensor": jsonable_encoder(sensor)},
+            )
         return JSONResponse(jsonable_encoder(sensor))
 
     @app.get("/api/events")
@@ -257,8 +402,3 @@ def create_app(config_path: str) -> FastAPI:
             event_store.unsubscribe(queue)
 
     return app
-
-
-def _ui_html() -> str:
-    web_path = Path(__file__).resolve().parents[1] / "web" / "index.html"
-    return web_path.read_text(encoding="utf-8")

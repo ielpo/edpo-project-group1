@@ -8,9 +8,11 @@ readme = "README.md"
 dependencies = [
     "fastapi",
     "httpx",
+    "jinja2>=3.1",
     "paho-mqtt",
     "pydantic",
     "pyyaml",
+    "sse-starlette>=2.1",
     "uvicorn[standard]",
 ]
 
