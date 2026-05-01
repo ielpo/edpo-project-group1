@@ -1,0 +1,15 @@
+name: refactor-backend-simplify
+title: Refactor backend to simplify architecture and code
+summary: Perform a targeted refactor of the backend to remove duplication, simplify service boundaries, and improve maintainability.
+author: GitHub Copilot
+status: draft
+apply:
+  requires:
+    - tasks
+artifacts:
+  - id: proposal
+    path: proposal.md
+  - id: design
+    path: design.md
+  - id: tasks
+    path: tasks.md
