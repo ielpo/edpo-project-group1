@@ -61,6 +61,8 @@ The service MUST provide `POST /api/presets/run`, `POST /api/presets/stop`, and 
 ### Requirement: Sensor configuration management
 The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate sensor modes and values.
 
+Note: The `PUT /api/config/sensors/{sensorId}` endpoint accepts either an array for `scripted_values` or a legacy CSV string; the server supports both for backward compatibility.
+
 Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `failRate` field are removed from the API contract.
 
 - `fixed`: the sensor always returns `value`.

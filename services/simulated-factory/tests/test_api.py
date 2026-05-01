@@ -192,3 +192,26 @@ def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
     body = response.json()
     assert body["sensorId"] == "color-left"
     assert body["value"] == "BLUE"
+
+
+def test_put_sensor_accepts_scripted_values_array_and_csv() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    # Send an array payload
+    resp = client.put(
+        "/api/config/sensors/distance-conveyor",
+        json={"mode": "scripted", "scripted_values": [5, 15, 25]},
+    )
+    assert resp.status_code == 200
+    sensor = app.state.engine.sensors["distance-conveyor"]
+    assert sensor.scripted_values == [5, 15, 25]
+
+    # Send a CSV string payload
+    resp2 = client.put(
+        "/api/config/sensors/distance-conveyor",
+        json={"mode": "scripted", "scripted_values": "10,20.5,30"},
+    )
+    assert resp2.status_code == 200
+    sensor2 = app.state.engine.sensors["distance-conveyor"]
+    assert sensor2.scripted_values == [10, 20.5, 30]
