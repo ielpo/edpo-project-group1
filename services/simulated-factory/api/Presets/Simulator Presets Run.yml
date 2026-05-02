@@ -6,6 +6,13 @@ info:
 http:
   method: POST
   url: http://localhost:{{port}}/api/presets/run
+  body:
+    type: json
+    data: |-
+      {
+        "preset": "happy-path",
+        "speed": "normal"
+      }
   auth: inherit
 
 settings:

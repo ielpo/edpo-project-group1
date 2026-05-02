@@ -8,6 +8,14 @@ http:
   url: http://localhost:{{port}}/api/interactive/{{actionId}}/resolve
   auth: inherit
 
+  body:
+    type: json
+    data: |-
+      {
+        "outcome": "success",
+        "reason": "operator approved"
+      }
+
 settings:
   encodeUrl: true
   timeout: 0
