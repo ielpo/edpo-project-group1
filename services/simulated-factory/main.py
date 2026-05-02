@@ -5,7 +5,7 @@ import uvicorn
 from simulated_factory.api import create_app
 
 
-CONFIG_PATH = os.getenv("SIMULATOR_CONFIG_PATH", "presets.yml")
+CONFIG_PATH = os.getenv("SIMULATOR_CONFIG_PATH", "config.yml")
 app = create_app(CONFIG_PATH)
 
 

@@ -50,8 +50,6 @@ def create_app(config_path: str) -> FastAPI:
 
     deps = build_dependencies(config_path, logger=logger)
     event_store = deps["event_store"]
-    event_bridge = deps["event_bridge"]
-    distance_publisher = deps["distance_publisher"]
     engine = deps["engine"]
     kafka_observer = deps["kafka_observer"]
 
@@ -131,6 +129,30 @@ def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
     # HTML fragment endpoints (htmx)
     # ------------------------------------------------------------------
+    @app.get("/fragments/status", response_class=HTMLResponse)
+    async def fragment_status(request: Request) -> HTMLResponse:
+        ctx = {"oob": False, "state": jsonable_encoder(engine.get_status())}
+        return templates.TemplateResponse(request, "fragments/status.html", ctx)
+
+    @app.get("/fragments/presets", response_class=HTMLResponse)
+    async def fragment_presets(request: Request) -> HTMLResponse:
+        ctx = {
+            "oob": False,
+            "presets": engine.list_presets(),
+            "state": jsonable_encoder(engine.get_status()),
+        }
+        return templates.TemplateResponse(request, "fragments/presets.html", ctx)
+
+    @app.get("/fragments/twin", response_class=HTMLResponse)
+    async def fragment_twin(request: Request) -> HTMLResponse:
+        ctx = {
+            "oob": False,
+            "state": jsonable_encoder(engine.get_status()),
+            "sensors": jsonable_encoder(engine.get_sensor_configs()),
+            "inventory": engine.get_inventory_cache(),
+        }
+        return templates.TemplateResponse(request, "fragments/twin.html", ctx)
+
     def _events_for_view(
         limit: int = 30, filter_mode: str | None = None
     ) -> list[dict[str, Any]]:
@@ -139,54 +161,22 @@ def create_app(config_path: str) -> FastAPI:
         )
         return items
 
-    def _render_fragment(
-        request: Request, name: str, *, oob: bool = False, **extra: Any
-    ) -> HTMLResponse:
-        ctx = {"oob": oob, **extra}
-        return templates.TemplateResponse(request, f"fragments/{name}.html", ctx)
-
-    @app.get("/fragments/status", response_class=HTMLResponse)
-    async def fragment_status(request: Request) -> HTMLResponse:
-        return _render_fragment(
-            request, "status", state=jsonable_encoder(engine.get_status())
-        )
-
-    @app.get("/fragments/presets", response_class=HTMLResponse)
-    async def fragment_presets(request: Request) -> HTMLResponse:
-        return _render_fragment(
-            request,
-            "presets",
-            presets=engine.list_presets(),
-            state=jsonable_encoder(engine.get_status()),
-        )
-
-    @app.get("/fragments/twin", response_class=HTMLResponse)
-    async def fragment_twin(request: Request) -> HTMLResponse:
-        return _render_fragment(
-            request,
-            "twin",
-            state=jsonable_encoder(engine.get_status()),
-            sensors=jsonable_encoder(engine.get_sensor_configs()),
-            inventory=engine.get_inventory_cache(),
-        )
-
     @app.get("/fragments/events", response_class=HTMLResponse)
     async def fragment_events(
         request: Request, filter: str | None = None
     ) -> HTMLResponse:
         mode = filter if filter in ("full", "process") else "full"
-        return _render_fragment(
-            request,
-            "events",
-            events=_events_for_view(filter_mode=mode),
-            filter_mode=mode,
-        )
+        ctx = {
+            "oob": False,
+            "events": _events_for_view(filter_mode=mode),
+            "filter_mode": mode,
+        }
+        return templates.TemplateResponse(request, "fragments/events.html", ctx)
 
     @app.get("/fragments/pending", response_class=HTMLResponse)
     async def fragment_pending(request: Request) -> HTMLResponse:
-        return _render_fragment(
-            request, "pending", pending=engine.get_pending_actions()
-        )
+        ctx = {"oob": False, "pending": engine.get_pending_actions()}
+        return templates.TemplateResponse(request, "fragments/pending.html", ctx)
 
     # ------------------------------------------------------------------
     # Server-Sent Events live stream
@@ -240,6 +230,7 @@ def create_app(config_path: str) -> FastAPI:
             return format_sse(data, event)
 
         async def event_generator():
+            last_state: str = ""
             try:
                 yield _format_sse(_render_all_oob(request))
                 while True:
@@ -247,10 +238,12 @@ def create_app(config_path: str) -> FastAPI:
                         break
                     try:
                         await asyncio.wait_for(queue.get(), timeout=1.0)
+                        current_state = _render_all_oob(request)
+                        if current_state != last_state:
+                            yield _format_sse(current_state)
+                            last_state = current_state
                     except asyncio.TimeoutError:
                         yield b": ping\n\n"
-                        continue
-                    yield _format_sse(_render_all_oob(request))
             finally:
                 event_store.unsubscribe(queue)
 
@@ -260,6 +253,9 @@ def create_app(config_path: str) -> FastAPI:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    # ------------------------------------------------------------------
+    # Simulation visibility and control
+    # ------------------------------------------------------------------
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -522,32 +518,5 @@ def create_app(config_path: str) -> FastAPI:
     @app.get("/read-ir")
     async def read_ir_alias() -> dict[str, bool]:
         return {"ir": engine.read_ir("left")}
-
-    @app.websocket("/ws/status")
-    async def websocket_status(websocket: WebSocket) -> None:
-        await websocket.accept()
-        queue = event_store.subscribe()
-        await websocket.send_json(
-            {
-                "type": "state_snapshot",
-                "state": jsonable_encoder(engine.get_status()),
-                "pending": engine.get_pending_actions(),
-            }
-        )
-        try:
-            while True:
-                event = await queue.get()
-                await websocket.send_json(
-                    {
-                        "type": "event",
-                        "event": event,
-                        "state": jsonable_encoder(engine.get_status()),
-                        "pending": engine.get_pending_actions(),
-                    }
-                )
-        except WebSocketDisconnect:
-            return
-        finally:
-            event_store.unsubscribe(queue)
 
     return app
