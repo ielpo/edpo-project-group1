@@ -1,0 +1,25 @@
+info:
+  name: Simulator Presets API Collection
+  type: folder
+  seq: 20
+
+children:
+  - Simulator Status.yml
+  - Simulator Presets List.yml
+  - Simulator Presets Run.yml
+  - Simulator Presets Stop.yml
+  - Simulator Presets Reset.yml
+  - Simulator Config Sensors List.yml
+  - Simulator Config Sensors Update.yml
+  - Simulator Events List.yml
+  - Simulator Events Post.yml
+  - Simulator Dobot Commands.yml
+  - Simulator Dobot Color.yml
+  - Simulator Dobot IR.yml
+  - Simulator Dobot State.yml
+  - Simulator Color Compatibility.yml
+  - Simulator Health.yml
+  - Simulator Interactive Config Get.yml
+  - Simulator Interactive Config Put.yml
+  - Simulator Interactive Pending.yml
+  - Simulator Interactive Resolve.yml

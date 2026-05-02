@@ -1,0 +1,23 @@
+info:
+  name: Simulator Config Sensors Update
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: http://localhost:{{port}}/api/config/sensors/{{sensorId}}
+  auth: inherit
+  body:
+    mimeType: application/json
+    text: |
+      {
+        "mode": "fixed",
+        "value": "RED",
+        "raw_color": [1, 0, 0]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,22 @@
+info:
+  name: Simulator Events Post
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: http://localhost:{{port}}/api/events
+  auth: inherit
+  body:
+    mimeType: application/json
+    text: |
+      {
+        "type": "custom-event",
+        "message": "example"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
