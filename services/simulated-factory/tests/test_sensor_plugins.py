@@ -1,4 +1,5 @@
 """Unit tests for built-in sensor plugins."""
+
 from __future__ import annotations
 
 import pytest
@@ -15,7 +16,9 @@ from simulated_factory.sensors.ir import IrSensor
 
 
 def test_color_sensor_fixed_mode() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]})
+    sensor = ColorSensor(
+        "color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]}
+    )
     color, raw = sensor.read()
     assert color == "RED"
     assert raw == [1, 0, 0]
@@ -97,7 +100,9 @@ def test_ir_sensor_default_true_when_none() -> None:
 
 
 def test_ir_sensor_scripted_mode() -> None:
-    sensor = IrSensor("ir-left", {"mode": "scripted", "scripted_values": [True, False, True]})
+    sensor = IrSensor(
+        "ir-left", {"mode": "scripted", "scripted_values": [True, False, True]}
+    )
     assert sensor.read(step=1) is True
     assert sensor.read(step=2) is False
     assert sensor.read(step=3) is True
@@ -184,7 +189,9 @@ def test_distance_sensor_clone_is_independent() -> None:
 
 
 def test_apply_overrides_updates_value_and_raw_color() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]})
+    sensor = ColorSensor(
+        "color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]}
+    )
     sensor.apply_overrides({"value": "BLUE", "raw_color": [0, 0, 1]})
     color, raw = sensor.read()
     assert color == "BLUE"
