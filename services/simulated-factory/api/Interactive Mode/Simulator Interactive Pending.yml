@@ -1,11 +1,11 @@
 info:
-  name: Simulator Dobot Color
+  name: Simulator Interactive Pending
   type: http
-  seq: 11
+  seq: 6
 
 http:
   method: GET
-  url: http://localhost:{{port}}/api/dobot/{{name}}/color
+  url: http://localhost:{{port}}/api/interactive/pending
   auth: inherit
 
 settings:
