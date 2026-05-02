@@ -151,3 +151,29 @@ class PendingAction:
             "correlationId": self.correlation_id,
             "createdAt": self.created_at.isoformat(),
         }
+
+    async def wait_for_resolution(self, timeout: float | None = None) -> bool:
+        """Wait for the action to be resolved.
+
+        Returns True if the action was resolved before the timeout, False if
+        the wait timed out.
+        """
+        try:
+            if timeout is None:
+                await self._event.wait()
+                return True
+            await asyncio.wait_for(self._event.wait(), timeout=timeout)
+            return True
+        except asyncio.TimeoutError:
+            return False
+
+    def resolve(self, outcome: str, reason: str | None = None) -> None:
+        """Mark the action as resolved and notify any waiter."""
+        self.outcome = outcome
+        self.reason = reason
+        self._event.set()
+
+    def mark_timed_out(self) -> None:
+        """Convenience to mark the action as timed out and notify waiters."""
+        self.timed_out = True
+        self._event.set()

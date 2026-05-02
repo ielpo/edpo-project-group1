@@ -18,6 +18,7 @@ from simulated_factory.adapters.distance_publisher import DistancePublisher
 from simulated_factory.adapters.kafka_observer import KafkaObserver
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
+from simulated_factory.deps import build_dependencies
 from simulated_factory.models import (
     InteractiveConfig,
     InteractiveConfigRequest,
@@ -26,6 +27,8 @@ from simulated_factory.models import (
     SensorUpdateRequest,
     utc_now,
 )
+
+from simulated_factory.utils import format_sse
 
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -43,25 +46,12 @@ def create_app(config_path: str) -> FastAPI:
     )
     logger = logging.getLogger(__name__)
 
-    event_store = EventStore()
-    event_bridge = EventBridge(
-        mode=os.getenv("SIMULATOR_EVENT_BRIDGE", "none"),
-        target_url=os.getenv("SIMULATOR_EVENT_BRIDGE_URL"),
-        logger=logger,
-    )
-    distance_publisher = DistancePublisher(
-        broker_url=os.getenv("SIMULATOR_BROKER_URL"),
-        event_store=event_store,
-        logger=logger,
-    )
-    engine = SimulationEngine(
-        config_path=config_path,
-        event_store=event_store,
-        distance_publisher=distance_publisher,
-        event_bridge=event_bridge,
-    )
-
-    kafka_observer = KafkaObserver(event_store=event_store, logger=logger)
+    deps = build_dependencies(config_path, logger=logger)
+    event_store = deps["event_store"]
+    event_bridge = deps["event_bridge"]
+    distance_publisher = deps["distance_publisher"]
+    engine = deps["engine"]
+    kafka_observer = deps["kafka_observer"]
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -245,10 +235,7 @@ def create_app(config_path: str) -> FastAPI:
         queue = event_store.subscribe()
 
         def _format_sse(data: str, event: str = "update") -> bytes:
-            # Each data line must be prefixed; collapse newlines into multiple data: lines
-            payload_lines = data.splitlines() or [""]
-            body = "\n".join(f"data: {line}" for line in payload_lines)
-            return f"event: {event}\n{body}\n\n".encode("utf-8")
+            return format_sse(data, event)
 
         async def event_generator():
             try:
