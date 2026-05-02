@@ -36,7 +36,14 @@ from simulated_factory.utils import (
 
 
 _DEFAULT_INTERCEPTED: frozenset[str] = frozenset(
-    {"move", "move-relative", "set-speed", "suction-cup", "run-conveyor", "move-conveyor"}
+    {
+        "move",
+        "move-relative",
+        "set-speed",
+        "suction-cup",
+        "run-conveyor",
+        "move-conveyor",
+    }
 )
 
 
@@ -470,6 +477,7 @@ class SimulationEngine:
             event.set()
             self._step_gate = None
         self.state.waitingForRequest = None
+
     # Path-pattern regex helper moved to `simulated_factory.utils`
 
     def _matches_gate(self, method: str, path: str) -> bool:
@@ -512,7 +520,9 @@ class SimulationEngine:
         current request context; distance publishes are handled separately.
         """
         for sensor_id, value in step.sensorUpdates.items():
-            sensor = self.sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
+            sensor = self.sensors.setdefault(
+                sensor_id, SensorConfig(sensorId=sensor_id)
+            )
             sensor.value = value
 
     # ------------------------------------------------------------------
@@ -533,7 +543,10 @@ class SimulationEngine:
 
         Idempotent: if a poller task is already running, this is a no-op.
         """
-        if self._inventory_poll_task is not None and not self._inventory_poll_task.done():
+        if (
+            self._inventory_poll_task is not None
+            and not self._inventory_poll_task.done()
+        ):
             return
         self._inventory_poll_task = asyncio.create_task(self._inventory_poll_loop())
 
@@ -594,6 +607,7 @@ class SimulationEngine:
             return sensor.scripted_values[index]
 
         return sensor.value if sensor.value is not None else default
+
     # Color helpers (raw_color_from_name, rgb_bytes_from_raw) moved to
     # `simulated_factory.utils` to centralize utility functions.
 

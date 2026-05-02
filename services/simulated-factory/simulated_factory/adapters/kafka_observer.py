@@ -48,7 +48,6 @@ def _observer_enabled_by_env() -> bool:
     return raw.strip().lower() not in ("0", "false", "no", "off", "disabled")
 
 
-
 class KafkaObserver:
     """Async observer that streams process topics into the EventStore."""
 
@@ -91,9 +90,7 @@ class KafkaObserver:
             return
 
         self._running = True
-        self._task = asyncio.create_task(
-            self._run(), name="kafka-observer"
-        )
+        self._task = asyncio.create_task(self._run(), name="kafka-observer")
 
     async def _run(self) -> None:
         try:
