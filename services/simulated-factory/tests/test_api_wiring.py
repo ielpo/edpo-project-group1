@@ -9,7 +9,7 @@ from simulated_factory.api import create_app
 from simulated_factory.events import EventStore
 
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "presets.yml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 
 
 def test_create_app_exposes_engine_and_event_store() -> None:

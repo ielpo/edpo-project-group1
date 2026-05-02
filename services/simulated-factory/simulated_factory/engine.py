@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import copy
+import importlib
 import logging
 import os
 from pathlib import Path
@@ -27,11 +27,19 @@ from simulated_factory.models import (
     SimulationStatus,
     utc_now,
 )
+from simulated_factory.sensors.base import BaseSensor
 from simulated_factory.utils import (
     path_pattern_to_regex,
     raw_color_from_name,
     rgb_bytes_from_raw,
 )
+
+# Sensor type inference: map sensor-id prefix → plugin type name
+_TYPE_INFERENCE_RULES: list[tuple[str, str]] = [
+    ("color-", "color"),
+    ("ir-", "ir"),
+    ("distance-", "distance"),
+]
 
 
 _DEFAULT_INTERCEPTED: frozenset[str] = frozenset(
@@ -67,8 +75,8 @@ class SimulationEngine:
             else os.getenv("INVENTORY_URL", "http://localhost:8103")
         )
         self.state = SimulationState()
-        self._default_sensors: dict[str, SensorConfig] = {}
-        self.sensors: dict[str, SensorConfig] = {}
+        self._default_sensors: dict[str, BaseSensor] = {}
+        self.sensors: dict[str, BaseSensor] = {}
         self.presets: dict[str, PresetDefinition] = {}
         self._run_counter = 0
         self._stop_requested = False
@@ -88,7 +96,7 @@ class SimulationEngine:
         presets = payload.get("presets", {})
 
         self._default_sensors = {
-            sensor_id: SensorConfig(sensorId=sensor_id, **config)
+            sensor_id: self._make_plugin(sensor_id, config)
             for sensor_id, config in defaults.items()
         }
         self.presets = {
@@ -117,7 +125,7 @@ class SimulationEngine:
 
     def get_sensor_configs(self) -> list[SensorConfig]:
         return [
-            self.sensors[key].model_copy(deep=True)
+            self.sensors[key].to_sensor_config()
             for key in sorted(self.sensors.keys())
         ]
 
@@ -129,17 +137,17 @@ class SimulationEngine:
     async def update_sensor(
         self, sensor_id: str, update: SensorUpdateRequest
     ) -> SensorConfig:
-        sensor = self.sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
-        payload = update.model_dump(exclude_none=True)
-        for field_name, value in payload.items():
-            setattr(sensor, field_name, value)
+        if sensor_id not in self.sensors:
+            self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
+        plugin = self.sensors[sensor_id]
+        plugin.apply_update_request(update.model_dump(exclude_none=True))
 
         await self._record_event(
             "STATE",
             message=f"Sensor {sensor_id} updated",
-            payload={"sensorId": sensor_id, "config": jsonable_encoder(sensor)},
+            payload={"sensorId": sensor_id, "config": jsonable_encoder(plugin.to_dict())},
         )
-        return sensor.model_copy(deep=True)
+        return plugin.to_sensor_config()
 
     async def run_preset(self, preset_name: str, speed: str = "normal") -> str:
         preset = self.presets.get(preset_name)
@@ -359,14 +367,12 @@ class SimulationEngine:
         return self.get_interactive_config()
 
     def read_color(self, robot_name: str) -> tuple[str, list[int]]:
-        sensor = self._sensor_for(robot_name, "color")
-        color = str(self._sensor_value(sensor, default="YELLOW") or "YELLOW").upper()
-        raw_color = sensor.raw_color or raw_color_from_name(color)
-        return color, raw_color
+        plugin = self._sensor_for(robot_name, "color")
+        return plugin.read(self.state.currentStep)  # type: ignore[return-value]
 
     def read_ir(self, robot_name: str) -> bool:
-        sensor = self._sensor_for(robot_name, "ir")
-        return bool(self._sensor_value(sensor, default=True))
+        plugin = self._sensor_for(robot_name, "ir")
+        return plugin.read(self.state.currentStep)  # type: ignore[return-value]
 
     def read_color_sensor_bytes(self) -> dict[str, int]:
         color, raw_color = self.read_color("left")
@@ -434,10 +440,10 @@ class SimulationEngine:
         self._apply_sensor_updates(step)
 
         if step.publishDistance is not None:
-            distance_sensor = self.sensors.get("distance-conveyor")
-            if distance_sensor:
+            distance_plugin = self.sensors.get("distance-conveyor")
+            if distance_plugin:
                 await self.distance_publisher.publish(
-                    distance_sensor, float(step.publishDistance)
+                    distance_plugin.to_sensor_config(), float(step.publishDistance)
                 )
 
     async def _await_step_gate(self, step: PresetStep, multiplier: float) -> None:
@@ -498,11 +504,11 @@ class SimulationEngine:
         # async distance publish so middleware doesn't block.
         self._apply_sensor_updates(step)
         if step.publishDistance is not None:
-            distance_sensor = self.sensors.get("distance-conveyor")
-            if distance_sensor is not None:
+            distance_plugin = self.sensors.get("distance-conveyor")
+            if distance_plugin is not None:
                 asyncio.create_task(
                     self.distance_publisher.publish(
-                        distance_sensor, float(step.publishDistance)
+                        distance_plugin.to_sensor_config(), float(step.publishDistance)
                     )
                 )
         event.set()
@@ -516,10 +522,9 @@ class SimulationEngine:
         current request context; distance publishes are handled separately.
         """
         for sensor_id, value in step.sensorUpdates.items():
-            sensor = self.sensors.setdefault(
-                sensor_id, SensorConfig(sensorId=sensor_id)
-            )
-            sensor.value = value
+            if sensor_id not in self.sensors:
+                self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
+            self.sensors[sensor_id].update(value)
 
     # ------------------------------------------------------------------
     # Inventory cache (background poller)
@@ -575,37 +580,70 @@ class SimulationEngine:
 
     def _sensor_map_for_preset(
         self, preset: PresetDefinition | None
-    ) -> dict[str, SensorConfig]:
+    ) -> dict[str, BaseSensor]:
         sensors = {
-            sensor_id: config.model_copy(deep=True)
-            for sensor_id, config in self._default_sensors.items()
+            sensor_id: plugin.clone()
+            for sensor_id, plugin in self._default_sensors.items()
         }
         if preset is None:
             return sensors
 
         for sensor_id, override in preset.sensor_overrides.items():
-            sensor = sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
-            updated = copy.deepcopy(override)
-            for field_name, value in updated.items():
-                setattr(sensor, field_name, value)
+            if sensor_id not in sensors:
+                sensors[sensor_id] = self._make_plugin(sensor_id, {})
+            sensors[sensor_id].apply_overrides(override)
         return sensors
 
-    def _sensor_for(self, robot_name: str, prefix: str) -> SensorConfig:
+    def _sensor_for(self, robot_name: str, prefix: str) -> BaseSensor:
         sensor_id = f"{prefix}-{robot_name}"
-        return self.sensors.get(sensor_id) or self.sensors.setdefault(
-            sensor_id, SensorConfig(sensorId=sensor_id)
+        if sensor_id not in self.sensors:
+            self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
+        return self.sensors[sensor_id]
+
+    def _infer_sensor_type(self, sensor_id: str, config: dict[str, Any]) -> str:
+        """Infer the plugin type from config or sensor-id prefix."""
+        if config.get("type"):
+            return str(config["type"])
+        for prefix, sensor_type in _TYPE_INFERENCE_RULES:
+            if sensor_id.startswith(prefix):
+                return sensor_type
+        return "generic"
+
+    def _make_plugin(self, sensor_id: str, config: dict[str, Any]) -> BaseSensor:
+        """Instantiate the sensor plugin for *sensor_id* using *config*.
+
+        Loads the module ``simulated_factory.sensors.<type>`` and instantiates
+        the class ``<Type>Sensor``.  Raises :exc:`RuntimeError` with a human-
+        readable message if the module or class is missing or construction fails.
+        """
+        sensor_type = self._infer_sensor_type(sensor_id, config)
+        module_name = f"simulated_factory.sensors.{sensor_type.replace('-', '_')}"
+        class_name = (
+            "".join(w.capitalize() for w in sensor_type.replace("-", "_").split("_"))
+            + "Sensor"
         )
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                f"Sensor plugin for '{sensor_id}' (type='{sensor_type}') not found. "
+                f"Expected module '{module_name}'. Original error: {exc}"
+            ) from exc
+        try:
+            cls = getattr(module, class_name)
+        except AttributeError as exc:
+            raise RuntimeError(
+                f"Sensor plugin module '{module_name}' does not define class '{class_name}'. "
+                f"Sensor: '{sensor_id}' (type='{sensor_type}')."
+            ) from exc
+        try:
+            return cls(sensor_id, config)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to instantiate sensor plugin '{class_name}' for sensor '{sensor_id}': {exc}"
+            ) from exc
 
-    def _sensor_value(self, sensor: SensorConfig, default: Any) -> Any:
-        if sensor.mode == "scripted" and sensor.scripted_values:
-            index = max(self.state.currentStep - 1, 0)
-            index = min(index, len(sensor.scripted_values) - 1)
-            return sensor.scripted_values[index]
-
-        return sensor.value if sensor.value is not None else default
-
-    # Color helpers (raw_color_from_name, rgb_bytes_from_raw) moved to
-    # `simulated_factory.utils` to centralize utility functions.
+    # rgb_bytes_from_raw and raw_color_from_name remain in simulated_factory.utils
 
     def _speed_multiplier(self, speed: str) -> float:
         return {

@@ -10,7 +10,7 @@ from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.models import InteractiveConfig, SensorUpdateRequest
 
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "presets.yml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -86,15 +86,15 @@ async def test_scripted_mode_returns_step_indexed_value() -> None:
 
     sensor = engine.sensors["color-left"]
 
-    engine.state.currentStep = 1
-    assert engine._sensor_value(sensor, default="WHITE") == "BLUE"
+    color, _ = sensor.read(step=1)
+    assert color == "BLUE"
 
-    engine.state.currentStep = 2
-    assert engine._sensor_value(sensor, default="WHITE") == "GREEN"
+    color, _ = sensor.read(step=2)
+    assert color == "GREEN"
 
     # Out-of-range step clamps to the last scripted value.
-    engine.state.currentStep = 10
-    assert engine._sensor_value(sensor, default="WHITE") == "YELLOW"
+    color, _ = sensor.read(step=10)
+    assert color == "YELLOW"
 
 
 @pytest.mark.asyncio
@@ -106,8 +106,8 @@ async def test_scripted_mode_with_empty_values_falls_back_to_value() -> None:
     )
 
     sensor = engine.sensors["color-left"]
-    engine.state.currentStep = 1
-    assert engine._sensor_value(sensor, default="WHITE") == "RED"
+    color, _ = sensor.read(step=1)
+    assert color == "RED"
 
 
 def _make_engine() -> SimulationEngine:

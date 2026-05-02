@@ -14,6 +14,7 @@ physical setup.
 - In-memory event history for REST, MQTT, and simulator state transitions
 - Color sensor and Dobot sensor endpoints, plus MQTT distance sensor publishing
 - Health endpoint at `/health`
+- **Plugin architecture for sensors** — each sensor type is an isolated Python module, registered in `config.yml` with a `type` field. Custom sensors can be added without modifying the engine. See [PLUGIN_DEVELOPMENT.md](PLUGIN_DEVELOPMENT.md).
 
 ## UI Architecture
 

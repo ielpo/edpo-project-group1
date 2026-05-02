@@ -1,13 +1,16 @@
 defaults:
   sensors:
     color-left:
+      type: color
       mode: fixed
       value: RED
       raw_color: [1, 0, 0]
     ir-left:
+      type: ir
       mode: fixed
       value: true
     distance-conveyor:
+      type: distance
       mode: scripted
       value: 30.0
       scripted_values: [30.0, 12.5, 6.2, 30.0]

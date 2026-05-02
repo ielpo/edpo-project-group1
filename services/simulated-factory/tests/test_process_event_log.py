@@ -26,7 +26,7 @@ from simulated_factory.api import create_app
 from simulated_factory.events import PROCESS_EVENT_TYPES, EventStore
 
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "presets.yml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 
 
 # ---------------------------------------------------------------------------
