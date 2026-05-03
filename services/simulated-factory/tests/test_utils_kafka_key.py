@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from simulated_factory.utils import decode_kafka_key
 
 

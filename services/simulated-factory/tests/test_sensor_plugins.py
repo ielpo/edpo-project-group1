@@ -1,7 +1,5 @@
 """Unit tests for built-in sensor plugins."""
 
-from __future__ import annotations
-
 import pytest
 
 from simulated_factory.models import SensorUpdateRequest

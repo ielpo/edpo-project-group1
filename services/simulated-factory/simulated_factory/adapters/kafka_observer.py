@@ -9,8 +9,6 @@ Connection failures are non-fatal: the rest of the simulator continues to work
 even if Kafka is unreachable.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os

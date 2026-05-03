@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-from typing import Any
+from typing import cast
+import json
 
 from simulated_factory.sensors.base import BaseSensor
 

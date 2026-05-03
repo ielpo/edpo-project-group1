@@ -4,8 +4,6 @@ These tests exercise the in-memory store and the event bridge emission paths
 without requiring external services.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from typing import Any
