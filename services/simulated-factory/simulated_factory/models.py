@@ -36,18 +36,8 @@ class DobotRuntimeState(BaseModel):
 
 
 class SensorConfig(BaseModel):
-    sensorId: str
-    type: str | None = None
-    mode: str = "fixed"
-    value: Any = None
-    raw_color: list[int] = Field(default_factory=lambda: [0, 0, 0])
-    scripted_values: list[Any] = Field(default_factory=list)
-    mqtt_topic: str | None = None
-    uid: str = "TFu"
-    location: str = "Conveyor"
-    message_type: str = "distance_IR_short_left"
-    cadence_ms: int = 1000
-
+    name: str
+    type: str
 
 class AwaitRequest(BaseModel):
     method: str
@@ -101,8 +91,6 @@ class EventEntry(BaseModel):
 
 class RunPresetRequest(BaseModel):
     preset: str
-    speed: str = "normal"
-
 
 class SensorUpdateRequest(BaseModel):
     mode: str | None = None
