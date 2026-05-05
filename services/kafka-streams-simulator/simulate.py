@@ -30,7 +30,7 @@ from kafka import KafkaProducer
 
 BOOTSTRAP = "localhost:9092"
 
-TOPIC_COLOR          = "sensor.color.v1"
+TOPIC_COLOR          = "sensor.color.raw.v1"
 TOPIC_BLOCK_DETECTED = "sensor.block-detected.v1"
 
 SENSOR_UID      = "manual-trigger"

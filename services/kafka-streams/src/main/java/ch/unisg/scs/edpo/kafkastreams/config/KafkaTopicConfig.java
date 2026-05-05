@@ -9,8 +9,8 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class KafkaTopicConfig {
 
-    @Value("${kafka.topics.color}")
-    private String colorTopic;
+    @Value("${kafka.topics.color-raw}")
+    private String colorRawTopic;
 
     @Value("${kafka.topics.block-detected}")
     private String blockDetectedTopic;
@@ -19,8 +19,8 @@ public class KafkaTopicConfig {
     private String inventoryBlocksTopic;
 
     @Bean
-    public NewTopic sensorColorTopic() {
-        return TopicBuilder.name(colorTopic).partitions(1).replicas(1).build();
+    public NewTopic sensorColorRawTopic() {
+        return TopicBuilder.name(colorRawTopic).partitions(1).replicas(1).build();
     }
 
     @Bean

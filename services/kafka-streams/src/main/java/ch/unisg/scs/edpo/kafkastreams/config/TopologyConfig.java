@@ -18,10 +18,10 @@ import java.time.Duration;
 //
 // Topology (matches kafka-streaming-topology.drawio):
 //
-//  [sensor.block-detected.v1]   ← published externally (e.g. manual button trigger)
+//  [sensor.block-detected.v1]   ← factory service publishes when a block is placed
 //    → KStream<cubeId, BlockDetectedEvent>
 //          │
-//  [sensor.color.v1]
+//  [sensor.color.raw.v1]        ← color sensor streams raw RGB (activated by factory service per block)
 //    → mapValues       (stateless: classify raw RGB → BlockColor)
 //    → filter          (stateless: discard UNKNOWN readings)
 //    → KStream<cubeId, BlockColor>
@@ -37,8 +37,8 @@ import java.time.Duration;
 @Configuration
 public class TopologyConfig {
 
-    @Value("${kafka.topics.color}")
-    private String colorTopic;
+    @Value("${kafka.topics.color-raw}")
+    private String colorRawTopic;
 
     @Value("${kafka.topics.block-detected}")
     private String blockDetectedTopic;
@@ -58,16 +58,17 @@ public class TopologyConfig {
         );
 
         // ── Color branch ───────────────────────────────────────────────────────────────
+        // Factory service activates the color sensor per block, attaching the cubeId.
+        // The sensor streams raw RGB to sensor.color.raw.v1; we filter and classify here.
 
-        KStream<String, ColorEvent> colorStream = builder.stream(
-                colorTopic,
+        KStream<String, ColorEvent> colorRawStream = builder.stream(
+                colorRawTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(ColorEvent.class, objectMapper))
         );
 
-        // Stateless — classification: map raw RGB to a known BlockColor
-        KStream<String, BlockColor> classifiedColorStream = colorStream
+        // Stateless — classify raw RGB and discard anything that isn't a known block color
+        KStream<String, BlockColor> classifiedColorStream = colorRawStream
                 .mapValues(event -> BlockColor.from(event.r(), event.g(), event.b()))
-                // Stateless — filter: discard readings that couldn't be classified
                 .filter((key, color) -> color != BlockColor.UNKNOWN);
 
         // ── Join ───────────────────────────────────────────────────────────────────────

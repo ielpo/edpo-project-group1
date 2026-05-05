@@ -7,9 +7,10 @@ Consumes sensor events from Kafka, joins block-detected events with colour readi
 ## Topology
 
 ```
-sensor.block-detected.v1  ←  published externally (manual trigger / button)
+sensor.block-detected.v1   ←  factory service (block placed on conveyor)
         │
-sensor.color.v1  →  classify RGB → filter UNKNOWN
+sensor.color.raw.v1        ←  color sensor activated by factory service per block
+        →  filter UNKNOWN  →  classify RGB
         │
         └─→  stream-stream join (60 s window, keyed by cubeId)
                        │
@@ -41,8 +42,8 @@ Or use the `KafkaStreams` IntelliJ run configuration.
 
 | Topic | Direction | Content |
 |-------|-----------|---------|
-| `sensor.block-detected.v1` | in | Block arrival events with cubeId (published by external trigger) |
-| `sensor.color.v1` | in | RGB color readings, keyed by cubeId |
+| `sensor.block-detected.v1` | in | Block arrival events with cubeId (published by factory service) |
+| `sensor.color.raw.v1` | in | Raw RGB readings from color sensor, keyed by cubeId |
 | `inventory.blocks.v1` | out | Enriched block + color events |
 
 ## Configuration

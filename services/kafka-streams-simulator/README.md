@@ -9,7 +9,7 @@ For each block colour specified on the command line:
 1. Generates a UUID as the `cubeId`
 2. Publishes a block-detected event to `sensor.block-detected.v1` (keyed by `cubeId`)
 3. Waits 2 s (simulates robot travel to the colour sensor)
-4. Publishes a colour event to `sensor.color.v1` (keyed by `cubeId`)
+4. Publishes a colour event to `sensor.color.raw.v1` (keyed by `cubeId`)
 
 The kafka-streams service resolves the stream-stream join and updates the inventory KTable.
 
