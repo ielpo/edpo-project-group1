@@ -36,6 +36,12 @@
 hs_err_pid*
 replay_pid*
 
+# Private docs
+private_docs/
+
+# Claude Code context file
+CLAUDE.md
+
 # Python
 __pycache__/
 *.pyc
