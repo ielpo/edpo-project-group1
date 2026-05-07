@@ -79,7 +79,7 @@ public class TopologyConfig {
         KStream<String, BlockColorEvent> joinedStream = blockStream.join(
                 classifiedColorStream,
                 (block, color) -> new BlockColorEvent(block.cubeId(), color, block.timestamp()),
-                JoinWindows.ofTimeDifferenceWithNoGrace(Duration.ofSeconds(60)),
+                JoinWindows.ofTimeDifferenceAndGrace(Duration.ofSeconds(60), Duration.ofSeconds(1)),
                 StreamJoined.with(
                         Serdes.String(),
                         new JsonSerde<>(BlockDetectedEvent.class, objectMapper),
