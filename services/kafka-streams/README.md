@@ -12,13 +12,14 @@ sensor.block-detected.v1   ←  factory service (block placed on conveyor)
 sensor.color.raw.v1        ←  color sensor activated by factory service per block
         →  filter UNKNOWN  →  classify RGB
         │
-        └─→  stream-stream join (60 s window, keyed by cubeId)
+        └─→  stream-stream join (60 s window + 1 s grace, keyed by cubeId)
                        │
                        ├─→  inventory.blocks.v1
-                       └─→  KTable "inventory-store"  (interactive queries)
+                       ├─→  KTable "inventory-store"  (interactive queries)
+                       └─→  KTable "block-count-per-minute-store"  (windowed count per sensor)
 ```
 
-**Join contract**: both `sensor.block-detected.v1` and `sensor.color.v1` must use the `cubeId` as the Kafka message key. Both events must arrive within 60 seconds of each other.
+**Join contract**: both `sensor.block-detected.v1` and `sensor.color.raw.v1` must use the `cubeId` as the Kafka message key. Both events must arrive within 60 seconds of each other.
 
 ## Running
 
