@@ -1,17 +1,12 @@
 """
 Simulator for the kafka-streams service.
 
-Directly triggers block detection events (no distance sensor) and publishes
-colour events, exercising the stream-stream join and inventory KTable.
-
-Flow per block:
-  1. Generate a UUID as the cubeId
-  2. Publish a block-detected event to sensor.block-detected.v1 (keyed by cubeId)
-  3. Wait ROBOT_ARM_DELAY_S (cube travels to the robot arm)
-  4. Robot arm picks up the cube and presents it to the colour sensor
-  5. Publish a colour event to sensor.color.raw.v1 (keyed by cubeId)
-     → kafka-streams join resolves → inventory KTable updated
-  6. Wait INVENTORY_DELAY_S (robot arm moves cube to inventory)
+Simulates the physical conveyor pipeline without hardware:
+  1. Publishes a burst of distance readings (block under the sensor)
+  2. Stops — the 2 s session window inactivity gap expires
+  3. Kafka Streams detects the session, generates a cubeId, publishes to sensor.block-detected.v1
+  4. Publishes colour readings — Kafka Streams joins them with the block event
+  5. Inventory KTable is updated with the first valid colour
 
 Usage:
   uv run simulate.py RED
@@ -23,7 +18,6 @@ Usage:
 import argparse
 import json
 import time
-import uuid
 
 from kafka import KafkaProducer
 
@@ -31,17 +25,22 @@ from kafka import KafkaProducer
 
 BOOTSTRAP = "localhost:9092"
 
-TOPIC_COLOR          = "sensor.color.raw.v1"
-TOPIC_BLOCK_DETECTED = "sensor.block-detected.v1"
+TOPIC_DISTANCE = "sensor.distance.raw.v1"
+TOPIC_COLOR    = "sensor.color.raw.v1"
 
-SENSOR_UID          = "manual-trigger"
-ROBOT_ARM_DELAY_S   = 2.0   # travel from conveyor to robot arm
-COLOR_READINGS      = 10    # number of colour readings published per block (matches color-sensor-fake)
-COLOR_INTERVAL_S    = 0.2   # interval between readings in seconds (matches color-sensor-fake)
-INVENTORY_DELAY_S   = 2.0   # robot arm moves cube to inventory after colour detection
-DEFAULT_PAUSE_S     = 5.0   # pause between blocks in a sequence
+DISTANCE_VALUE     = 10.0   # cm — well below the 25.0 threshold
+DISTANCE_READINGS  = 10     # number of readings in the burst
+DISTANCE_INTERVAL_S = 0.1   # interval between distance readings
 
-# RGB values that BlockColor.from() in the kafka-streams service will classify correctly
+SESSION_GAP_S  = 2.0        # must match TopologyConfig inactivity gap
+SESSION_WAIT_S = 3.5        # wait after burst: session gap + processing buffer
+
+COLOR_READINGS    = 10      # number of colour readings published per block
+COLOR_INTERVAL_S  = 0.2     # interval between colour readings
+
+DEFAULT_PAUSE_S = 5.0       # pause between blocks in a sequence
+
+# RGB values that BlockColor.from() will classify correctly
 RGB = {
     "RED":    (220, 30,  30),
     "GREEN":  (30,  220, 30),
@@ -52,56 +51,51 @@ RGB = {
 # ── Core simulation ──────────────────────────────────────────────────────────
 
 def simulate_block(color: str, producer: KafkaProducer) -> None:
-    """Simulate one block: trigger detection, then publish its colour."""
+    """Simulate one block passing through the conveyor pipeline."""
 
     print(f"\n{'─'*55}")
     print(f"  Block: {color}")
     print(f"{'─'*55}")
 
-    cube_id = str(uuid.uuid4())
-
-    # Step 1 — publish block-detected event (replaces physical distance sensor)
-    block_event = json.dumps({
-        "cubeId": cube_id,
-        "sensorUid": SENSOR_UID,
-        "timestamp": int(time.time() * 1000),
-    }).encode()
-    producer.send(TOPIC_BLOCK_DETECTED, key=cube_id.encode(), value=block_event)
+    # Step 1 — publish distance readings (block under sensor)
+    for i in range(DISTANCE_READINGS):
+        event = json.dumps({
+            "distance": DISTANCE_VALUE,
+            "timestamp": int(time.time() * 1000),
+        }).encode()
+        producer.send(TOPIC_DISTANCE, key=None, value=event)
+        if i < DISTANCE_READINGS - 1:
+            time.sleep(DISTANCE_INTERVAL_S)
     producer.flush()
-    print(f"  [1/4] Block-detected published — cubeId: {cube_id}")
+    print(f"  [1/3] Distance burst published ({DISTANCE_READINGS} readings, distance={DISTANCE_VALUE})")
 
-    # Step 2 — cube travels to robot arm
-    print(f"  Waiting {ROBOT_ARM_DELAY_S}s (cube travelling to robot arm)...")
-    time.sleep(ROBOT_ARM_DELAY_S)
-    print(f"  [2/4] Robot arm picks up cube, presents to colour sensor")
+    # Step 2 — wait for session window to close and Kafka Streams to process
+    print(f"  Waiting {SESSION_WAIT_S}s for session window to close...")
+    time.sleep(SESSION_WAIT_S)
+    print(f"  [2/3] Session closed — Kafka Streams has generated a cubeId")
 
-    # Step 3 — colour sensor publishes multiple readings (matches color-sensor-fake behaviour)
+    # Step 3 — publish colour readings (no key, no cubeId — Kafka Streams joins by time)
     r, g, b = RGB[color]
     for i in range(COLOR_READINGS):
-        color_event = json.dumps({"cubeId": cube_id, "r": r, "g": g, "b": b}).encode()
-        producer.send(TOPIC_COLOR, key=cube_id.encode(), value=color_event)
+        event = json.dumps({"r": r, "g": g, "b": b}).encode()
+        producer.send(TOPIC_COLOR, key=None, value=event)
         if i < COLOR_READINGS - 1:
             time.sleep(COLOR_INTERVAL_S)
     producer.flush()
-    print(f"  [3/4] Colour published: {color} rgb=({r},{g},{b}) x{COLOR_READINGS} readings")
+    print(f"  [3/3] Colour published: {color} rgb=({r},{g},{b}) x{COLOR_READINGS} readings")
 
-    # Step 4 — robot arm moves cube to inventory
-    print(f"  Waiting {INVENTORY_DELAY_S}s (robot arm moving cube to inventory)...")
-    time.sleep(INVENTORY_DELAY_S)
-    print(f"  [4/4] Cube placed in inventory")
-
-    print(f"\n  ✓ Done. Verify result:")
-    print(f"    curl http://localhost:8104/inventory/{cube_id}")
+    print(f"\n  ✓ Done. Kafka Streams joins block + colour and updates inventory.")
+    print(f"    curl http://localhost:8104/inventory")
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Simulate block detection events for the kafka-streams service.")
+    parser = argparse.ArgumentParser(description="Simulate block detection for the kafka-streams service.")
     parser.add_argument("colors", nargs="+", choices=list(RGB.keys()),
                         metavar="COLOR", help=f"One or more block colours: {list(RGB.keys())}")
     parser.add_argument("--pause", type=float, default=DEFAULT_PAUSE_S,
-                        metavar="SECONDS", help=f"Pause between blocks in a sequence (default: {DEFAULT_PAUSE_S}s)")
+                        metavar="SECONDS", help=f"Pause between blocks (default: {DEFAULT_PAUSE_S}s)")
     args = parser.parse_args()
 
     producer = KafkaProducer(bootstrap_servers=BOOTSTRAP)

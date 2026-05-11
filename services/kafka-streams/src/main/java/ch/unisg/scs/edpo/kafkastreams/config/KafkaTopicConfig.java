@@ -9,6 +9,9 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class KafkaTopicConfig {
 
+    @Value("${kafka.topics.distance-raw}")
+    private String distanceRawTopic;
+
     @Value("${kafka.topics.color-raw}")
     private String colorRawTopic;
 
@@ -17,6 +20,11 @@ public class KafkaTopicConfig {
 
     @Value("${kafka.topics.inventory-blocks}")
     private String inventoryBlocksTopic;
+
+    @Bean
+    public NewTopic sensorDistanceRawTopic() {
+        return TopicBuilder.name(distanceRawTopic).partitions(1).replicas(1).build();
+    }
 
     @Bean
     public NewTopic sensorColorRawTopic() {

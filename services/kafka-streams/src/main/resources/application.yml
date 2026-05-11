@@ -16,6 +16,7 @@ server.port: 8104
 
 kafka:
   topics:
+    distance-raw: sensor.distance.raw.v1
     color-raw: sensor.color.raw.v1
     block-detected: sensor.block-detected.v1
     inventory-blocks: inventory.blocks.v1

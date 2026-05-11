@@ -1,17 +1,16 @@
 # kafka-streams-simulator
 
-Python script that simulates block detection events for the `kafka-streams` service — no physical hardware required.
+Python script that simulates the conveyor pipeline for the `kafka-streams` service — no physical hardware required.
 
 ## What it does
 
 For each block colour specified on the command line:
 
-1. Generates a UUID as the `cubeId`
-2. Publishes a block-detected event to `sensor.block-detected.v1` (keyed by `cubeId`)
-3. Waits 2 s (simulates robot travel to the colour sensor)
-4. Publishes a colour event to `sensor.color.raw.v1` (keyed by `cubeId`)
-
-The kafka-streams service resolves the stream-stream join and updates the inventory KTable.
+1. Publishes a burst of distance readings to `sensor.distance.raw.v1` (simulates block under sensor)
+2. Stops — the 2 s session window inactivity gap expires
+3. Kafka Streams detects the session, generates a `cubeId`, and publishes to `sensor.block-detected.v1`
+4. Publishes colour readings to `sensor.color.raw.v1` (no key, no cubeId)
+5. Kafka Streams joins the block event with the first valid colour reading → inventory updated
 
 ## Usage
 
@@ -40,9 +39,6 @@ Available colours: `RED`, `GREEN`, `BLUE`, `YELLOW`
 ## Verify results
 
 ```bash
-# Full inventory
+# Full inventory (cubeId assigned by Kafka Streams)
 curl http://localhost:8104/inventory
-
-# Single block
-curl http://localhost:8104/inventory/<cubeId>
 ```

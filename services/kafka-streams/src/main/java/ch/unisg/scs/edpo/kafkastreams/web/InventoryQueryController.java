@@ -4,11 +4,9 @@ import ch.unisg.scs.edpo.kafkastreams.domain.BlockColorEvent;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StoreQueryParameters;
-import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.QueryableStoreTypes;
 import org.apache.kafka.streams.state.ReadOnlyKeyValueStore;
-import org.apache.kafka.streams.state.ReadOnlyWindowStore;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.config.StreamsBuilderFactoryBean;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +14,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,26 +50,6 @@ public class InventoryQueryController {
                 QueryableStoreTypes.keyValueStore());
         BlockColorEvent entry = store.get(cubeId);
         return entry != null ? ResponseEntity.ok(entry) : ResponseEntity.notFound().build();
-    }
-
-    // Returns block counts per sensor for the current 1-minute tumbling window.
-    @GetMapping("/stats/blocks-per-minute")
-    public ResponseEntity<Map<String, Long>> getBlocksPerMinute() {
-        ReadOnlyWindowStore<String, Long> windowStore = store("block-count-per-minute-store",
-                QueryableStoreTypes.windowStore());
-
-        long now = System.currentTimeMillis();
-        long windowStart = now - 60_000L;
-
-        Map<String, Long> result = new HashMap<>();
-        try (KeyValueIterator<Windowed<String>, Long> it = windowStore.fetchAll(
-                Instant.ofEpochMilli(windowStart), Instant.ofEpochMilli(now))) {
-            while (it.hasNext()) {
-                KeyValue<Windowed<String>, Long> kv = it.next();
-                result.merge(kv.key.key(), kv.value, Long::sum);
-            }
-        }
-        return ResponseEntity.ok(result);
     }
 
     private <T> T store(String name, org.apache.kafka.streams.state.QueryableStoreType<T> type) {
