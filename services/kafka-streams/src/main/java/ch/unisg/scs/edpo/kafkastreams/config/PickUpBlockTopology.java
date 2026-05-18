@@ -49,7 +49,7 @@ public class PickUpBlockTopology {
     private String robotArmCommandsTopic;
 
     @Bean
-    public KStream<String, RobotArmCommandEvent> pickUpBlockTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
+    public KStream<String, RobotArmCommandEvent> buildPickUpBlockTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
         KStream<String, DistanceEvent> distanceRawRightStream = builder.stream(
                 distanceRawRightTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))

@@ -62,7 +62,7 @@ public class BlockColorTopology {
     private String inventoryBlocksTopic;
 
     @Bean
-    public KStream<String, BlockColorEvent> blockColorTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
+    public KStream<String, BlockColorEvent> buildBlockColorTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
 
         // ──-- Distance branch ────────────────────────────────────────────────────────────
         // Translation (Map) + Filter: keep only readings where a block is present.

@@ -46,7 +46,7 @@ public class MoveBlockTopology {
     private String conveyorCommandsTopic;
 
     @Bean
-    public KStream<String, ConveyorCommandEvent> moveBlockTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
+    public KStream<String, ConveyorCommandEvent> buildMoveBlockTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
         KStream<String, DistanceEvent> blockPresentStream = builder.stream(
                 blockPresentTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))
