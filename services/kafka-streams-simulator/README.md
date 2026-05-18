@@ -29,6 +29,27 @@ uv run simulate.py --pause 10 RED GREEN
 
 Available colours: `RED`, `GREEN`, `BLUE`, `YELLOW`
 
+## Subscribe to inventory events
+
+You can also open a lightweight console subscriber for the Kafka output topic:
+
+```bash
+cd services/kafka-streams-simulator
+
+# Listen for new inventory events only
+uv run consume_inventory_events.py
+
+# Replay the full topic from the beginning
+uv run consume_inventory_events.py --from-beginning
+
+# Subscribe to a different topic if needed
+uv run consume_inventory_events.py --topic sensor.block-detected.v1
+```
+
+By default the subscriber listens to `inventory.blocks.v1` on `localhost:9092` and
+uses a random consumer group so you can start it on the fly without affecting other
+consumers.
+
 ## Requirements
 
 - Python 3.13+
