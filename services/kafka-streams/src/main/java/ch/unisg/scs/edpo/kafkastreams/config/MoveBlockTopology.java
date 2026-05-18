@@ -3,7 +3,6 @@ package ch.unisg.scs.edpo.kafkastreams.config;
 import ch.unisg.scs.edpo.kafkastreams.domain.BlockMoveTriggerEvent;
 import ch.unisg.scs.edpo.kafkastreams.domain.ConveyorCommandEvent;
 import ch.unisg.scs.edpo.kafkastreams.domain.DistanceEvent;
-import ch.unisg.scs.edpo.kafkastreams.domain.RobotArmCommandEvent;
 import ch.unisg.scs.edpo.kafkastreams.serde.JsonSerde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
@@ -23,6 +22,16 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.UUID;
 
+// Kafka Streams topology for stopping the conveyor when a block arrives at the left sensor.
+//
+// Topology (matches MoveBlockTopology diagram in kafka-streaming-topology.drawio):
+//
+//  [sensor.block-present.v1]       ← pre-filtered by BlockColorTopology; keyed to "distance-sensor"
+//    → groupByKey + aggregate      (rising-edge detection: emit once when gap > 2 s)
+//    → filter                      (keep only rising-edge events)
+//    → mapValues                   (wrap in BlockMoveTriggerEvent)
+//    → mapValues                   (wrap in ConveyorCommandEvent "STOP")
+//    → [control.conveyor.commands.v1]
 @Configuration
 public class MoveBlockTopology {
 
@@ -36,17 +45,14 @@ public class MoveBlockTopology {
     @Value("${kafka.topics.conveyor-commands}")
     private String conveyorCommandsTopic;
 
-    @Value("${kafka.topics.robot-arm-commands}")
-    private String robotArmCommandsTopic;
-
     @Bean
-    public KStream<String, RobotArmCommandEvent> moveBlockTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
+    public KStream<String, ConveyorCommandEvent> moveBlockTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
         KStream<String, DistanceEvent> blockPresentStream = builder.stream(
                 blockPresentTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))
         );
 
-        // Rising-edge detection: emit once when a block appears after an inactivity gap.
+        // Rising-edge detection: emit once when a block appears after an inactivity gap of >= 2 s.
         KTable<String, BlockPresenceState> blockPresentEdges = blockPresentStream
                 .groupByKey(Grouped.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper)))
                 .aggregate(
@@ -63,7 +69,7 @@ public class MoveBlockTopology {
 
         KStream<String, BlockMoveTriggerEvent> moveTriggerStream = blockPresentEdges
                 .toStream()
-                .filter((key, state) -> state.risingEdge())
+                .filter((key, state) -> state != null && state.risingEdge())
                 .mapValues(state -> new BlockMoveTriggerEvent(UUID.randomUUID().toString(), state.edgeTimestamp()));
 
         KStream<String, ConveyorCommandEvent> conveyorCommandStream = moveTriggerStream
@@ -74,15 +80,7 @@ public class MoveBlockTopology {
                 Produced.with(Serdes.String(), new JsonSerde<>(ConveyorCommandEvent.class, objectMapper))
         );
 
-        KStream<String, RobotArmCommandEvent> robotArmCommandStream = moveTriggerStream
-                .mapValues(trigger -> new RobotArmCommandEvent("PICK_AND_PLACE", trigger.triggerId(), trigger.timestamp()));
-
-        robotArmCommandStream.to(
-                robotArmCommandsTopic,
-                Produced.with(Serdes.String(), new JsonSerde<>(RobotArmCommandEvent.class, objectMapper))
-        );
-
-        return robotArmCommandStream;
+        return conveyorCommandStream;
     }
 }
 

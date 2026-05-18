@@ -12,6 +12,9 @@ public class KafkaTopicConfig {
     @Value("${kafka.topics.distance-raw}")
     private String distanceRawTopic;
 
+    @Value("${kafka.topics.distance-raw-right}")
+    private String distanceRawRightTopic;
+
     @Value("${kafka.topics.color-raw}")
     private String colorRawTopic;
 
@@ -33,6 +36,11 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic sensorDistanceRawTopic() {
         return TopicBuilder.name(distanceRawTopic).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic sensorDistanceRawRightTopic() {
+        return TopicBuilder.name(distanceRawRightTopic).partitions(1).replicas(1).build();
     }
 
     @Bean
