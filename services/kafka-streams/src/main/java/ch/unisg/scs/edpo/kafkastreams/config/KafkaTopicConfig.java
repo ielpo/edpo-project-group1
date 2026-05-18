@@ -15,11 +15,20 @@ public class KafkaTopicConfig {
     @Value("${kafka.topics.color-raw}")
     private String colorRawTopic;
 
+    @Value("${kafka.topics.block-present}")
+    private String blockPresentTopic;
+
     @Value("${kafka.topics.block-detected}")
     private String blockDetectedTopic;
 
     @Value("${kafka.topics.inventory-blocks}")
     private String inventoryBlocksTopic;
+
+    @Value("${kafka.topics.conveyor-commands}")
+    private String conveyorCommandsTopic;
+
+    @Value("${kafka.topics.robot-arm-commands}")
+    private String robotArmCommandsTopic;
 
     @Bean
     public NewTopic sensorDistanceRawTopic() {
@@ -32,6 +41,11 @@ public class KafkaTopicConfig {
     }
 
     @Bean
+    public NewTopic blockPresentTopic() {
+        return TopicBuilder.name(blockPresentTopic).partitions(1).replicas(1).build();
+    }
+
+    @Bean
     public NewTopic blockDetectedTopic() {
         return TopicBuilder.name(blockDetectedTopic).partitions(1).replicas(1).build();
     }
@@ -39,5 +53,15 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic inventoryBlocksTopic() {
         return TopicBuilder.name(inventoryBlocksTopic).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic conveyorCommandsTopic() {
+        return TopicBuilder.name(conveyorCommandsTopic).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic robotArmCommandsTopic() {
+        return TopicBuilder.name(robotArmCommandsTopic).partitions(1).replicas(1).build();
     }
 }

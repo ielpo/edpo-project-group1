@@ -44,7 +44,7 @@ import java.util.UUID;
 //                               │
 //                               └─ KTable "inventory-store" → toStream → [inventory.blocks.v1]
 @Configuration
-public class TopologyConfig {
+public class BlockColorTopology {
 
     @Value("${kafka.topics.distance-raw}")
     private String distanceTopic;
@@ -55,13 +55,16 @@ public class TopologyConfig {
     @Value("${kafka.topics.block-detected}")
     private String blockDetectedTopic;
 
+    @Value("${kafka.topics.block-present}")
+    private String blockPresentTopic;
+
     @Value("${kafka.topics.inventory-blocks}")
     private String inventoryBlocksTopic;
 
     @Bean
-    public KStream<String, BlockColorEvent> blockColorStream(StreamsBuilder builder, ObjectMapper objectMapper) {
+    public KStream<String, BlockColorEvent> blockColorTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
 
-        // ── Distance branch ────────────────────────────────────────────────────────────
+        // ──-- Distance branch ────────────────────────────────────────────────────────────
         // Translation (Map) + Filter: keep only readings where a block is present.
 
         KStream<String, DistanceEvent> distanceStream = builder.stream(
@@ -72,6 +75,12 @@ public class TopologyConfig {
         KStream<String, DistanceEvent> blockPresentStream = distanceStream
                 .filter((key, event) -> event.distance() < 25.0f)
                 .selectKey((key, value) -> "distance-sensor");
+
+        // Publish each block-present reading so other topologies can consume them directly.
+        blockPresentStream.to(
+                blockPresentTopic,
+                Produced.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))
+        );
 
         // Session Window: group bursts of block-present readings into one session per block.
         // Suppress: emit only the final count when the session closes (inactivity gap expires).
@@ -151,3 +160,5 @@ public class TopologyConfig {
         return blockColorStream;
     }
 }
+
+
