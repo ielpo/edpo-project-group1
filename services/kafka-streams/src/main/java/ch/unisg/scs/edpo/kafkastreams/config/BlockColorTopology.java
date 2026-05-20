@@ -4,17 +4,23 @@ import ch.unisg.scs.edpo.kafkastreams.domain.*;
 import ch.unisg.scs.edpo.kafkastreams.serde.JsonSerde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
-import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.processor.api.Processor;
+import org.apache.kafka.streams.processor.api.ProcessorContext;
+import org.apache.kafka.streams.processor.api.Record;
+import org.apache.kafka.streams.processor.PunctuationType;
+import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
-import org.apache.kafka.streams.state.SessionStore;
+import org.apache.kafka.streams.state.Stores;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 // Kafka Streams topology for block detection and color classification.
@@ -46,6 +52,10 @@ import java.util.UUID;
 @Configuration
 public class BlockColorTopology {
 
+    private static final String BLOCK_ACTIVITY_STORE = "block-activity-store";
+    private static final Duration BLOCK_ABSENCE_GAP = Duration.ofSeconds(3);
+    private static final Duration PUNCTUATION_INTERVAL = Duration.ofMillis(200);
+
     @Value("${kafka.topics.distance-raw}")
     private String distanceTopic;
 
@@ -64,9 +74,8 @@ public class BlockColorTopology {
     @Bean
     public KStream<String, BlockColorEvent> buildBlockColorTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
 
-        // ──-- Distance branch ────────────────────────────────────────────────────────────
+        /// Distance branch
         // Translation (Map) + Filter: keep only readings where a block is present.
-
         KStream<String, DistanceEvent> distanceStream = builder.stream(
                 distanceTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))
@@ -82,34 +91,34 @@ public class BlockColorTopology {
                 Produced.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))
         );
 
-        // Session Window: group bursts of block-present readings into one session per block.
-        // Suppress: emit only the final count when the session closes (inactivity gap expires).
-        // "Compress into one event": the count collapses N readings into a single Long.
+        builder.addStateStore(
+                Stores.keyValueStoreBuilder(
+                        Stores.persistentKeyValueStore(BLOCK_ACTIVITY_STORE),
+                        Serdes.String(),
+                        Serdes.Long()
+                )
+        );
 
-        KTable<Windowed<String>, Long> blockSessions = blockPresentStream
-                .groupByKey(Grouped.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper)))
-                .windowedBy(SessionWindows.ofInactivityGapWithNoGrace(Duration.ofSeconds(2)))
-                .count(Materialized.<String, Long, SessionStore<Bytes, byte[]>>as("block-session-store")
-                        .withKeySerde(Serdes.String())
-                        .withValueSerde(Serdes.Long()))
-                .suppress(Suppressed.untilWindowCloses(Suppressed.BufferConfig.unbounded().shutDownWhenFull()));
+        // Wall-clock inactivity detection: emits when a key has been quiet for BLOCK_ABSENCE_GAP,
+        // even if no new records arrive to advance stream time.
+        KStream<String, BlockDetectedEvent> blockDetectedStream = blockPresentStream
+                .process(BlockInactivityProcessor::new, BLOCK_ACTIVITY_STORE);
 
-        // Rekey: generate a UUID as cubeId for each detected block.
+        // Force a repartition on the final join key so join tasks see both streams on matching partitions.
+        KStream<String, BlockDetectedEvent> blockDetectedForJoin = blockDetectedStream
+                .selectKey((key, value) -> "sliding-window-join")
+                .repartition(Repartitioned.with(
+                        Serdes.String(),
+                        new JsonSerde<>(BlockDetectedEvent.class, objectMapper)
+                ));
 
-        KStream<String, BlockDetectedEvent> blockDetectedStream = blockSessions
-                .toStream()
-                .map((windowedKey, count) -> {
-                    String cubeId = UUID.randomUUID().toString();
-                    long timestamp = windowedKey.window().end();
-                    return KeyValue.pair(cubeId, new BlockDetectedEvent(cubeId, timestamp));
-                });
+        blockDetectedStream
+                .selectKey((key, value) -> "sliding-window-join")
+                .to(blockDetectedTopic,
+                        Produced.with(Serdes.String(), new JsonSerde<>(BlockDetectedEvent.class, objectMapper)));
 
-        // Write confirmed block detection to output topic (new-block-events).
-        blockDetectedStream.to(blockDetectedTopic,
-                Produced.with(Serdes.String(), new JsonSerde<>(BlockDetectedEvent.class, objectMapper)));
-
-        // ── Color branch ───────────────────────────────────────────────────────────────
-        // Translation (Map) + Filter: classify RGB and discard non-RGBY readings.
+        /// Color branch
+        // Translation (Map) + Filter: classify raw RGB and discard invalid readings.
         // Filter before rekeying to reduce repartitioning cost.
 
         KStream<String, ColorEvent> colorRawStream = builder.stream(
@@ -120,16 +129,26 @@ public class BlockColorTopology {
         KStream<String, BlockColor> classifiedColorStream = colorRawStream
                 .mapValues(event -> BlockColor.from(event.r(), event.g(), event.b()))
                 .filter((key, color) -> color != BlockColor.UNKNOWN)
-                .selectKey((key, value) -> "color-sensor");
+                .selectKey((key, value) -> "sliding-window-join");
 
-        // ── Sliding Window Join ────────────────────────────────────────────────────────
-        // Both streams rekeyed to "color-sensor". Events within 10 s of each other are joined.
+        KStream<String, BlockColor> classifiedColorForJoin = classifiedColorStream
+                .repartition(Repartitioned.with(
+                        Serdes.String(),
+                        new JsonSerde<>(BlockColor.class, objectMapper)
+                ));
+
+        classifiedColorStream.to(
+                "color.classified.v1",
+                Produced.with(Serdes.String(), new JsonSerde<>(BlockColor.class, objectMapper))
+        );
+
+        /// Sliding Window Join
+        // Both streams have key "sliding-window-join". Events within 10 s of each other are joined.
         // cubeId comes from the BlockDetectedEvent.
 
-        KStream<String, BlockColorEvent> joinedStream = blockDetectedStream
-                .selectKey((key, value) -> "color-sensor")
+        KStream<String, BlockColorEvent> joinedStream = blockDetectedForJoin
                 .join(
-                        classifiedColorStream,
+                        classifiedColorForJoin,
                         (block, color) -> new BlockColorEvent(block.cubeId(), color, block.timestamp()),
                         JoinWindows.ofTimeDifferenceAndGrace(Duration.ofSeconds(10), Duration.ofSeconds(1)),
                         StreamJoined.with(
@@ -139,7 +158,6 @@ public class BlockColorTopology {
                         )
                 );
 
-        // ── First-color-per-cube ───────────────────────────────────────────────────────
         // Rekey to cubeId, reduce to keep only the first valid color seen per cube.
         // With default caching, toStream() emits exactly once per cubeId.
 
@@ -158,6 +176,49 @@ public class BlockColorTopology {
                 Produced.with(Serdes.String(), new JsonSerde<>(BlockColorEvent.class, objectMapper)));
 
         return blockColorStream;
+    }
+
+    private static final class BlockInactivityProcessor implements Processor<String, DistanceEvent, String, BlockDetectedEvent> {
+        private ProcessorContext<String, BlockDetectedEvent> context;
+        private KeyValueStore<String, Long> activityStore;
+
+        @Override
+        public void init(ProcessorContext<String, BlockDetectedEvent> processorContext) {
+            this.context = processorContext;
+            this.activityStore = processorContext.getStateStore(BLOCK_ACTIVITY_STORE);
+
+            // Wall-clock punctuation allows inactivity detection even when stream-time is not advancing.
+            this.context.schedule(PUNCTUATION_INTERVAL, PunctuationType.WALL_CLOCK_TIME, wallClockTime -> {
+                List<String> expiredKeys = new ArrayList<>();
+                try (KeyValueIterator<String, Long> entries = activityStore.all()) {
+                    while (entries.hasNext()) {
+                        var entry = entries.next();
+                        if (wallClockTime - entry.value >= BLOCK_ABSENCE_GAP.toMillis()) {
+                            expiredKeys.add(entry.key);
+                        }
+                    }
+                }
+
+                for (String expiredKey : expiredKeys) {
+                    String cubeId = UUID.randomUUID().toString();
+                    context.forward(new Record<>(
+                            "sliding-window-join",
+                            new BlockDetectedEvent(cubeId, wallClockTime),
+                            wallClockTime
+                    ));
+                    activityStore.delete(expiredKey);
+                }
+            });
+        }
+
+        @Override
+        public void process(Record<String, DistanceEvent> record) {
+            activityStore.put(record.key(), System.currentTimeMillis());
+        }
+
+        @Override
+        public void close() {
+        }
     }
 }
 
