@@ -1,0 +1,42 @@
+# Docker Compose development snippet for the simulated-factory-service
+# Usage: docker compose -f docker-compose.yml -f openspec/changes/add-simulated-factory-service/docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  simulated-factory:
+    build:
+      context: ./services/simulated-factory
+      dockerfile: Dockerfile
+    image: simulated-factory:dev
+    ports:
+      - "8085:8085"
+    environment:
+      - SIMULATOR_BIND=0.0.0.0
+      - SIMULATOR_PORT=8085
+      - SIMULATOR_EVENT_BRIDGE=none
+      - SIMULATOR_CONFIG_PATH=/data/presets.yml
+      - SIMULATOR_UI_DIR=/app/web/dist
+    volumes:
+      - ./services/simulated-factory/presets.yml:/data/presets.yml:ro
+      - ./services/simulated-factory/web/dist:/app/web/dist:ro
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+    # Optional: mount a mosquitto.conf at ./services/simulated-factory/mosquitto.conf
+    # volumes:
+    #   - ./services/simulated-factory/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # Override / augment the existing dobot-control service for local development
+  dobot-control:
+    image: dobot-control:dev
+    environment:
+      - SIMULATION=true
+      - SIMULATOR_URL=http://simulated-factory:8085
+      - SIMULATOR_BROKER_URL=tcp://mqtt-broker:1883
+    command: ["--simulation"]
+    depends_on:
+      - simulated-factory
+      - mqtt-broker

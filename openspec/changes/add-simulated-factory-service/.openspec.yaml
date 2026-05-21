@@ -1,0 +1,11 @@
+name: add-simulated-factory-service
+title: Add simulated factory service
+description: >
+  Adds a new service that provides a simulated factory for development and testing.
+  The service provides a web UI, simulates hardware that isn't available in development,
+  supports configurable behavior, and can run pre-defined order flows (success and error).
+apply:
+  requires:
+    - proposal
+    - design
+    - tasks
