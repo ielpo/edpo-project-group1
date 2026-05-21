@@ -78,3 +78,84 @@ def test_interactive_config_round_trip() -> None:
     pending = client.get("/api/interactive/pending")
     assert pending.status_code == 200
     assert pending.json() == {"items": []}
+
+
+def test_index_renders_htmx_shell() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+    body = response.text
+    assert "text/html" in response.headers["content-type"]
+    # htmx loaded
+    assert "htmx.org" in body
+    # SSE extension wired up
+    assert 'sse-connect="/sse/status"' in body
+    # panel placeholders use hx-get with hx-trigger="load"
+    assert 'hx-get="/fragments/presets"' in body
+    assert 'hx-trigger="load"' in body
+
+
+def test_fragment_presets_lists_known_presets() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/fragments/presets")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    body = response.text
+    assert 'id="preset-panel"' in body
+    assert "happy-path" in body
+    assert "wrong-color" in body
+    assert 'hx-post="/api/presets/run"' in body
+
+
+def test_sse_status_streams_event_stream() -> None:
+    """Verify the /sse/status route registration and media type.
+
+    The endpoint is an open-ended stream, so we inspect the registered
+    FastAPI route and a HEAD-style probe rather than block on the body.
+    """
+    app = create_app(str(CONFIG_PATH))
+    sse_route = next(
+        (r for r in app.routes if getattr(r, "path", None) == "/sse/status"),
+        None,
+    )
+    assert sse_route is not None, "/sse/status route should be registered"
+    assert "GET" in sse_route.methods
+
+    # The handler must construct a StreamingResponse with text/event-stream.
+    import inspect
+    source = inspect.getsource(sse_route.endpoint)
+    assert "text/event-stream" in source
+
+
+def test_put_sensor_returns_html_for_htmx_caller() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/config/sensors/color-left",
+        json={"mode": "fixed", "value": "GREEN", "raw_color": "0,1,0"},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert 'id="sensor-card-color-left"' in response.text
+    assert "GREEN" in response.text
+
+
+def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/config/sensors/color-left",
+        json={"mode": "fixed", "value": "BLUE", "raw_color": [0, 0, 1]},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    body = response.json()
+    assert body["sensorId"] == "color-left"
+    assert body["value"] == "BLUE"

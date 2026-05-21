@@ -1,0 +1,28 @@
+<div id="preset-panel" class="card"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2>Presets</h2>
+  <div class="supporting">Run a deterministic scenario and watch state and events update in real time.</div>
+  {% for preset in presets %}
+  <article class="item-card">
+    <header>
+      <h3>{{ preset.name }}</h3>
+      <span class="chip chip-assist">preset</span>
+    </header>
+    <p>{{ preset.description }}</p>
+    <div class="btn-row">
+      <button
+        class="btn btn-filled"
+        hx-post="/api/presets/run"
+        hx-headers='{"Content-Type": "application/json"}'
+        hx-vals='{"preset": "{{ preset.name }}", "speed": "normal"}'
+        hx-ext="json-enc"
+        hx-swap="none"
+      >Run {{ preset.name }}</button>
+    </div>
+  </article>
+  {% endfor %}
+  <hr class="divider">
+  <div class="btn-row">
+    <button class="btn btn-text" hx-post="/api/presets/stop" hx-swap="none">Stop</button>
+    <button class="btn btn-text" hx-post="/api/presets/reset" hx-swap="none">Reset</button>
+  </div>
+</div>
