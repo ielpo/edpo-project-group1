@@ -25,6 +25,11 @@ from simulated_factory.models import (
 )
 
 
+_DEFAULT_INTERCEPTED: frozenset[str] = frozenset(
+    {"move", "move-relative", "set-speed", "suction-cup", "run-conveyor", "move-conveyor"}
+)
+
+
 class SimulationEngine:
     def __init__(
         self,
@@ -47,7 +52,9 @@ class SimulationEngine:
         self._stop_requested = False
         self._run_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
-        self.interactive_config: InteractiveConfig = InteractiveConfig()
+        self.interactive_config: InteractiveConfig = InteractiveConfig(
+            intercepted=set(_DEFAULT_INTERCEPTED)
+        )
         self._pending: dict[str, PendingAction] = {}
         self._pending_counter = 0
         self.reload_config()
@@ -133,6 +140,7 @@ class SimulationEngine:
                 payload={"runId": run_id, "preset": preset_name, "speed": speed},
             )
 
+            self.interactive_config = InteractiveConfig()
             self._run_task = asyncio.create_task(self._execute_preset(preset, speed))
             return run_id
 
@@ -397,6 +405,9 @@ class SimulationEngine:
             raise
         finally:
             self._stop_requested = False
+            self.interactive_config = InteractiveConfig(
+                intercepted=set(_DEFAULT_INTERCEPTED)
+            )
 
     def _new_state(self) -> SimulationState:
         return SimulationState()
