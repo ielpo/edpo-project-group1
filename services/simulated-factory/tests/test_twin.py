@@ -14,7 +14,7 @@ from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
 
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "presets.yml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 LOGGER = logging.getLogger(__name__)
 
 
