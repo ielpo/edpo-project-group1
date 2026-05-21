@@ -18,6 +18,54 @@ request:
   variables:
     - name: port
       value: "8400"
+
+docs:
+  content: |
+    # Simulated Factory API Documentation
+
+    The Simulated Factory API provides endpoints to control, monitor, and interact with a virtual factory environment. It allows users to start and stop simulation presets, configure sensors, send commands to simulated robots, retrieve event histories, and manage interactive operator gating. This API is designed for integration testing, UI development, and educational purposes, closely mirroring the real factory stack.
+
+    ## Base URL
+
+    `http://localhost:{{port}}/api`
+
+    ## Endpoints
+
+    - **GET /api/status** - Returns the current simulator state.
+    - **GET /api/presets** - Lists available deterministic presets.
+    - **POST /api/presets/run** - Starts a preset asynchronously.
+    - **POST /api/presets/stop** - Requests the active run to stop.
+    - **POST /api/presets/reset** - Resets runtime state and sensor overrides.
+    - **GET /api/config/sensors** - Returns the current sensor configuration.
+    - **PUT /api/config/sensors/{sensorId}** - Updates a sensor at runtime.
+    - **GET /api/events** - Returns a paged event history.
+    - **POST /api/events** - Accepts external events for UI correlation.
+    - **POST /api/dobot/{name}/commands** - Accepts a single command or a list of commands and updates the in-memory Dobot state.
+    - **GET /api/dobot/{name}/color** - Returns the simulated color sensor response.
+    - **GET /api/dobot/{name}/ir** - Returns the simulated IR sensor state.
+    - **GET /api/dobot/{name}/state** - Returns the current simulated Dobot position, speed, and conveyor state.
+    - **GET /color** - Compatibility endpoint matching the existing color sensor service, returning RGB bytes.
+    - **GET /health** - Returns `200 OK` when the service is ready.
+
+    ## Interactive Mode
+
+    - **GET /api/interactive/config** - Returns the current interactive configuration.
+    - **PUT /api/interactive/config** - Replaces the interactive configuration.
+    - **GET /api/interactive/pending** - Returns the list of pending actions waiting for operator resolution.
+    - **POST /api/interactive/{actionId}/resolve** - Resolves a pending action.
+
+    ## WebSocket
+
+    - **/ws/status** - Pushes an initial state snapshot and then event notifications as JSON.
+
+    ## MQTT
+
+    - Publishes distance sensor events to topics like `sensors/distance/Conveyor/distance_IR_short_left`.
+
+    ## Event Bridge
+
+    - `SIMULATOR_EVENT_BRIDGE` supports `none`, `http`, and `kafka` for event forwarding.
+  type: text/markdown
 bundled: false
 extensions:
   bruno:
