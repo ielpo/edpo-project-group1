@@ -95,7 +95,6 @@ def __init__(self, sensor_id: str, config: dict) -> None:
 
 ```python
 # simulated_factory/sensors/temperature.py
-from __future__ import annotations
 from typing import Any
 from simulated_factory.sensors.base import BaseSensor
 
