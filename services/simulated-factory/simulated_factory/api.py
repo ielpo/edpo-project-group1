@@ -330,13 +330,70 @@ def create_app(config_path: str) -> FastAPI:
                 raise HTTPException(status_code=400, detail="invalid JSON body")
 
         # Coerce values that may arrive as strings via htmx forms (json-enc).
+        def parse_number_or_string(val: Any):
+            if isinstance(val, (int, float)):
+                return val
+            if not isinstance(val, str):
+                return val
+            s = val.strip()
+            if s == "":
+                return None
+            try:
+                if "." in s:
+                    return float(s)
+                return int(s)
+            except ValueError:
+                try:
+                    return float(s)
+                except ValueError:
+                    return s
+
+        # raw_color: accept CSV string or list of values and coerce to ints when possible
         raw = payload.get("raw_color")
         if isinstance(raw, str):
             tokens = [t.strip() for t in raw.split(",") if t.strip()]
-            try:
-                payload["raw_color"] = [int(t) for t in tokens] if tokens else None
-            except ValueError:
-                payload["raw_color"] = None
+            coerced: list[Any] = []
+            for t in tokens:
+                try:
+                    coerced.append(int(t))
+                except Exception:
+                    try:
+                        coerced.append(int(float(t)))
+                    except Exception:
+                        coerced.append(t)
+            payload["raw_color"] = coerced if coerced else None
+        elif isinstance(raw, list):
+            coerced = []
+            for t in raw:
+                if t is None or (isinstance(t, str) and t.strip() == ""):
+                    continue
+                if isinstance(t, (int, float)):
+                    coerced.append(int(t))
+                else:
+                    try:
+                        coerced.append(int(str(t).strip()))
+                    except Exception:
+                        try:
+                            coerced.append(int(float(str(t).strip())))
+                        except Exception:
+                            coerced.append(str(t).strip())
+            payload["raw_color"] = coerced if coerced else None
+
+        # scripted_values: accept CSV string or list and coerce items to numbers when possible
+        sv = payload.get("scripted_values")
+        if isinstance(sv, str):
+            tokens = [t.strip() for t in sv.split(",") if t.strip()]
+            payload["scripted_values"] = [parse_number_or_string(t) for t in tokens]
+        elif isinstance(sv, list):
+            coerced_sv: list[Any] = []
+            for it in sv:
+                if it is None or (isinstance(it, str) and it.strip() == ""):
+                    continue
+                parsed = parse_number_or_string(it)
+                if parsed is not None:
+                    coerced_sv.append(parsed)
+            payload["scripted_values"] = coerced_sv
+
         if "value" in payload and isinstance(payload["value"], str):
             value_str = payload["value"].strip()
             lowered = value_str.lower()

@@ -150,8 +150,12 @@
               </select>
             </div>
             <div class="field">
-              <label>Raw RGB (csv)</label>
-              <input name="raw_color" value="{{ sensor.raw_color|join(',') if sensor.raw_color else '' }}" placeholder="1,0,0">
+              <label>Raw RGB</label>
+              <div class="raw-color-inputs">
+                <input name="raw_color[]" value="{{ sensor.raw_color[0] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+                <input name="raw_color[]" value="{{ sensor.raw_color[1] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+                <input name="raw_color[]" value="{{ sensor.raw_color[2] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+              </div>
             </div>
             <div class="submit-cell">
               <button type="submit" class="btn btn-filled">Apply</button>
@@ -205,9 +209,24 @@
                 <label>Fixed value</label>
                 <input type="number" step="any" name="value" value="{{ sensor.value if sensor.value is not none else '' }}">
               </div>
-              <div class="field">
-                <label>Scripted values (csv)</label>
-                <input name="scripted_values" value="{{ sensor.scripted_values|join(',') if sensor.scripted_values else '' }}" placeholder="10,20,30">
+              <div class="field scripted-list">
+                <label>Scripted values</label>
+                <div class="items">
+                  {% if sensor.scripted_values %}
+                    {% for v in sensor.scripted_values %}
+                      <div class="scripted-item">
+                        <input name="scripted_values[]" value="{{ v }}" type="number" step="any">
+                        <button type="button" class="remove-value">−</button>
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <div class="scripted-item">
+                      <input name="scripted_values[]" value="" type="number" step="any">
+                      <button type="button" class="remove-value">−</button>
+                    </div>
+                  {% endif %}
+                </div>
+                <button type="button" class="add-value">Add</button>
               </div>
             {% endif %}
             <div class="submit-cell">
@@ -235,4 +254,25 @@
     </section>
 
   </div>
+
+<script>
+if (!window._simfactory_twin_inputs_init) {
+  window._simfactory_twin_inputs_init = true;
+  document.addEventListener('click', function(e) {
+    var t = e.target;
+    if (t.matches('.add-value')) {
+      var list = t.closest('.scripted-list');
+      if (!list) return;
+      var items = list.querySelector('.items');
+      var item = document.createElement('div');
+      item.className = 'scripted-item';
+      item.innerHTML = '<input name="scripted_values[]" type="number" step="any" value=""> <button type="button" class="remove-value">−</button>';
+      items.appendChild(item);
+    } else if (t.matches('.remove-value')) {
+      var item = t.closest('.scripted-item');
+      if (item) item.remove();
+    }
+  });
+}
+</script>
 </div>

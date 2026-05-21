@@ -123,6 +123,8 @@ curl -X PUT http://localhost:8400/api/config/sensors/color-left \
   -d '{"mode": "fixed", "value": "BLUE", "raw_color": [0, 0, 1]}'
 ```
 
+Note: The Factory Twin UI now exposes `scripted_values` and `raw_color` as individual form inputs; the API accepts arrays or legacy CSV strings for backward compatibility.
+
 ## Notes
 
 - Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `presets.yml`.
