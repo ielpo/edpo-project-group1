@@ -4,7 +4,6 @@ import asyncio
 import copy
 import logging
 import os
-import re
 from pathlib import Path
 from typing import Any
 
@@ -67,7 +66,7 @@ class SimulationEngine:
             if inventory_url is not None
             else os.getenv("INVENTORY_URL", "http://localhost:8103")
         )
-        self.state = self._new_state()
+        self.state = SimulationState()
         self._default_sensors: dict[str, SensorConfig] = {}
         self.sensors: dict[str, SensorConfig] = {}
         self.presets: dict[str, PresetDefinition] = {}
@@ -191,7 +190,7 @@ class SimulationEngine:
             except asyncio.CancelledError:
                 pass
 
-        self.state = self._new_state()
+        self.state = SimulationState()
         self.sensors = self._sensor_map_for_preset(None)
         await self._record_event(
             "STATE", message="Simulation reset", payload={"status": "reset"}
@@ -509,9 +508,6 @@ class SimulationEngine:
         event.set()
         # Don't clear _step_gate here; _await_step_gate's finally clause does it.
         return True
-
-    def _new_state(self) -> SimulationState:
-        return SimulationState()
 
     def _apply_sensor_updates(self, step: PresetStep) -> None:
         """Apply sensorUpdates from a `PresetStep` synchronously.
