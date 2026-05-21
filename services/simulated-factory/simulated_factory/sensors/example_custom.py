@@ -20,7 +20,6 @@ Naming convention:
     Class:  MyCustomSensor
     Config: type: my-custom
 """
-from __future__ import annotations
 
 import random
 from typing import Any
