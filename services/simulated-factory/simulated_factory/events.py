@@ -38,11 +38,15 @@ class EventStore:
     `unsubscribe`, `list_events`) while adding small helpers for tests and
     management (`size`, `clear`)."""
 
-    def __init__(self, max_entries: int = 500, subscriber_queue_size: int | None = None):
+    def __init__(
+        self, max_entries: int = 500, subscriber_queue_size: int | None = None
+    ):
         self._events: Deque[EventEntry] = deque(maxlen=max_entries)
         self._subscribers: Set[asyncio.Queue] = set()
         self._subscriber_queue_size: int = (
-            subscriber_queue_size if subscriber_queue_size is not None else EVENT_SUBSCRIBER_QUEUE_SIZE
+            subscriber_queue_size
+            if subscriber_queue_size is not None
+            else EVENT_SUBSCRIBER_QUEUE_SIZE
         )
 
     async def append(

@@ -31,7 +31,7 @@ async def test_engine_runs_happy_path_deterministically() -> None:
     # incoming requests Camunda would issue.
     gate_calls = [
         ("POST", "/api/dobot/left/commands"),  # pickup
-        ("GET", "/api/dobot/left/color"),       # color-check
+        ("GET", "/api/dobot/left/color"),  # color-check
         ("POST", "/api/dobot/left/commands"),  # place
     ]
     for method, path in gate_calls:
@@ -290,9 +290,9 @@ async def test_gated_step_times_out_emits_event() -> None:
     assert engine.sensors["color-left"].value == "BLUE"
 
     events, _ = engine.event_store.list_events(page=1, page_size=50)
-    assert any(
-        ev.get("payload", {}).get("gateTimedOut") is True for ev in events
-    ), events
+    assert any(ev.get("payload", {}).get("gateTimedOut") is True for ev in events), (
+        events
+    )
 
 
 @pytest.mark.asyncio
@@ -334,9 +334,7 @@ def test_matches_gate_handles_name_wildcard() -> None:
     step = PresetStep(
         name="x",
         delayMs=10,
-        awaitRequest=AwaitRequest(
-            method="POST", path="/api/dobot/{name}/commands"
-        ),
+        awaitRequest=AwaitRequest(method="POST", path="/api/dobot/{name}/commands"),
     )
     engine._step_gate = (step.awaitRequest, asyncio.Event(), step)
 
@@ -367,4 +365,3 @@ async def test_status_waiting_for_request_lifecycle() -> None:
     engine.fire_gate_if_matches("POST", "/api/dobot/left/commands")
     await asyncio.wait_for(engine._run_task, timeout=1.0)
     assert engine.get_status().waitingForRequest is None
-

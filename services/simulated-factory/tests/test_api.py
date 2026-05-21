@@ -156,6 +156,7 @@ def test_sse_status_streams_event_stream() -> None:
 
     # The handler must construct a StreamingResponse with text/event-stream.
     import inspect
+
     source = inspect.getsource(sse_route.endpoint)
     assert "text/event-stream" in source
 

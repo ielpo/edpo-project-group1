@@ -3,21 +3,23 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Body,
+    FastAPI,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
-from simulated_factory.adapters.distance_publisher import DistancePublisher
-from simulated_factory.adapters.kafka_observer import KafkaObserver
-from simulated_factory.engine import SimulationEngine
-from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.deps import build_dependencies
 from simulated_factory.models import (
     InteractiveConfig,
@@ -481,9 +483,7 @@ def create_app(config_path: str) -> FastAPI:
                 action_id, request_body.outcome, request_body.reason
             )
         except KeyError:
-            raise HTTPException(
-                status_code=404, detail=f"Unknown action {action_id}"
-            )
+            raise HTTPException(status_code=404, detail=f"Unknown action {action_id}")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         return {
