@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,11 +13,13 @@ from fastapi.encoders import jsonable_encoder
 from simulated_factory.adapters.distance_publisher import DistancePublisher
 from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.models import (
+    AwaitRequest,
     DobotRuntimeState,
     InteractiveConfig,
     PendingAction,
     Position,
     PresetDefinition,
+    PresetStep,
     SensorConfig,
     SensorUpdateRequest,
     SimulationState,
@@ -55,6 +58,7 @@ class SimulationEngine:
         self.interactive_config: InteractiveConfig = InteractiveConfig()
         self._pending: dict[str, PendingAction] = {}
         self._pending_counter = 0
+        self._step_gate: tuple[AwaitRequest, asyncio.Event, PresetStep] | None = None
         self.reload_config()
 
     def reload_config(self) -> None:
@@ -148,6 +152,7 @@ class SimulationEngine:
 
     async def stop(self) -> None:
         self._stop_requested = True
+        self._clear_step_gate()
         await self._record_event(
             "STATE",
             message="Stop requested",
@@ -156,6 +161,7 @@ class SimulationEngine:
 
     async def reset(self) -> None:
         self._stop_requested = True
+        self._clear_step_gate()
         if self._run_task and not self._run_task.done():
             self._run_task.cancel()
             try:
@@ -379,20 +385,11 @@ class SimulationEngine:
                     },
                 )
 
-                for sensor_id, value in step.sensorUpdates.items():
-                    sensor = self.sensors.setdefault(
-                        sensor_id, SensorConfig(sensorId=sensor_id)
-                    )
-                    sensor.value = value
-
-                if step.publishDistance is not None:
-                    distance_sensor = self.sensors.get("distance-conveyor")
-                    if distance_sensor:
-                        await self.distance_publisher.publish(
-                            distance_sensor, float(step.publishDistance)
-                        )
-
-                await asyncio.sleep((step.delayMs / 1000.0) * multiplier)
+                if step.awaitRequest is not None:
+                    await self._await_step_gate(step, multiplier)
+                else:
+                    await self._apply_step_side_effects(step)
+                    await asyncio.sleep((step.delayMs / 1000.0) * multiplier)
 
             self.state.status = SimulationStatus.IDLE
             self.state.timestamp = utc_now()
@@ -407,9 +404,103 @@ class SimulationEngine:
             raise
         finally:
             self._stop_requested = False
+            self._clear_step_gate()
             self.interactive_config = InteractiveConfig(
                 intercepted=set(_DEFAULT_INTERCEPTED)
             )
+
+    async def _apply_step_side_effects(self, step: PresetStep) -> None:
+        for sensor_id, value in step.sensorUpdates.items():
+            sensor = self.sensors.setdefault(
+                sensor_id, SensorConfig(sensorId=sensor_id)
+            )
+            sensor.value = value
+
+        if step.publishDistance is not None:
+            distance_sensor = self.sensors.get("distance-conveyor")
+            if distance_sensor:
+                await self.distance_publisher.publish(
+                    distance_sensor, float(step.publishDistance)
+                )
+
+    async def _await_step_gate(self, step: PresetStep, multiplier: float) -> None:
+        assert step.awaitRequest is not None
+        event = asyncio.Event()
+        self._step_gate = (step.awaitRequest, event, step)
+        self.state.waitingForRequest = step.awaitRequest.model_copy()
+        timeout = (step.delayMs / 1000.0) * multiplier
+        try:
+            await asyncio.wait_for(event.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            await self._apply_step_side_effects(step)
+            await self._record_event(
+                "STATE",
+                message=f"Step {step.name} gate timed out",
+                payload={
+                    "runId": self.state.id,
+                    "preset": self.state.currentPreset,
+                    "step": self.state.currentStep,
+                    "stepName": step.name,
+                    "gateTimedOut": True,
+                },
+            )
+        finally:
+            # Only clear the gate if it still belongs to this step (it may
+            # already have been cleared by stop()/reset()).
+            current = self._step_gate
+            if current is not None and current[1] is event:
+                self._step_gate = None
+            self.state.waitingForRequest = None
+
+    def _clear_step_gate(self) -> None:
+        gate = self._step_gate
+        if gate is not None:
+            _, event, _ = gate
+            event.set()
+            self._step_gate = None
+        self.state.waitingForRequest = None
+
+    @staticmethod
+    def _path_pattern_to_regex(pattern: str) -> re.Pattern[str]:
+        # Convert `{name}` placeholders into a non-slash segment match.
+        escaped = re.escape(pattern)
+        # `re.escape` turns `{name}` into `\{name\}`
+        regex = re.sub(r"\\\{[^/\\}]+\\\}", r"[^/]+", escaped)
+        return re.compile(f"^{regex}$")
+
+    def _matches_gate(self, method: str, path: str) -> bool:
+        gate = self._step_gate
+        if gate is None:
+            return False
+        pattern, _event, _step = gate
+        if method.upper() != pattern.method.upper():
+            return False
+        regex = self._path_pattern_to_regex(pattern.path)
+        return regex.match(path) is not None
+
+    def fire_gate_if_matches(self, method: str, path: str) -> bool:
+        gate = self._step_gate
+        if gate is None or not self._matches_gate(method, path):
+            return False
+        _pattern, event, step = gate
+        # Apply side-effects synchronously (sensor updates) and schedule the
+        # async distance publish so middleware doesn't block.
+        for sensor_id, value in step.sensorUpdates.items():
+            sensor = self.sensors.setdefault(
+                sensor_id, SensorConfig(sensorId=sensor_id)
+            )
+            sensor.value = value
+        if step.publishDistance is not None:
+            distance_sensor = self.sensors.get("distance-conveyor")
+            if distance_sensor is not None:
+                asyncio.create_task(
+                    self.distance_publisher.publish(
+                        distance_sensor, float(step.publishDistance)
+                    )
+                )
+        event.set()
+        # Don't clear _step_gate here; _await_step_gate's finally clause does it.
+        return True
 
     def _new_state(self) -> SimulationState:
         return SimulationState()
