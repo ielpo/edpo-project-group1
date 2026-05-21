@@ -317,6 +317,53 @@
       padding-right: 4px;
     }
 
+    /* Event panel filter toggles */
+    .event-toggles {
+      display: flex;
+      gap: 8px;
+      margin: 4px 0 12px;
+    }
+    .event-toggle {
+      cursor: pointer;
+      user-select: none;
+    }
+    .event-toggle.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border-color: transparent;
+    }
+    .event-tag {
+      font: var(--md-sys-typescale-label-small);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .event-topic {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-on-surface-variant);
+      margin-left: 8px;
+    }
+    .event-actions {
+      list-style: none;
+      padding: 0;
+      margin: 6px 0 4px;
+      display: grid;
+      gap: 4px;
+    }
+    .event-actions li {
+      font: var(--md-sys-typescale-body-medium);
+    }
+    .event-raw summary {
+      cursor: pointer;
+      font: var(--md-sys-typescale-label-medium);
+      color: var(--md-sys-color-primary);
+      margin-top: 4px;
+    }
+    /* Process-mode hides non-process events client-side. Server still
+       holds the complete history; this is purely a display filter. */
+    .events-panel[data-filter-mode="process"] .event:not(.event-process) {
+      display: none;
+    }
+
     pre.code {
       margin: 8px 0 0;
       padding: 12px;
@@ -370,5 +417,50 @@
       <div class="supporting">Loading…</div>
     </section>
   </div>
+  <script>
+    // Event filter mode is stored client-side so toggling does not require a
+    // server roundtrip and survives SSE-driven panel re-renders. The server
+    // still applies the same allowlist for direct API/fragment requests.
+    (function () {
+      var STORAGE_KEY = 'simulated-factory-event-filter';
+
+      function readMode() {
+        try {
+          var v = window.localStorage.getItem(STORAGE_KEY);
+          return v === 'process' ? 'process' : 'full';
+        } catch (e) {
+          return 'full';
+        }
+      }
+
+      function applyMode(mode) {
+        var panel = document.getElementById('event-panel');
+        if (!panel) return;
+        panel.setAttribute('data-filter-mode', mode);
+        var toggles = panel.querySelectorAll('.event-toggle');
+        toggles.forEach(function (btn) {
+          var isActive = btn.getAttribute('data-filter-mode') === mode;
+          btn.classList.toggle('active', isActive);
+          btn.classList.toggle('chip-assist', isActive);
+        });
+      }
+
+      window.simulatedFactorySetEventFilter = function (mode) {
+        var normalized = mode === 'process' ? 'process' : 'full';
+        try {
+          window.localStorage.setItem(STORAGE_KEY, normalized);
+        } catch (e) { /* ignore */ }
+        applyMode(normalized);
+      };
+
+      // Re-apply the persisted mode after any swap (initial load or SSE refresh).
+      document.body.addEventListener('htmx:afterSwap', function () {
+        applyMode(readMode());
+      });
+      document.body.addEventListener('htmx:load', function () {
+        applyMode(readMode());
+      });
+    })();
+  </script>
 </body>
 </html>

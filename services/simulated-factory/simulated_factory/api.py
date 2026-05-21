@@ -4,6 +4,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.kafka_observer import KafkaObserver
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.models import (
@@ -27,6 +30,11 @@ from simulated_factory.models import (
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+# Path patterns whose REST traffic is reclassified as a process-relevant
+# SENSOR_REQUEST event so that the operator-focused view can include sensor reads.
+_SENSOR_REQUEST_PATH_RE = re.compile(r"^/api/dobot/[^/]+/(?:color|ir)$")
 
 
 def create_app(config_path: str) -> FastAPI:
@@ -53,9 +61,24 @@ def create_app(config_path: str) -> FastAPI:
         event_bridge=event_bridge,
     )
 
-    app = FastAPI(title="Simulated Factory Service", version="1.0.0")
+    kafka_observer = KafkaObserver(event_store=event_store, logger=logger)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        await kafka_observer.start()
+        try:
+            yield
+        finally:
+            await kafka_observer.stop()
+
+    app = FastAPI(
+        title="Simulated Factory Service",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
     app.state.engine = engine
     app.state.event_store = event_store
+    app.state.kafka_observer = kafka_observer
 
     @app.middleware("http")
     async def capture_requests(request: Request, call_next):
@@ -70,10 +93,21 @@ def create_app(config_path: str) -> FastAPI:
                 except json.JSONDecodeError:
                     body = body_bytes.decode("utf-8", errors="ignore")
 
+            is_sensor_request = (
+                request.method == "GET"
+                and _SENSOR_REQUEST_PATH_RE.match(request.url.path) is not None
+            )
+            event_type = "SENSOR_REQUEST" if is_sensor_request else "REST"
+            message = (
+                "Sensor read request"
+                if is_sensor_request
+                else "Incoming simulator request"
+            )
+
             await event_store.append(
-                "REST",
+                event_type,
                 source="http",
-                message="Incoming simulator request",
+                message=message,
                 endpoint=request.url.path,
                 method=request.method,
                 status_code=response.status_code,
@@ -92,8 +126,12 @@ def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
     # HTML fragment endpoints (htmx)
     # ------------------------------------------------------------------
-    def _events_for_view(limit: int = 30) -> list[dict[str, Any]]:
-        items, _ = event_store.list_events(page=1, page_size=limit)
+    def _events_for_view(
+        limit: int = 30, filter_mode: str | None = None
+    ) -> list[dict[str, Any]]:
+        items, _ = event_store.list_events(
+            page=1, page_size=limit, filter_mode=filter_mode
+        )
         return items
 
     def _render_fragment(
@@ -119,8 +157,16 @@ def create_app(config_path: str) -> FastAPI:
         )
 
     @app.get("/fragments/events", response_class=HTMLResponse)
-    async def fragment_events(request: Request) -> HTMLResponse:
-        return _render_fragment(request, "events", events=_events_for_view())
+    async def fragment_events(
+        request: Request, filter: str | None = None
+    ) -> HTMLResponse:
+        mode = filter if filter in ("full", "process") else "full"
+        return _render_fragment(
+            request,
+            "events",
+            events=_events_for_view(filter_mode=mode),
+            filter_mode=mode,
+        )
 
     @app.get("/fragments/pending", response_class=HTMLResponse)
     async def fragment_pending(request: Request) -> HTMLResponse:
@@ -133,12 +179,21 @@ def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
     def _render_all_oob(request: Request) -> str:
         """Render every panel as an out-of-band swap fragment."""
+        filter_mode = request.query_params.get("filter")
+        if filter_mode not in ("full", "process"):
+            filter_mode = "full"
         parts: list[str] = []
         renderers = [
             ("status", {"state": jsonable_encoder(engine.get_status())}),
             ("presets", {"presets": engine.list_presets()}),
             ("sensors", {"sensors": jsonable_encoder(engine.get_sensor_configs())}),
-            ("events", {"events": _events_for_view()}),
+            (
+                "events",
+                {
+                    "events": _events_for_view(filter_mode=filter_mode),
+                    "filter_mode": filter_mode,
+                },
+            ),
             ("pending", {"pending": engine.get_pending_actions()}),
         ]
         for name, ctx in renderers:
@@ -281,9 +336,21 @@ def create_app(config_path: str) -> FastAPI:
         page: int = 1,
         pageSize: int = 50,
         filter: str | None = None,
+        mode: str | None = None,
     ) -> dict[str, Any]:
+        # Backward compat: `filter` historically accepted free-text. If it matches
+        # a known mode keyword, treat it as the filter mode. The new explicit
+        # `mode` param wins when both are given.
+        filter_mode = mode
+        text_filter: str | None = filter
+        if filter in ("full", "process"):
+            filter_mode = filter_mode or filter
+            text_filter = None
         items, next_page = event_store.list_events(
-            page=page, page_size=pageSize, filter_text=filter
+            page=page,
+            page_size=pageSize,
+            filter_text=text_filter,
+            filter_mode=filter_mode,
         )
         return {"items": items, "nextPage": next_page}
 
