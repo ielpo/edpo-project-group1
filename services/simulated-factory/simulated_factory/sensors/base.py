@@ -6,10 +6,8 @@ from models import SensorConfig
 class BaseSensor(ABC):
     """Abstract base class all sensor plugins must implement.
 
-    Every plugin receives its raw config dictionary (from config.yml) at
-    instantiation.  Internally, each plugin stores a :class:`SensorConfig`
-    Pydantic model (``self._cfg``) as the single source of truth for
-    configuration data such as mode, scripted values, MQTT metadata, etc.
+    Every plugin receives its configuration (from config.yml) at
+    instantiation.
 
     Subclasses MUST implement :meth:`read` and :meth:`update`
     """
