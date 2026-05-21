@@ -1,19 +1,12 @@
 info:
   name: Simulator Presets Run
   type: http
-  seq: 3
+  seq: 1
 
 http:
   method: POST
   url: http://localhost:{{port}}/api/presets/run
   auth: inherit
-  body:
-    mimeType: application/json
-    text: |
-      {
-        "preset": "happy-path",
-        "speed": "normal"
-      }
 
 settings:
   encodeUrl: true

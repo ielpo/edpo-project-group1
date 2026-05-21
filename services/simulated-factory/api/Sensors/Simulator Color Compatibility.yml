@@ -1,11 +1,11 @@
 info:
-  name: Simulator Presets Stop
+  name: Simulator Color Compatibility
   type: http
-  seq: 4
+  seq: 1
 
 http:
-  method: POST
-  url: http://localhost:{{port}}/api/presets/stop
+  method: GET
+  url: http://localhost:{{port}}/color
   auth: inherit
 
 settings:
