@@ -1,0 +1,7 @@
+id: split-sensor-scripted-values-into-fields
+title: Split sensor scripted CSV into individual fields in Factory Twin
+status: proposed
+scope: services/simulated-factory
+apply:
+  requires:
+    - tasks
