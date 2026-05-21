@@ -25,28 +25,6 @@ def rgb_bytes_from_raw(raw_color: List[int]) -> Tuple[int, int, int]:
     return tuple(255 if value else 0 for value in padded)
 
 
-def parse_broker_target(broker_url: str) -> tuple[str, int]:
-    """Parse a broker URL or host[:port] into (hostname, port).
-
-    Accepts full URLs (with scheme) or plain host[:port] strings. Falls
-    back to localhost:1883 when no port or hostname can be resolved.
-    """
-    from urllib.parse import urlparse
-
-    parsed = urlparse(broker_url)
-    if parsed.scheme:
-        return parsed.hostname or "localhost", parsed.port or 1883
-
-    if ":" in broker_url:
-        host, port = broker_url.rsplit(":", 1)
-        try:
-            return host, int(port)
-        except Exception:
-            return host, 1883
-
-    return broker_url, 1883
-
-
 def decode_kafka_value(value: bytes | None) -> Any:
     """Decode a Kafka record value into JSON when possible.
 
