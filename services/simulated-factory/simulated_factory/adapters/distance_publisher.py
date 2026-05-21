@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
-from urllib.parse import urlparse
 
 from paho.mqtt.publish import single as mqtt_publish_single
+
+from simulated_factory.utils import parse_broker_target
 
 from simulated_factory.events import EventStore
 from simulated_factory.models import SensorConfig, utc_now
@@ -28,15 +29,7 @@ class DistancePublisher:
             sensor.mqtt_topic
             or f"sensors/distance/{sensor.location}/{sensor.message_type}"
         )
-        payload = {
-            "type": sensor.message_type,
-            "UID": sensor.uid,
-            "location": sensor.location,
-            "messageID": self._message_id,
-            "distance": distance,
-            "timestamp": utc_now().isoformat(),
-        }
-        self._message_id += 1
+        payload = self._build_payload(sensor, distance)
 
         await self.event_store.append(
             "MQTT",
@@ -48,7 +41,7 @@ class DistancePublisher:
 
         if self.broker_url:
             try:
-                hostname, port = self._broker_target(self.broker_url)
+                hostname, port = parse_broker_target(self.broker_url)
                 mqtt_publish_single(
                     topic,
                     json.dumps(payload),
@@ -62,13 +55,21 @@ class DistancePublisher:
 
         return payload
 
-    def _broker_target(self, broker_url: str) -> tuple[str, int]:
-        parsed = urlparse(broker_url)
-        if parsed.scheme:
-            return parsed.hostname or "localhost", parsed.port or 1883
+    def _build_payload(self, sensor: SensorConfig, distance: float) -> dict[str, Any]:
+        """Construct the MQTT payload for a distance sensor reading.
 
-        if ":" in broker_url:
-            host, port = broker_url.rsplit(":", 1)
-            return host, int(port)
+        This helper centralizes the payload shape so tests can assert on the
+        produced structure without duplicating construction logic.
+        """
+        pid = self._message_id
+        self._message_id += 1
+        return {
+            "type": sensor.message_type,
+            "UID": sensor.uid,
+            "location": sensor.location,
+            "messageID": pid,
+            "distance": distance,
+            "timestamp": utc_now().isoformat(),
+        }
 
-        return broker_url, 1883
+    # Broker parsing moved to simulated_factory.utils.parse_broker_target

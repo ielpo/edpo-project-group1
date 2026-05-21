@@ -130,6 +130,59 @@ Note: The Factory Twin UI now exposes `scripted_values` and `raw_color` as indiv
 - Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `presets.yml`.
 - The Docker image defines a healthcheck against `/health`, so the endpoint can be reused for compose or Kubernetes readiness probes.
 
+## Developer notes — refactor (May 2026)
+
+A small, low-risk refactor was applied to simplify shared logic and improve testability. Key changes:
+
+- Extracted shared helper functions into `simulated_factory/utils.py` (color helpers, broker parsing, Kafka value decoding, path pattern regex).
+- Refactored `simulated_factory/engine.py` to use the centralized helpers.
+- Introduced a dependency factory in `simulated_factory/deps.py` and simplified `simulated_factory/api.py` wiring to call `build_dependencies()`.
+- Moved MQTT broker URL parsing out of `distance_publisher` into `utils.parse_broker_target()`.
+- Moved Kafka value decoding out of `kafka_observer` into `utils.decode_kafka_value()`.
+
+### Files changed
+
+- New:
+  - `simulated_factory/utils.py`
+  - `simulated_factory/deps.py`
+
+- Edited:
+  - `simulated_factory/api.py`
+  - `simulated_factory/engine.py`
+  - `simulated_factory/events.py`
+  - `simulated_factory/models.py`
+  - `simulated_factory/adapters/distance_publisher.py`
+  - `simulated_factory/adapters/kafka_observer.py`
+
+### Tests added
+
+- `services/simulated-factory/tests/test_events_store.py`
+- `services/simulated-factory/tests/test_api_wiring.py`
+- `services/simulated-factory/tests/test_utils_kafka_key.py`
+- `services/simulated-factory/tests/test_pending_action.py`
+
+These tests were executed locally and validated the refactor; run them with:
+
+```bash
+PYTHONPATH=services/simulated-factory python -m pytest -q services/simulated-factory -q
+```
+
+These changes are internal-only and preserve public endpoints and behavior; unit and integration tests were run to validate the refactor.
+
+Quick developer commands:
+
+```bash
+# Run just the simulated-factory test suite (from repo root)
+PYTHONPATH=services/simulated-factory python -m pytest -q services/simulated-factory -q
+
+# Run the service locally with the correct import path
+PYTHONPATH=services/simulated-factory uv run uvicorn main:app --reload --host 0.0.0.0 --port 8400
+```
+
+Suggested next steps:
+
+- When ready, open a changelist/PR that references `openspec/changes/refactor-backend-simplify` and this implementation summary.
+
 ## Interactive Mode
 
 The simulator supports an optional **interactive mode** that suspends selected Dobot

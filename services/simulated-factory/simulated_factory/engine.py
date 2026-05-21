@@ -28,6 +28,11 @@ from simulated_factory.models import (
     SimulationStatus,
     utc_now,
 )
+from simulated_factory.utils import (
+    path_pattern_to_regex,
+    raw_color_from_name,
+    rgb_bytes_from_raw,
+)
 
 
 _DEFAULT_INTERCEPTED: frozenset[str] = frozenset(
@@ -350,7 +355,7 @@ class SimulationEngine:
     def read_color(self, robot_name: str) -> tuple[str, list[int]]:
         sensor = self._sensor_for(robot_name, "color")
         color = str(self._sensor_value(sensor, default="YELLOW") or "YELLOW").upper()
-        raw_color = sensor.raw_color or self._raw_color_from_name(color)
+        raw_color = sensor.raw_color or raw_color_from_name(color)
         return color, raw_color
 
     def read_ir(self, robot_name: str) -> bool:
@@ -359,7 +364,7 @@ class SimulationEngine:
 
     def read_color_sensor_bytes(self) -> dict[str, int]:
         color, raw_color = self.read_color("left")
-        rgb = self._rgb_bytes_from_raw(raw_color or self._raw_color_from_name(color))
+        rgb = rgb_bytes_from_raw(raw_color or raw_color_from_name(color))
         return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
 
     async def record_external_event(self, payload: Any) -> None:
@@ -420,11 +425,7 @@ class SimulationEngine:
             )
 
     async def _apply_step_side_effects(self, step: PresetStep) -> None:
-        for sensor_id, value in step.sensorUpdates.items():
-            sensor = self.sensors.setdefault(
-                sensor_id, SensorConfig(sensorId=sensor_id)
-            )
-            sensor.value = value
+        self._apply_sensor_updates(step)
 
         if step.publishDistance is not None:
             distance_sensor = self.sensors.get("distance-conveyor")
@@ -469,14 +470,7 @@ class SimulationEngine:
             event.set()
             self._step_gate = None
         self.state.waitingForRequest = None
-
-    @staticmethod
-    def _path_pattern_to_regex(pattern: str) -> re.Pattern[str]:
-        # Convert `{name}` placeholders into a non-slash segment match.
-        escaped = re.escape(pattern)
-        # `re.escape` turns `{name}` into `\{name\}`
-        regex = re.sub(r"\\\{[^/\\}]+\\\}", r"[^/]+", escaped)
-        return re.compile(f"^{regex}$")
+    # Path-pattern regex helper moved to `simulated_factory.utils`
 
     def _matches_gate(self, method: str, path: str) -> bool:
         gate = self._step_gate
@@ -485,7 +479,7 @@ class SimulationEngine:
         pattern, _event, _step = gate
         if method.upper() != pattern.method.upper():
             return False
-        regex = self._path_pattern_to_regex(pattern.path)
+        regex = path_pattern_to_regex(pattern.path)
         return regex.match(path) is not None
 
     def fire_gate_if_matches(self, method: str, path: str) -> bool:
@@ -495,11 +489,7 @@ class SimulationEngine:
         _pattern, event, step = gate
         # Apply side-effects synchronously (sensor updates) and schedule the
         # async distance publish so middleware doesn't block.
-        for sensor_id, value in step.sensorUpdates.items():
-            sensor = self.sensors.setdefault(
-                sensor_id, SensorConfig(sensorId=sensor_id)
-            )
-            sensor.value = value
+        self._apply_sensor_updates(step)
         if step.publishDistance is not None:
             distance_sensor = self.sensors.get("distance-conveyor")
             if distance_sensor is not None:
@@ -514,6 +504,16 @@ class SimulationEngine:
 
     def _new_state(self) -> SimulationState:
         return SimulationState()
+
+    def _apply_sensor_updates(self, step: PresetStep) -> None:
+        """Apply sensorUpdates from a `PresetStep` synchronously.
+
+        Sensor updates are synchronous so they are visible immediately to the
+        current request context; distance publishes are handled separately.
+        """
+        for sensor_id, value in step.sensorUpdates.items():
+            sensor = self.sensors.setdefault(sensor_id, SensorConfig(sensorId=sensor_id))
+            sensor.value = value
 
     # ------------------------------------------------------------------
     # Inventory cache (background poller)
@@ -594,19 +594,8 @@ class SimulationEngine:
             return sensor.scripted_values[index]
 
         return sensor.value if sensor.value is not None else default
-
-    def _raw_color_from_name(self, color: str) -> list[int]:
-        palette = {
-            "RED": [1, 0, 0],
-            "GREEN": [0, 1, 0],
-            "BLUE": [0, 0, 1],
-            "YELLOW": [1, 1, 0],
-        }
-        return palette.get(color.upper(), [0, 0, 0])
-
-    def _rgb_bytes_from_raw(self, raw_color: list[int]) -> tuple[int, int, int]:
-        padded = (raw_color + [0, 0, 0])[:3]
-        return tuple(255 if value else 0 for value in padded)  # type: ignore[return-value]
+    # Color helpers (raw_color_from_name, rgb_bytes_from_raw) moved to
+    # `simulated_factory.utils` to centralize utility functions.
 
     def _speed_multiplier(self, speed: str) -> float:
         return {
@@ -617,4 +606,13 @@ class SimulationEngine:
 
     async def _record_event(self, event_type: str, **kwargs: Any) -> None:
         entry = await self.event_store.append(event_type, **kwargs)
-        await self.event_bridge.emit(jsonable_encoder(entry))
+        # Emit to the event bridge asynchronously so that external callbacks
+        # (HTTP, Kafka stub) do not block the simulation loop. This keeps
+        # the simulation responsive if the bridge is slow or configured.
+        try:
+            payload = jsonable_encoder(entry)
+            asyncio.create_task(self.event_bridge.emit(payload))
+        except Exception:
+            # Guard against unexpected errors in creating the background
+            # task; the local EventStore append is already durable.
+            self.logger.exception("Failed to schedule event bridge emit")
