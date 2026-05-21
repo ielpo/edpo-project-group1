@@ -1,7 +1,7 @@
 info:
   name: Simulator Presets Run
   type: http
-  seq: 1
+  seq: 2
 
 http:
   method: POST
@@ -10,8 +10,7 @@ http:
     type: json
     data: |-
       {
-        "preset": "happy-path",
-        "speed": "normal"
+        "preset": "happy-path"
       }
   auth: inherit
 
