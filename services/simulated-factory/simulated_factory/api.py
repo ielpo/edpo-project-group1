@@ -6,14 +6,21 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from simulated_factory.adapters.distance_publisher import DistancePublisher
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
-from simulated_factory.models import RunPresetRequest, SensorUpdateRequest, utc_now
+from simulated_factory.models import (
+    InteractiveConfig,
+    InteractiveConfigRequest,
+    ResolveActionRequest,
+    RunPresetRequest,
+    SensorUpdateRequest,
+    utc_now,
+)
 
 
 def create_app(config_path: str) -> FastAPI:
@@ -136,14 +143,60 @@ def create_app(config_path: str) -> FastAPI:
         return {"items": items, "nextPage": next_page}
 
     @app.post("/api/events", status_code=202)
-    async def accept_event(payload: Any) -> dict[str, str]:
+    async def accept_event(payload: Any = Body(...)) -> dict[str, str]:
         await engine.record_external_event(payload)
         return {"status": "accepted"}
 
     @app.post("/api/dobot/{name}/commands", status_code=202)
-    async def dobot_commands(name: str, payload: Any) -> dict[str, str]:
-        correlation_id = await engine.handle_dobot_commands(name, payload)
-        return {"correlationId": correlation_id}
+    async def dobot_commands(name: str, payload: Any = Body(...)) -> dict[str, Any]:
+        result = await engine.handle_dobot_commands(name, payload)
+        return result
+
+    @app.get("/api/interactive/config")
+    async def get_interactive_config() -> dict[str, Any]:
+        config = engine.get_interactive_config()
+        return {
+            "intercepted": sorted(config.intercepted),
+            "timeoutSeconds": config.timeout_seconds,
+        }
+
+    @app.put("/api/interactive/config")
+    async def put_interactive_config(
+        request_body: InteractiveConfigRequest,
+    ) -> dict[str, Any]:
+        new_config = InteractiveConfig(
+            intercepted=set(request_body.intercepted),
+            timeout_seconds=request_body.timeoutSeconds,
+        )
+        config = engine.set_interactive_config(new_config)
+        return {
+            "intercepted": sorted(config.intercepted),
+            "timeoutSeconds": config.timeout_seconds,
+        }
+
+    @app.get("/api/interactive/pending")
+    async def list_pending_actions() -> dict[str, Any]:
+        return {"items": engine.get_pending_actions()}
+
+    @app.post("/api/interactive/{action_id}/resolve")
+    async def resolve_pending_action(
+        action_id: str, request_body: ResolveActionRequest
+    ) -> dict[str, Any]:
+        try:
+            action = await engine.resolve_action(
+                action_id, request_body.outcome, request_body.reason
+            )
+        except KeyError:
+            raise HTTPException(
+                status_code=404, detail=f"Unknown action {action_id}"
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {
+            "actionId": action.id,
+            "outcome": action.outcome,
+            "reason": action.reason,
+        }
 
     @app.get("/api/dobot/{name}/color")
     async def read_dobot_color(name: str) -> dict[str, Any]:
@@ -184,6 +237,7 @@ def create_app(config_path: str) -> FastAPI:
             {
                 "type": "state_snapshot",
                 "state": jsonable_encoder(engine.get_status()),
+                "pending": engine.get_pending_actions(),
             }
         )
         try:
@@ -194,6 +248,7 @@ def create_app(config_path: str) -> FastAPI:
                         "type": "event",
                         "event": event,
                         "state": jsonable_encoder(engine.get_status()),
+                        "pending": engine.get_pending_actions(),
                     }
                 )
         except WebSocketDisconnect:
