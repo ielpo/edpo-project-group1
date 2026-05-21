@@ -1,0 +1,43 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="Fpb83RzW2DKAkIwP2jhS">
+    <mxGraphModel dx="978" dy="571" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="800" pageHeight="450" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="sf-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Simulated Factory" vertex="1">
+          <mxGeometry height="40" width="120" x="340" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="dobot-control" vertex="1">
+          <mxGeometry height="40" width="120" x="180" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Inventory" vertex="1">
+          <mxGeometry height="40" width="120" x="500" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Kafka" vertex="1">
+          <mxGeometry height="40" width="120" x="340" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="MQTT" vertex="1">
+          <mxGeometry height="40" width="120" x="340" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="color-sensor-fake" vertex="1">
+          <mxGeometry height="40" width="120" x="180" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-e1" edge="1" parent="1" source="sf-4" target="sf-1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-e2" edge="1" parent="1" source="sf-1" target="sf-5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-e3" edge="1" parent="1" source="sf-1" target="sf-3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-e4" edge="1" parent="1" source="sf-2" target="sf-1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sf-e5" edge="1" parent="1" source="sf-2" target="sf-6" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
