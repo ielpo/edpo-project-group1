@@ -24,6 +24,7 @@ services:
     environment:
       SIMULATOR_BROKER_URL: tcp://mqtt:1883
       SIMULATOR_EVENT_BRIDGE: none
+      INVENTORY_URL: http://inventory:8103
     depends_on:
       - mqtt
 

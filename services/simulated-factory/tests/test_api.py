@@ -171,8 +171,12 @@ def test_put_sensor_returns_html_for_htmx_caller() -> None:
     )
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert 'id="sensor-card-color-left"' in response.text
-    assert "GREEN" in response.text
+    # Twin form uses hx-swap="none" + SSE OOB refresh, so the response body
+    # is intentionally empty for HTMX callers.
+    assert response.text == ""
+    # The update was applied to the engine.
+    sensor = app.state.engine.sensors["color-left"]
+    assert sensor.value == "GREEN"
 
 
 def test_put_sensor_returns_json_for_non_htmx_caller() -> None:

@@ -346,6 +346,138 @@
     }
     .sensor-form .submit-cell { align-self: end; }
 
+    /* ---------- Factory Twin ---------- */
+    .twin-floor {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-areas:
+        "inventory conveyor robot"
+        "color     distance assembly";
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .twin-zone--inventory { grid-area: inventory; }
+    .twin-zone--conveyor  { grid-area: conveyor; }
+    .twin-zone--robot     { grid-area: robot; }
+    .twin-zone--color     { grid-area: color; }
+    .twin-zone--distance  { grid-area: distance; }
+    .twin-zone--assembly  { grid-area: assembly; }
+    .twin-zone {
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface-variant);
+      border-radius: var(--md-sys-shape-corner-medium);
+      padding: 12px 14px;
+      min-height: 96px;
+    }
+    .twin-zone__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .twin-zone__header h3 {
+      font: var(--md-sys-typescale-title-medium);
+      margin: 0;
+      color: var(--md-sys-color-on-surface);
+    }
+    .twin-zone__sub {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .twin-zone__unavailable {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-error);
+      padding: 16px 0;
+      text-align: center;
+    }
+    .twin-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      font: var(--md-sys-typescale-label-small);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .twin-kv {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px 12px;
+      margin: 0;
+      font: var(--md-sys-typescale-body-small);
+    }
+    .twin-kv dt {
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .twin-kv dd {
+      margin: 0;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      color: var(--md-sys-color-on-surface);
+    }
+    .inv-grid {
+      display: grid;
+      gap: 4px;
+    }
+    .inv-cell {
+      aspect-ratio: 1;
+      border-radius: var(--md-sys-shape-corner-small);
+      border: 1.5px solid rgba(0, 0, 0, 0.15);
+      background: rgba(0, 0, 0, 0.05);
+      min-height: 18px;
+    }
+    .inv-cell.empty {
+      background: rgba(0, 0, 0, 0.05);
+      opacity: 0.5;
+    }
+    .inv-cell.occupied { opacity: 1; }
+    .inv-cell.reserved {
+      opacity: 0.55;
+      outline: 2px dashed rgba(0, 0, 0, 0.5);
+      outline-offset: -3px;
+    }
+    .color-swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .twin-sensor {
+      background: var(--md-sys-color-surface);
+      border-radius: var(--md-sys-shape-corner-small);
+      padding: 8px 10px;
+      margin: 6px 0;
+    }
+    .twin-sensor__title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font: var(--md-sys-typescale-title-small);
+      margin-bottom: 4px;
+    }
+    .twin-sensor__value {
+      margin-left: auto;
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    @media (max-width: 980px) {
+      .twin-floor {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "inventory"
+          "conveyor"
+          "robot"
+          "color"
+          "distance"
+          "assembly";
+      }
+    }
+
     /* Event list */
     .event-list {
       max-height: 620px;
@@ -437,8 +569,8 @@
         <div class="supporting">Loading…</div>
       </div>
 
-      <div id="sensor-panel" class="card" hx-get="/fragments/sensors" hx-trigger="load" hx-swap="outerHTML">
-        <h2>Sensors</h2>
+      <div id="twin-panel" class="card" hx-get="/fragments/twin" hx-trigger="load" hx-swap="outerHTML">
+        <h2>Factory Twin</h2>
         <div class="supporting">Loading…</div>
       </div>
     </section>
