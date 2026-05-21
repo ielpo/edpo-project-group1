@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import logging
 import os
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,7 @@ import httpx
 import yaml
 from fastapi.encoders import jsonable_encoder
 
-from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.events import EventStore
 from simulated_factory.models import (
     AwaitRequest,
@@ -58,13 +59,13 @@ class SimulationEngine:
         *,
         config_path: str,
         event_store: EventStore,
-        distance_publisher: DistancePublisher,
+        mqtt_publisher: MqttPublisher,
         inventory_url: str | None = None,
     ):
         self.logger = logging.getLogger(__name__)
         self.config_path = Path(config_path)
         self.event_store = event_store
-        self.distance_publisher = distance_publisher
+        self.mqtt_publisher = mqtt_publisher
         self._inventory_url = (
             inventory_url
             if inventory_url is not None
@@ -208,17 +209,60 @@ class SimulationEngine:
     def _sensor_map_for_preset(
         self, preset: PresetDefinition | None
     ) -> dict[str, BaseSensor]:
-        sensors = {
-            sensor_id: plugin.clone()
-            for sensor_id, plugin in self._default_sensors.items()
-        }
+        sensors: dict[str, BaseSensor] = {}
+
+        # Try to obtain an independent instance for each default sensor.
+        for sensor_id, plugin in self._default_sensors.items():
+            # Prefer plugin-provided `clone()` if available.
+            if hasattr(plugin, "clone"):
+                try:
+                    sensors[sensor_id] = plugin.clone()
+                    continue
+                except Exception:
+                    pass
+
+            # Fallback: re-instantiate the plugin class using a deep copy
+            # of its config (if present). If that fails, fall back to the
+            # original plugin (best-effort).
+            cfg = getattr(plugin, "_cfg", None)
+            try:
+                if cfg is not None and hasattr(cfg, "model_copy"):
+                    cfg_copy = cfg.model_copy(deep=True)
+                else:
+                    cfg_copy = copy.deepcopy(cfg)
+                sensors[sensor_id] = plugin.__class__(sensor_id, cfg_copy)
+            except Exception:
+                sensors[sensor_id] = plugin
+
         if preset is None:
             return sensors
 
+        # Apply preset overrides. If the plugin exposes `apply_overrides`,
+        # use it; otherwise merge overrides into the plugin config.
         for sensor_id, override in preset.sensor_overrides.items():
             if sensor_id not in sensors:
                 sensors[sensor_id] = self._make_plugin(sensor_id, {})
-            sensors[sensor_id].apply_overrides(override)
+
+            plugin = sensors[sensor_id]
+            if hasattr(plugin, "apply_overrides"):
+                plugin.apply_overrides(override)
+            else:
+                # Do not allow changing the sensor `type` via overrides.
+                override_filtered = {k: v for k, v in override.items() if k != "type"}
+                cfg = getattr(plugin, "_cfg", None)
+                if cfg is not None and hasattr(cfg, "model_copy"):
+                    try:
+                        plugin._cfg = cfg.model_copy(update=override_filtered)
+                    except Exception:
+                        for k, v in override_filtered.items():
+                            try:
+                                setattr(plugin._cfg, k, v)
+                            except Exception:
+                                setattr(plugin, k, v)
+                else:
+                    for k, v in override_filtered.items():
+                        setattr(plugin, k, v)
+
         return sensors
 
     async def _await_step_gate(self, step: PresetStep) -> None:
@@ -264,9 +308,17 @@ class SimulationEngine:
         if step.publishDistance is not None:
             distance_plugin = self.sensors.get("distance-conveyor")
             if distance_plugin:
-                await self.distance_publisher.publish(
-                    distance_plugin.to_sensor_config(), float(step.publishDistance)
-                )
+                # Prefer plugin-provided to_sensor_config(); otherwise use a
+                # deep copy of the plugin's internal `_cfg` Pydantic model.
+                to_sensor_cfg = getattr(distance_plugin, "to_sensor_config", None)
+                if callable(to_sensor_cfg):
+                    cfg = to_sensor_cfg()
+                else:
+                    cfg = getattr(distance_plugin, "_cfg", None)
+                    if cfg is not None and hasattr(cfg, "model_copy"):
+                        cfg = cfg.model_copy(deep=True)
+
+                await self.distance_publisher.publish(cfg, float(step.publishDistance))
 
     def _apply_sensor_updates(self, step: PresetStep) -> None:
         """Apply sensorUpdates from a `PresetStep` synchronously.
@@ -277,7 +329,22 @@ class SimulationEngine:
         for sensor_id, value in step.sensorUpdates.items():
             if sensor_id not in self.sensors:
                 self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
-            self.sensors[sensor_id].update(value)
+            plugin = self.sensors[sensor_id]
+            # Prefer the plugin `update()` method when present.
+            if hasattr(plugin, "update"):
+                plugin.update(value)
+            else:
+                cfg = getattr(plugin, "_cfg", None)
+                if cfg is not None and hasattr(cfg, "model_copy"):
+                    try:
+                        plugin._cfg = cfg.model_copy(update={"value": value})
+                    except Exception:
+                        try:
+                            setattr(plugin._cfg, "value", value)
+                        except Exception:
+                            setattr(plugin, "value", value)
+                else:
+                    setattr(plugin, "value", value)
 
     # ------------------------------------------------------------------
     # State management
@@ -314,9 +381,19 @@ class SimulationEngine:
     # Sensor management
     # ------------------------------------------------------------------
     def get_sensor_configs(self) -> list[SensorConfig]:
-        return [
-            self.sensors[key].to_sensor_config() for key in sorted(self.sensors.keys())
-        ]
+        configs: list[SensorConfig] = []
+        for key in sorted(self.sensors.keys()):
+            plugin = self.sensors[key]
+            to_cfg = getattr(plugin, "to_sensor_config", None)
+            if callable(to_cfg):
+                configs.append(to_cfg())
+            else:
+                cfg = getattr(plugin, "_cfg", None)
+                if cfg is not None and hasattr(cfg, "model_copy"):
+                    configs.append(cfg.model_copy(deep=True))
+                else:
+                    configs.append(cfg)  # type: ignore[arg-type]
+        return configs
 
     def _make_plugin(self, sensor_id: str, config: dict[str, Any]) -> BaseSensor:
         """Instantiate the sensor plugin for *sensor_id* using *config*.
@@ -345,8 +422,29 @@ class SimulationEngine:
                 f"Sensor plugin module '{module_name}' does not define class '{class_name}'. "
                 f"Sensor: '{sensor_id}' (type='{sensor_type}')."
             ) from exc
+
+        # Build a SensorConfig (or plugin-specific config) instance. If the
+        # caller already supplied a SensorConfig, use it; otherwise attempt to
+        # construct the module-specific config class `<ClassName>Config` and
+        # fall back to the generic `SensorConfig` model.
         try:
-            return cls(sensor_id, config)
+            if isinstance(config, SensorConfig):
+                cfg_obj = config
+            else:
+                cfg_dict = dict(config or {})
+                cfg_dict.setdefault("name", sensor_id)
+                cfg_dict.setdefault("type", sensor_type)
+                config_cls = getattr(module, class_name + "Config", None)
+                if config_cls is None:
+                    # Last resort: try a generic SensorConfig
+                    cfg_obj = SensorConfig(**cfg_dict)
+                else:
+                    try:
+                        cfg_obj = config_cls(**cfg_dict)
+                    except Exception:
+                        cfg_obj = SensorConfig(**cfg_dict)
+
+            return cls(sensor_id, cfg_obj)
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to instantiate sensor plugin '{class_name}' for sensor '{sensor_id}': {exc}"
@@ -358,17 +456,51 @@ class SimulationEngine:
         if sensor_id not in self.sensors:
             self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
         plugin = self.sensors[sensor_id]
-        plugin.apply_update_request(update.model_dump(exclude_none=True))
+        update_dict = update.model_dump(exclude_none=True)
+
+        if hasattr(plugin, "apply_update_request"):
+            plugin.apply_update_request(update_dict)
+        else:
+            # Apply common update semantics: set runtime value if provided
+            if "value" in update_dict:
+                try:
+                    plugin.update(update_dict["value"])
+                except Exception:
+                    pass
+
+            # Merge other fields into the plugin config if possible.
+            other = {k: v for k, v in update_dict.items() if k not in ("value", "mode")}
+            if other:
+                cfg = getattr(plugin, "_cfg", None)
+                if cfg is not None and hasattr(cfg, "model_copy"):
+                    try:
+                        plugin._cfg = cfg.model_copy(update=other)
+                    except Exception:
+                        for k, v in other.items():
+                            try:
+                                setattr(plugin._cfg, k, v)
+                            except Exception:
+                                setattr(plugin, k, v)
+                else:
+                    for k, v in other.items():
+                        setattr(plugin, k, v)
 
         await self._record_event(
             "STATE",
             message=f"Sensor {sensor_id} updated",
             payload={
                 "sensorId": sensor_id,
-                "config": jsonable_encoder(plugin.to_dict()),
+                "config": jsonable_encoder(plugin.to_dict() if hasattr(plugin, "to_dict") else getattr(plugin, "_cfg", None)),
             },
         )
-        return plugin.to_sensor_config()
+
+        # Return a SensorConfig instance (prefer plugin.to_sensor_config()).
+        if hasattr(plugin, "to_sensor_config"):
+            return plugin.to_sensor_config()
+        cfg = getattr(plugin, "_cfg", None)
+        if cfg is not None and hasattr(cfg, "model_copy"):
+            return cfg.model_copy(deep=True)
+        return cfg  # type: ignore[return-value]
 
     # ------------------------------------------------------------------
     # Command handling
@@ -546,11 +678,17 @@ class SimulationEngine:
 
     def read_color(self, robot_name: str) -> tuple[str, list[int]]:
         plugin = self._sensor_for(robot_name, "color")
-        return plugin.read(self.state.currentStep)  # type: ignore[return-value]
+        try:
+            return plugin.read(self.state.currentStep)  # type: ignore[return-value]
+        except TypeError:
+            return plugin.read()  # type: ignore[return-value]
 
     def read_ir(self, robot_name: str) -> bool:
         plugin = self._sensor_for(robot_name, "ir")
-        return plugin.read(self.state.currentStep)  # type: ignore[return-value]
+        try:
+            return plugin.read(self.state.currentStep)  # type: ignore[return-value]
+        except TypeError:
+            return plugin.read()  # type: ignore[return-value]
 
     def read_color_sensor_bytes(self) -> dict[str, int]:
         color, raw_color = self.read_color("left")
