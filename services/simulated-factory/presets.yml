@@ -26,16 +26,25 @@ presets:
         note: Order accepted and conveyor is idle.
         publishDistance: 30.0
       - name: pickup
-        delayMs: 75
+        delayMs: 10000
         note: Item reaches the pick-up area.
         publishDistance: 12.5
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
       - name: color-check
-        delayMs: 75
+        delayMs: 10000
         note: Color sensor reports the configured block color.
+        awaitRequest:
+          method: GET
+          path: /api/dobot/{name}/color
       - name: place
-        delayMs: 75
+        delayMs: 10000
         note: Robot places the item and conveyor clears again.
         publishDistance: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
 
   wrong-color:
     description: The flow continues, but the color sensor deterministically returns blue.
@@ -49,16 +58,25 @@ presets:
         note: Order accepted and conveyor is idle.
         publishDistance: 30.0
       - name: pickup
-        delayMs: 75
+        delayMs: 10000
         note: Item reaches the pick-up area.
         publishDistance: 11.8
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
       - name: color-check
-        delayMs: 75
+        delayMs: 10000
         note: Sensor reports the wrong color to trigger a deterministic failure.
+        awaitRequest:
+          method: GET
+          path: /api/dobot/{name}/color
       - name: reject
-        delayMs: 75
+        delayMs: 10000
         note: Conveyor clears the item after the mismatch.
         publishDistance: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
 
   pickup-failure:
     description: The IR sensor never detects an item, reproducing a failed pickup.
@@ -73,10 +91,16 @@ presets:
         note: Order accepted and system waits for pickup.
         publishDistance: 30.0
       - name: pickup-timeout
-        delayMs: 75
+        delayMs: 10000
         note: No item reaches the IR sensor, so pickup fails.
         publishDistance: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
       - name: abort
-        delayMs: 75
+        delayMs: 10000
         note: Simulation ends in a deterministic failure state.
         publishDistance: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands

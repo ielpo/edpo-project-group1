@@ -83,6 +83,17 @@ def create_app(config_path: str) -> FastAPI:
     @app.middleware("http")
     async def capture_requests(request: Request, call_next):
         body_bytes = await request.body()
+
+        if request.url.path != "/health":
+            # Fire any active preset gate that matches this incoming request
+            # BEFORE the handler runs so its sensor reads observe the updated
+            # state. Side-effects (sensor updates, distance publish) are
+            # applied inside fire_gate_if_matches.
+            try:
+                engine.fire_gate_if_matches(request.method, request.url.path)
+            except Exception:  # pragma: no cover - defensive
+                logger.exception("fire_gate_if_matches raised")
+
         response = await call_next(request)
 
         if request.url.path != "/health":

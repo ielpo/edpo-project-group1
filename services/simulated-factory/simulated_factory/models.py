@@ -51,12 +51,18 @@ class SensorConfig(BaseModel):
     cadence_ms: int = 1000
 
 
+class AwaitRequest(BaseModel):
+    method: str
+    path: str
+
+
 class PresetStep(BaseModel):
     name: str
     delayMs: int = 100
     note: str | None = None
     publishDistance: float | None = None
     sensorUpdates: dict[str, Any] = Field(default_factory=dict)
+    awaitRequest: AwaitRequest | None = None
 
 
 class PresetDefinition(BaseModel):
@@ -79,6 +85,7 @@ class SimulationState(BaseModel):
             "right": DobotRuntimeState(),
         }
     )
+    waitingForRequest: AwaitRequest | None = None
 
 
 class EventEntry(BaseModel):
