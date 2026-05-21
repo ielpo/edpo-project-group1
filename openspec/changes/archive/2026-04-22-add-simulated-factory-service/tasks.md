@@ -52,7 +52,7 @@
    - Acceptance: `pytest` passes core tests locally.
    - Estimate: 0.75 day
 
-- [ ] Integration test (docker-compose)
+- [x] Integration test (docker-compose)
    - Compose stack: simulator + minimal consumer (or use `dobot-control` in `--simulation` mode) to run `happy-path` and assert events and state transitions.
    - Acceptance: integration test runs locally and verifies end-to-end happy-path.
    - Estimate: 0.5 day
