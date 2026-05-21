@@ -1,19 +1,12 @@
 info:
   name: Simulator Events List
   type: http
-  seq: 8
+  seq: 5
 
 http:
   method: GET
   url: http://localhost:{{port}}/api/events
   auth: inherit
-  query:
-    - name: page
-      value: "1"
-    - name: pageSize
-      value: "10"
-    - name: filter
-      value: ""
 
 settings:
   encodeUrl: true
