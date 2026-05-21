@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import importlib
 import logging
@@ -12,7 +10,7 @@ import yaml
 from fastapi.encoders import jsonable_encoder
 
 from simulated_factory.adapters.distance_publisher import DistancePublisher
-from simulated_factory.events import EventBridge, EventStore
+from simulated_factory.events import EventStore
 from simulated_factory.models import (
     AwaitRequest,
     DobotRuntimeState,
@@ -61,14 +59,12 @@ class SimulationEngine:
         config_path: str,
         event_store: EventStore,
         distance_publisher: DistancePublisher,
-        event_bridge: EventBridge,
         inventory_url: str | None = None,
     ):
         self.logger = logging.getLogger(__name__)
         self.config_path = Path(config_path)
         self.event_store = event_store
         self.distance_publisher = distance_publisher
-        self.event_bridge = event_bridge
         self._inventory_url = (
             inventory_url
             if inventory_url is not None
@@ -88,9 +84,9 @@ class SimulationEngine:
         self._step_gate: tuple[AwaitRequest, asyncio.Event, PresetStep] | None = None
         self._inventory_cache: dict | None = None
         self._inventory_poll_task: asyncio.Task | None = None
-        self.reload_config()
+        self._load_config()
 
-    def reload_config(self) -> None:
+    def _load_config(self) -> None:
         payload = yaml.safe_load(self.config_path.read_text(encoding="utf-8")) or {}
         defaults = payload.get("defaults", {}).get("sensors", {})
         presets = payload.get("presets", {})
@@ -110,6 +106,14 @@ class SimulationEngine:
         }
         self.sensors = self._sensor_map_for_preset(None)
 
+    def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
+        return self.state.dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(
+            deep=True
+        )
+
+    # ------------------------------------------------------------------
+    # Preset handling
+    # ------------------------------------------------------------------
     def list_presets(self) -> list[dict[str, object]]:
         return [
             {
@@ -120,36 +124,7 @@ class SimulationEngine:
             for preset in self.presets.values()
         ]
 
-    def get_status(self) -> SimulationState:
-        return self.state.model_copy(deep=True)
-
-    def get_sensor_configs(self) -> list[SensorConfig]:
-        return [
-            self.sensors[key].to_sensor_config()
-            for key in sorted(self.sensors.keys())
-        ]
-
-    def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
-        return self.state.dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(
-            deep=True
-        )
-
-    async def update_sensor(
-        self, sensor_id: str, update: SensorUpdateRequest
-    ) -> SensorConfig:
-        if sensor_id not in self.sensors:
-            self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
-        plugin = self.sensors[sensor_id]
-        plugin.apply_update_request(update.model_dump(exclude_none=True))
-
-        await self._record_event(
-            "STATE",
-            message=f"Sensor {sensor_id} updated",
-            payload={"sensorId": sensor_id, "config": jsonable_encoder(plugin.to_dict())},
-        )
-        return plugin.to_sensor_config()
-
-    async def run_preset(self, preset_name: str, speed: str = "normal") -> str:
+    async def run_preset(self, preset_name: str) -> str:
         preset = self.presets.get(preset_name)
         if preset is None:
             raise KeyError(preset_name)
@@ -172,12 +147,143 @@ class SimulationEngine:
             await self._record_event(
                 "STATE",
                 message=f"Started preset {preset_name}",
-                payload={"runId": run_id, "preset": preset_name, "speed": speed},
+                payload={"runId": run_id, "preset": preset_name},
             )
 
             self.interactive_config = InteractiveConfig()
-            self._run_task = asyncio.create_task(self._execute_preset(preset, speed))
+            self._run_task = asyncio.create_task(self._execute_preset(preset))
             return run_id
+
+    async def _execute_preset(self, preset: PresetDefinition) -> None:
+        try:
+            for index, step in enumerate(preset.steps, start=1):
+                if self._stop_requested:
+                    self.state.status = SimulationStatus.STOPPED
+                    self.state.timestamp = utc_now()
+                    await self._record_event(
+                        "STATE",
+                        message=f"Preset {preset.name} stopped",
+                        payload={"runId": self.state.id, "preset": preset.name},
+                    )
+                    return
+
+                self.state.currentStep = index
+                self.state.currentStepName = step.name
+                self.state.timestamp = utc_now()
+                await self._record_event(
+                    "STATE",
+                    message=step.note or f"Executing step {step.name}",
+                    payload={
+                        "runId": self.state.id,
+                        "preset": preset.name,
+                        "step": index,
+                        "stepName": step.name,
+                    },
+                )
+
+                if step.awaitRequest is not None:
+                    await self._await_step_gate(step)
+                else:
+                    await self._apply_step_side_effects(step)
+                    await asyncio.sleep(step.delayMs / 1000.0)
+
+            self.state.status = SimulationStatus.IDLE
+            self.state.timestamp = utc_now()
+            await self._record_event(
+                "STATE",
+                message=f"Preset {preset.name} completed",
+                payload={"runId": self.state.id, "preset": preset.name},
+            )
+        except asyncio.CancelledError:
+            self.state.status = SimulationStatus.STOPPED
+            self.state.timestamp = utc_now()
+            raise
+        finally:
+            self._stop_requested = False
+            self._clear_step_gate()
+            self.interactive_config = InteractiveConfig(
+                intercepted=set(_DEFAULT_INTERCEPTED)
+            )
+
+    def _sensor_map_for_preset(
+        self, preset: PresetDefinition | None
+    ) -> dict[str, BaseSensor]:
+        sensors = {
+            sensor_id: plugin.clone()
+            for sensor_id, plugin in self._default_sensors.items()
+        }
+        if preset is None:
+            return sensors
+
+        for sensor_id, override in preset.sensor_overrides.items():
+            if sensor_id not in sensors:
+                sensors[sensor_id] = self._make_plugin(sensor_id, {})
+            sensors[sensor_id].apply_overrides(override)
+        return sensors
+
+    async def _await_step_gate(self, step: PresetStep) -> None:
+        assert step.awaitRequest is not None
+        event = asyncio.Event()
+        self._step_gate = (step.awaitRequest, event, step)
+        self.state.waitingForRequest = step.awaitRequest.model_copy()
+        timeout = step.delayMs / 1000.0
+        try:
+            await asyncio.wait_for(event.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            await self._apply_step_side_effects(step)
+            await self._record_event(
+                "STATE",
+                message=f"Step {step.name} gate timed out",
+                payload={
+                    "runId": self.state.id,
+                    "preset": self.state.currentPreset,
+                    "step": self.state.currentStep,
+                    "stepName": step.name,
+                    "gateTimedOut": True,
+                },
+            )
+        finally:
+            # Only clear the gate if it still belongs to this step (it may
+            # already have been cleared by stop()/reset()).
+            current = self._step_gate
+            if current is not None and current[1] is event:
+                self._step_gate = None
+            self.state.waitingForRequest = None
+
+    def _clear_step_gate(self) -> None:
+        gate = self._step_gate
+        if gate is not None:
+            _, event, _ = gate
+            event.set()
+            self._step_gate = None
+        self.state.waitingForRequest = None
+
+    async def _apply_step_side_effects(self, step: PresetStep) -> None:
+        self._apply_sensor_updates(step)
+
+        if step.publishDistance is not None:
+            distance_plugin = self.sensors.get("distance-conveyor")
+            if distance_plugin:
+                await self.distance_publisher.publish(
+                    distance_plugin.to_sensor_config(), float(step.publishDistance)
+                )
+
+    def _apply_sensor_updates(self, step: PresetStep) -> None:
+        """Apply sensorUpdates from a `PresetStep` synchronously.
+
+        Sensor updates are synchronous so they are visible immediately to the
+        current request context; distance publishes are handled separately.
+        """
+        for sensor_id, value in step.sensorUpdates.items():
+            if sensor_id not in self.sensors:
+                self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
+            self.sensors[sensor_id].update(value)
+
+    # ------------------------------------------------------------------
+    # State management
+    # ------------------------------------------------------------------
+    def get_status(self) -> SimulationState:
+        return self.state.model_copy(deep=True)
 
     async def stop(self) -> None:
         self._stop_requested = True
@@ -204,6 +310,69 @@ class SimulationEngine:
             "STATE", message="Simulation reset", payload={"status": "reset"}
         )
 
+    # ------------------------------------------------------------------
+    # Sensor management
+    # ------------------------------------------------------------------
+    def get_sensor_configs(self) -> list[SensorConfig]:
+        return [
+            self.sensors[key].to_sensor_config() for key in sorted(self.sensors.keys())
+        ]
+
+    def _make_plugin(self, sensor_id: str, config: dict[str, Any]) -> BaseSensor:
+        """Instantiate the sensor plugin for *sensor_id* using *config*.
+
+        Loads the module ``simulated_factory.sensors.<type>`` and instantiates
+        the class ``<Type>Sensor``.  Raises :exc:`RuntimeError` with a human-
+        readable message if the module or class is missing or construction fails.
+        """
+        sensor_type = self._infer_sensor_type(sensor_id, config)
+        module_name = f"simulated_factory.sensors.{sensor_type.replace('-', '_')}"
+        class_name = (
+            "".join(w.capitalize() for w in sensor_type.replace("-", "_").split("_"))
+            + "Sensor"
+        )
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                f"Sensor plugin for '{sensor_id}' (type='{sensor_type}') not found. "
+                f"Expected module '{module_name}'. Original error: {exc}"
+            ) from exc
+        try:
+            cls = getattr(module, class_name)
+        except AttributeError as exc:
+            raise RuntimeError(
+                f"Sensor plugin module '{module_name}' does not define class '{class_name}'. "
+                f"Sensor: '{sensor_id}' (type='{sensor_type}')."
+            ) from exc
+        try:
+            return cls(sensor_id, config)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to instantiate sensor plugin '{class_name}' for sensor '{sensor_id}': {exc}"
+            ) from exc
+
+    async def update_sensor(
+        self, sensor_id: str, update: SensorUpdateRequest
+    ) -> SensorConfig:
+        if sensor_id not in self.sensors:
+            self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
+        plugin = self.sensors[sensor_id]
+        plugin.apply_update_request(update.model_dump(exclude_none=True))
+
+        await self._record_event(
+            "STATE",
+            message=f"Sensor {sensor_id} updated",
+            payload={
+                "sensorId": sensor_id,
+                "config": jsonable_encoder(plugin.to_dict()),
+            },
+        )
+        return plugin.to_sensor_config()
+
+    # ------------------------------------------------------------------
+    # Command handling
+    # ------------------------------------------------------------------
     async def handle_dobot_commands(
         self, robot_name: str, payload: Any
     ) -> dict[str, Any]:
@@ -332,6 +501,15 @@ class SimulationEngine:
 
             dobot_state.last_command = command_type
 
+    # ------------------------------------------------------------------
+    # Event handling
+    # ------------------------------------------------------------------
+    async def _record_event(self, event_type: str, **kwargs: Any) -> None:
+        await self.event_store.append(event_type, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Interactive control
+    # ------------------------------------------------------------------
     async def resolve_action(
         self, action_id: str, outcome: str, reason: str | None = None
     ) -> PendingAction:
@@ -384,105 +562,6 @@ class SimulationEngine:
             "EVENT", message="External event accepted", payload=payload
         )
 
-    async def _execute_preset(self, preset: PresetDefinition, speed: str) -> None:
-        try:
-            multiplier = self._speed_multiplier(speed)
-            for index, step in enumerate(preset.steps, start=1):
-                if self._stop_requested:
-                    self.state.status = SimulationStatus.STOPPED
-                    self.state.timestamp = utc_now()
-                    await self._record_event(
-                        "STATE",
-                        message=f"Preset {preset.name} stopped",
-                        payload={"runId": self.state.id, "preset": preset.name},
-                    )
-                    return
-
-                self.state.currentStep = index
-                self.state.currentStepName = step.name
-                self.state.timestamp = utc_now()
-                await self._record_event(
-                    "STATE",
-                    message=step.note or f"Executing step {step.name}",
-                    payload={
-                        "runId": self.state.id,
-                        "preset": preset.name,
-                        "step": index,
-                        "stepName": step.name,
-                    },
-                )
-
-                if step.awaitRequest is not None:
-                    await self._await_step_gate(step, multiplier)
-                else:
-                    await self._apply_step_side_effects(step)
-                    await asyncio.sleep((step.delayMs / 1000.0) * multiplier)
-
-            self.state.status = SimulationStatus.IDLE
-            self.state.timestamp = utc_now()
-            await self._record_event(
-                "STATE",
-                message=f"Preset {preset.name} completed",
-                payload={"runId": self.state.id, "preset": preset.name},
-            )
-        except asyncio.CancelledError:
-            self.state.status = SimulationStatus.STOPPED
-            self.state.timestamp = utc_now()
-            raise
-        finally:
-            self._stop_requested = False
-            self._clear_step_gate()
-            self.interactive_config = InteractiveConfig(
-                intercepted=set(_DEFAULT_INTERCEPTED)
-            )
-
-    async def _apply_step_side_effects(self, step: PresetStep) -> None:
-        self._apply_sensor_updates(step)
-
-        if step.publishDistance is not None:
-            distance_plugin = self.sensors.get("distance-conveyor")
-            if distance_plugin:
-                await self.distance_publisher.publish(
-                    distance_plugin.to_sensor_config(), float(step.publishDistance)
-                )
-
-    async def _await_step_gate(self, step: PresetStep, multiplier: float) -> None:
-        assert step.awaitRequest is not None
-        event = asyncio.Event()
-        self._step_gate = (step.awaitRequest, event, step)
-        self.state.waitingForRequest = step.awaitRequest.model_copy()
-        timeout = (step.delayMs / 1000.0) * multiplier
-        try:
-            await asyncio.wait_for(event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            await self._apply_step_side_effects(step)
-            await self._record_event(
-                "STATE",
-                message=f"Step {step.name} gate timed out",
-                payload={
-                    "runId": self.state.id,
-                    "preset": self.state.currentPreset,
-                    "step": self.state.currentStep,
-                    "stepName": step.name,
-                    "gateTimedOut": True,
-                },
-            )
-        finally:
-            # Only clear the gate if it still belongs to this step (it may
-            # already have been cleared by stop()/reset()).
-            current = self._step_gate
-            if current is not None and current[1] is event:
-                self._step_gate = None
-            self.state.waitingForRequest = None
-
-    def _clear_step_gate(self) -> None:
-        gate = self._step_gate
-        if gate is not None:
-            _, event, _ = gate
-            event.set()
-            self._step_gate = None
-        self.state.waitingForRequest = None
-
     # Path-pattern regex helper moved to `simulated_factory.utils`
 
     def _matches_gate(self, method: str, path: str) -> bool:
@@ -494,37 +573,6 @@ class SimulationEngine:
             return False
         regex = path_pattern_to_regex(pattern.path)
         return regex.match(path) is not None
-
-    def fire_gate_if_matches(self, method: str, path: str) -> bool:
-        gate = self._step_gate
-        if gate is None or not self._matches_gate(method, path):
-            return False
-        _pattern, event, step = gate
-        # Apply side-effects synchronously (sensor updates) and schedule the
-        # async distance publish so middleware doesn't block.
-        self._apply_sensor_updates(step)
-        if step.publishDistance is not None:
-            distance_plugin = self.sensors.get("distance-conveyor")
-            if distance_plugin is not None:
-                asyncio.create_task(
-                    self.distance_publisher.publish(
-                        distance_plugin.to_sensor_config(), float(step.publishDistance)
-                    )
-                )
-        event.set()
-        # Don't clear _step_gate here; _await_step_gate's finally clause does it.
-        return True
-
-    def _apply_sensor_updates(self, step: PresetStep) -> None:
-        """Apply sensorUpdates from a `PresetStep` synchronously.
-
-        Sensor updates are synchronous so they are visible immediately to the
-        current request context; distance publishes are handled separately.
-        """
-        for sensor_id, value in step.sensorUpdates.items():
-            if sensor_id not in self.sensors:
-                self.sensors[sensor_id] = self._make_plugin(sensor_id, {})
-            self.sensors[sensor_id].update(value)
 
     # ------------------------------------------------------------------
     # Inventory cache (background poller)
@@ -578,22 +626,6 @@ class SimulationEngine:
         except asyncio.CancelledError:
             raise
 
-    def _sensor_map_for_preset(
-        self, preset: PresetDefinition | None
-    ) -> dict[str, BaseSensor]:
-        sensors = {
-            sensor_id: plugin.clone()
-            for sensor_id, plugin in self._default_sensors.items()
-        }
-        if preset is None:
-            return sensors
-
-        for sensor_id, override in preset.sensor_overrides.items():
-            if sensor_id not in sensors:
-                sensors[sensor_id] = self._make_plugin(sensor_id, {})
-            sensors[sensor_id].apply_overrides(override)
-        return sensors
-
     def _sensor_for(self, robot_name: str, prefix: str) -> BaseSensor:
         sensor_id = f"{prefix}-{robot_name}"
         if sensor_id not in self.sensors:
@@ -608,59 +640,3 @@ class SimulationEngine:
             if sensor_id.startswith(prefix):
                 return sensor_type
         return "generic"
-
-    def _make_plugin(self, sensor_id: str, config: dict[str, Any]) -> BaseSensor:
-        """Instantiate the sensor plugin for *sensor_id* using *config*.
-
-        Loads the module ``simulated_factory.sensors.<type>`` and instantiates
-        the class ``<Type>Sensor``.  Raises :exc:`RuntimeError` with a human-
-        readable message if the module or class is missing or construction fails.
-        """
-        sensor_type = self._infer_sensor_type(sensor_id, config)
-        module_name = f"simulated_factory.sensors.{sensor_type.replace('-', '_')}"
-        class_name = (
-            "".join(w.capitalize() for w in sensor_type.replace("-", "_").split("_"))
-            + "Sensor"
-        )
-        try:
-            module = importlib.import_module(module_name)
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                f"Sensor plugin for '{sensor_id}' (type='{sensor_type}') not found. "
-                f"Expected module '{module_name}'. Original error: {exc}"
-            ) from exc
-        try:
-            cls = getattr(module, class_name)
-        except AttributeError as exc:
-            raise RuntimeError(
-                f"Sensor plugin module '{module_name}' does not define class '{class_name}'. "
-                f"Sensor: '{sensor_id}' (type='{sensor_type}')."
-            ) from exc
-        try:
-            return cls(sensor_id, config)
-        except Exception as exc:
-            raise RuntimeError(
-                f"Failed to instantiate sensor plugin '{class_name}' for sensor '{sensor_id}': {exc}"
-            ) from exc
-
-    # rgb_bytes_from_raw and raw_color_from_name remain in simulated_factory.utils
-
-    def _speed_multiplier(self, speed: str) -> float:
-        return {
-            "slow": 2.0,
-            "normal": 1.0,
-            "fast": 0.5,
-        }.get(speed, 1.0)
-
-    async def _record_event(self, event_type: str, **kwargs: Any) -> None:
-        entry = await self.event_store.append(event_type, **kwargs)
-        # Emit to the event bridge asynchronously so that external callbacks
-        # (HTTP, Kafka stub) do not block the simulation loop. This keeps
-        # the simulation responsive if the bridge is slow or configured.
-        try:
-            payload = jsonable_encoder(entry)
-            asyncio.create_task(self.event_bridge.emit(payload))
-        except Exception:
-            # Guard against unexpected errors in creating the background
-            # task; the local EventStore append is already durable.
-            self.logger.exception("Failed to schedule event bridge emit")
