@@ -5,8 +5,6 @@ does not attempt a real Kafka connection. Tests that need the observer
 behavior should construct it directly with explicit fakes.
 """
 
-from __future__ import annotations
-
 import os
 import sys
 from pathlib import Path

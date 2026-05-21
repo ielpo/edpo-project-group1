@@ -6,8 +6,6 @@ KafkaObserver is exercised via an injected fake AIOKafkaConsumer so the
 ingestion path can be verified without external services.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from pathlib import Path
