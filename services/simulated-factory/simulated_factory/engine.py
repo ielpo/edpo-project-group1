@@ -52,9 +52,7 @@ class SimulationEngine:
         self._stop_requested = False
         self._run_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
-        self.interactive_config: InteractiveConfig = InteractiveConfig(
-            intercepted=set(_DEFAULT_INTERCEPTED)
-        )
+        self.interactive_config: InteractiveConfig = InteractiveConfig()
         self._pending: dict[str, PendingAction] = {}
         self._pending_counter = 0
         self.reload_config()
