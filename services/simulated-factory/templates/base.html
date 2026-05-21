@@ -286,6 +286,42 @@
       border: none;
     }
 
+    /* ---------- Step pipeline ---------- */
+    .step-pipeline {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin: 12px 0 8px;
+    }
+    .step-node {
+      font: var(--md-sys-typescale-label-small);
+      padding: 4px 10px;
+      border-radius: var(--md-sys-shape-corner-full);
+      border: 1.5px solid var(--md-sys-color-outline-variant);
+      white-space: nowrap;
+      color: var(--md-sys-color-on-surface-variant);
+      background: transparent;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .step-node.step--done {
+      background: var(--md-sys-color-secondary-container);
+      border-color: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+    }
+    .step-node.step--active {
+      background: var(--md-sys-color-primary-container);
+      border-color: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary-container);
+      font-weight: 500;
+    }
+    .step-connector {
+      width: 16px;
+      height: 1.5px;
+      background: var(--md-sys-color-outline-variant);
+      flex-shrink: 0;
+    }
+
     /* Status badge */
     .status-badge {
       display: inline-flex;
