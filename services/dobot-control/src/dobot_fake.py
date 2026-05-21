@@ -11,6 +11,7 @@ from commands import (
     MovementSpeedCommand,
     SuctionCupCommand,
 )
+from simulator_client import SimulatorClient
 
 
 class Status(Enum):
@@ -20,7 +21,13 @@ class Status(Enum):
 
 
 class DobotFake:
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        simulator_url: str | None = None,
+        sensor_timeout_seconds: float = 1.0,
+        command_timeout_seconds: float = 1.0,
+    ):
         self.logger = logging.getLogger(__name__)
 
         self.speed: float = 0.0
@@ -35,9 +42,23 @@ class DobotFake:
         self.ir_reading: bool = True
 
         self.name = name
+        self.simulator_client = (
+            SimulatorClient(
+                base_url=simulator_url,
+                sensor_timeout_seconds=sensor_timeout_seconds,
+                command_timeout_seconds=command_timeout_seconds,
+                logger=self.logger,
+            )
+            if simulator_url
+            else None
+        )
 
         self.set_speed(50.0)
-        self.logger.info("[%s] Fake Dobot initialized", self.name)
+        self.logger.info(
+            "[%s] Fake Dobot initialized (simulator=%s)",
+            self.name,
+            simulator_url or "disabled",
+        )
 
     def home(self):
         """Home the Dobot"""
@@ -52,6 +73,9 @@ class DobotFake:
         self.status = Status.ACTIVE
         for command in commands:
             try:
+                if self.simulator_client:
+                    self.simulator_client.forward_command(self.name, command)
+
                 self.logger.info("[%s] EXECUTE -> %s", self.name, command)
                 match command:
                     case MovementCommand():
@@ -148,6 +172,19 @@ class DobotFake:
         )
 
     def read_color(self) -> tuple[str, list[int]]:
+        if self.simulator_client:
+            simulator_color = self.simulator_client.read_color(self.name)
+            if simulator_color is not None:
+                color, color_raw = simulator_color
+                self.color_raw = color_raw
+                self.logger.info(
+                    "[%s] READ COLOR -> color=%s raw=%s (simulator)",
+                    self.name,
+                    color,
+                    color_raw,
+                )
+                return color, color_raw
+
         color_raw = self.color_raw
         if color_raw[0] == 1:
             color = "RED"
@@ -164,5 +201,12 @@ class DobotFake:
         return color, color_raw
 
     def read_ir(self) -> bool:
+        if self.simulator_client:
+            simulator_ir = self.simulator_client.read_ir(self.name)
+            if simulator_ir is not None:
+                self.ir_reading = simulator_ir
+                self.logger.info("[%s] READ IR -> %s (simulator)", self.name, simulator_ir)
+                return simulator_ir
+
         self.logger.info("[%s] READ IR -> %s", self.name, self.ir_reading)
         return self.ir_reading

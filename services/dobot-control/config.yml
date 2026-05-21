@@ -7,3 +7,9 @@ robots:
     server_port: 8200
 
 default_robot: right
+
+simulator:
+  url: http://simulated-factory:8400
+  broker:
+  command_timeout_seconds: 1.0
+  sensor_timeout_seconds: 1.0

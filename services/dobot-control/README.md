@@ -21,6 +21,9 @@ uv run src/app.py --robot=left
 
 You can select the right or left robot with the commandline parameter.
 A simulation mode is available with the `-s` flag.
+When running in simulation mode, `DobotFake` can forward commands and sensor reads to
+the simulated factory service by reading `simulator.url` from [config.yml](./config.yml)
+or the `SIMULATOR_URL` environment variable.
 
 ---
 
