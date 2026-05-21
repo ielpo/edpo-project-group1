@@ -9,16 +9,20 @@ defaults:
       type: ir
       mode: fixed
       value: true
-    distance-conveyor:
+    distance-left:
       type: distance
-      mode: scripted
       value: 30.0
-      scripted_values: [30.0, 12.5, 6.2, 30.0]
-      mqtt_topic: sensors/distance/Conveyor/distance_IR_short_left
+      mqtt_topic: Tinkerforge/Conveyor/distance_IR_short_TFu
       uid: TFu
       location: Conveyor
-      message_type: distance_IR_short_left
-      cadence_ms: 250
+      message_type: distance_IR_short
+    distance-right:
+      type: distance
+      value: 30.0
+      mqtt_topic: Tinkerforge/Conveyor/distance_IR_short_2a7C
+      uid: 2a7C
+      location: Conveyor
+      message_type: distance_IR_short
 
 presets:
   happy-path:
