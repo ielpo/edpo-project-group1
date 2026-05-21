@@ -135,7 +135,7 @@
             <div class="field">
               <label>Mode</label>
               <select name="mode">
-                {% for m in ["fixed", "scripted", "random"] %}
+                {% for m in ["fixed", "scripted"] %}
                   <option value="{{ m }}"{% if sensor.mode == m %} selected{% endif %}>{{ m }}</option>
                 {% endfor %}
               </select>

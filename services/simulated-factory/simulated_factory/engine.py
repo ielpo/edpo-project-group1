@@ -588,17 +588,10 @@ class SimulationEngine:
         )
 
     def _sensor_value(self, sensor: SensorConfig, default: Any) -> Any:
-        if sensor.scripted_values:
+        if sensor.mode == "scripted" and sensor.scripted_values:
             index = max(self.state.currentStep - 1, 0)
             index = min(index, len(sensor.scripted_values) - 1)
             return sensor.scripted_values[index]
-
-        if sensor.mode == "random":
-            stable_colors = ["RED", "GREEN", "BLUE", "YELLOW"]
-            stable_index = (
-                len(sensor.sensorId) + len(self.state.currentPreset or "")
-            ) % len(stable_colors)
-            return stable_colors[stable_index]
 
         return sensor.value if sensor.value is not None else default
 

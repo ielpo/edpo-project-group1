@@ -72,6 +72,44 @@ async def test_sensor_override_changes_runtime_value() -> None:
     assert engine.read_color("left") == ("BLUE", [0, 0, 1])
 
 
+@pytest.mark.asyncio
+async def test_scripted_mode_returns_step_indexed_value() -> None:
+    engine = _make_engine()
+    await engine.update_sensor(
+        "color-left",
+        SensorUpdateRequest(
+            mode="scripted",
+            value="RED",
+            scripted_values=["BLUE", "GREEN", "YELLOW"],
+        ),
+    )
+
+    sensor = engine.sensors["color-left"]
+
+    engine.state.currentStep = 1
+    assert engine._sensor_value(sensor, default="WHITE") == "BLUE"
+
+    engine.state.currentStep = 2
+    assert engine._sensor_value(sensor, default="WHITE") == "GREEN"
+
+    # Out-of-range step clamps to the last scripted value.
+    engine.state.currentStep = 10
+    assert engine._sensor_value(sensor, default="WHITE") == "YELLOW"
+
+
+@pytest.mark.asyncio
+async def test_scripted_mode_with_empty_values_falls_back_to_value() -> None:
+    engine = _make_engine()
+    await engine.update_sensor(
+        "color-left",
+        SensorUpdateRequest(mode="scripted", value="RED", scripted_values=[]),
+    )
+
+    sensor = engine.sensors["color-left"]
+    engine.state.currentStep = 1
+    assert engine._sensor_value(sensor, default="WHITE") == "RED"
+
+
 def _make_engine() -> SimulationEngine:
     event_store = EventStore()
     return SimulationEngine(
