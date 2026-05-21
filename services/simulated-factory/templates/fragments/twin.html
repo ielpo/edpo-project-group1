@@ -1,0 +1,238 @@
+{# Factory digital twin block diagram fragment.
+
+   Context vars:
+   - state:     dict (encoded SimulationState)
+   - sensors:   list[dict] (encoded SensorConfig list)
+   - inventory: dict {"grid": list|None, "rows": int, "cols": int}
+   - oob:       bool — when True, render with hx-swap-oob="true"
+#}
+{% set step = state.currentStepName %}
+{% if step in [None, "order-received"] %}
+  {% set conv_badge = None %}
+  {% set assembly_badge = None %}
+{% elif step == "pickup" %}
+  {% set conv_badge = "ON CONVEYOR" %}
+  {% set assembly_badge = None %}
+{% elif step == "color-check" %}
+  {% set conv_badge = "AT PICKUP ZONE" %}
+  {% set assembly_badge = None %}
+{% elif step == "place" %}
+  {% set conv_badge = None %}
+  {% set assembly_badge = "BEING PLACED" %}
+{% elif step == "reject" %}
+  {% set conv_badge = None %}
+  {% set assembly_badge = "BEING REJECTED" %}
+{% else %}
+  {% set conv_badge = "IN PROGRESS" %}
+  {% set assembly_badge = None %}
+{% endif %}
+
+{% set color_swatches = {
+  "RED": "#d32f2f",
+  "GREEN": "#388e3c",
+  "BLUE": "#1976d2",
+  "YELLOW": "#fbc02d"
+} %}
+
+{% set left = state.dobots.get("left", {}) if state.dobots else {} %}
+{% set left_pos = left.get("position", {}) if left else {} %}
+
+<div id="twin-panel" class="card twin-panel"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2>Factory Twin</h2>
+  <div class="supporting">
+    Live block diagram of the simulated factory.
+    Active step: <strong>{{ state.currentStepName or "—" }}</strong>
+  </div>
+
+  <div class="twin-floor">
+
+    {# ---------- Inventory Grid ---------- #}
+    <section class="twin-zone twin-zone--inventory" id="twin-zone-inventory">
+      <header class="twin-zone__header">
+        <h3>Inventory Grid</h3>
+        <span class="twin-zone__sub">read-only · from inventory service</span>
+      </header>
+      {% if inventory and inventory.get("grid") %}
+        {% set rows = inventory.get("rows", inventory.grid|length) %}
+        {% set cols = inventory.get("cols", (inventory.grid[0]|length) if inventory.grid else 0) %}
+        <div class="inv-grid" style="grid-template-columns: repeat({{ cols }}, 1fr);">
+          {% for row in inventory.grid %}
+            {% for cell in row %}
+              {% if cell is none %}
+                <div class="inv-cell empty" title="empty"></div>
+              {% else %}
+                {% set color = cell.color %}
+                {% set is_reserved = cell.reserved %}
+                <div
+                  class="inv-cell {{ 'reserved' if is_reserved else 'occupied' }}"
+                  style="background: {{ color_swatches.get(color, '#888') }};"
+                  title="{{ color }}{{ ' (reserved)' if is_reserved else '' }}"
+                ></div>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="twin-zone__unavailable">Unavailable</div>
+      {% endif %}
+    </section>
+
+    {# ---------- Conveyor Belt ---------- #}
+    <section class="twin-zone twin-zone--conveyor" id="twin-zone-conveyor">
+      <header class="twin-zone__header">
+        <h3>Conveyor Belt</h3>
+        {% if conv_badge %}<span class="twin-badge">{{ conv_badge }}</span>{% endif %}
+      </header>
+      <dl class="twin-kv">
+        <dt>Direction</dt>
+        <dd>{{ left.get("conveyor_direction", "STOP") if left else "STOP" }}</dd>
+        <dt>Speed</dt>
+        <dd>{{ "%.1f"|format(left.get("conveyor_speed", 0.0)) if left else "0.0" }}</dd>
+        <dt>Distance</dt>
+        <dd>{{ "%.1f"|format(left.get("conveyor_distance", 0.0)) if left else "0.0" }}</dd>
+      </dl>
+    </section>
+
+    {# ---------- Robot (Dobot left) ---------- #}
+    <section class="twin-zone twin-zone--robot" id="twin-zone-robot">
+      <header class="twin-zone__header">
+        <h3>Robot (left)</h3>
+        <span class="twin-zone__sub">read-only</span>
+      </header>
+      <dl class="twin-kv">
+        <dt>Position x</dt><dd>{{ "%.1f"|format(left_pos.get("x", 0.0)) }}</dd>
+        <dt>Position y</dt><dd>{{ "%.1f"|format(left_pos.get("y", 0.0)) }}</dd>
+        <dt>Position z</dt><dd>{{ "%.1f"|format(left_pos.get("z", 0.0)) }}</dd>
+        <dt>Position r</dt><dd>{{ "%.1f"|format(left_pos.get("r", 0.0)) }}</dd>
+        <dt>Speed</dt><dd>{{ "%.1f"|format(left.get("speed", 0.0)) if left else "0.0" }}</dd>
+        <dt>Suction</dt>
+        <dd>{{ "ON" if (left and left.get("suction_enabled")) else "off" }}</dd>
+      </dl>
+    </section>
+
+    {# ---------- Color Sensor ---------- #}
+    {% set color_sensors = [] %}
+    {% for s in sensors %}{% if s.sensorId.startswith('color-') %}{{- color_sensors.append(s) or '' -}}{% endif %}{% endfor %}
+    <section class="twin-zone twin-zone--color" id="twin-zone-color">
+      <header class="twin-zone__header">
+        <h3>Color Sensor</h3>
+      </header>
+      {% for sensor in color_sensors %}
+        <article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
+          <div class="twin-sensor__title">
+            {{ sensor.sensorId }}
+            <span class="chip chip-assist">{{ sensor.mode }}</span>
+            {% if sensor.value in color_swatches %}
+              <span class="color-swatch" style="background: {{ color_swatches[sensor.value] }};" title="{{ sensor.value }}"></span>
+            {% endif %}
+          </div>
+          <form
+            class="sensor-form"
+            hx-put="/api/config/sensors/{{ sensor.sensorId }}"
+            hx-swap="none"
+            hx-ext="json-enc"
+          >
+            <div class="field">
+              <label>Mode</label>
+              <select name="mode">
+                {% for m in ["fixed", "scripted", "random"] %}
+                  <option value="{{ m }}"{% if sensor.mode == m %} selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Color</label>
+              <select name="value">
+                <option value=""{% if sensor.value in [None, ""] %} selected{% endif %}>(none)</option>
+                {% for c in ["RED", "GREEN", "BLUE", "YELLOW"] %}
+                  <option value="{{ c }}"{% if sensor.value == c %} selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Raw RGB (csv)</label>
+              <input name="raw_color" value="{{ sensor.raw_color|join(',') if sensor.raw_color else '' }}" placeholder="1,0,0">
+            </div>
+            <div class="submit-cell">
+              <button type="submit" class="btn btn-filled">Apply</button>
+            </div>
+          </form>
+        </article>
+      {% else %}
+        <div class="twin-zone__sub">No color sensors configured.</div>
+      {% endfor %}
+    </section>
+
+    {# ---------- Distance / IR Sensors ---------- #}
+    {% set distance_sensors = [] %}
+    {% for s in sensors %}{% if not s.sensorId.startswith('color-') %}{{- distance_sensors.append(s) or '' -}}{% endif %}{% endfor %}
+    <section class="twin-zone twin-zone--distance" id="twin-zone-distance">
+      <header class="twin-zone__header">
+        <h3>Distance / IR Sensors</h3>
+      </header>
+      {% for sensor in distance_sensors %}
+        {% set is_ir = sensor.sensorId.startswith("ir-") %}
+        <article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
+          <div class="twin-sensor__title">
+            {{ sensor.sensorId }}
+            <span class="chip chip-assist">{{ sensor.mode }}</span>
+            <span class="twin-sensor__value">value: <code>{{ sensor.value|tojson }}</code></span>
+          </div>
+          <form
+            class="sensor-form"
+            hx-put="/api/config/sensors/{{ sensor.sensorId }}"
+            hx-swap="none"
+            hx-ext="json-enc"
+          >
+            <div class="field">
+              <label>Mode</label>
+              <select name="mode">
+                {% for m in ["fixed", "scripted"] %}
+                  <option value="{{ m }}"{% if sensor.mode == m %} selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% if is_ir %}
+              <div class="field">
+                <label>Value</label>
+                <select name="value">
+                  <option value="true"{% if sensor.value is sameas true %} selected{% endif %}>true</option>
+                  <option value="false"{% if sensor.value is sameas false %} selected{% endif %}>false</option>
+                </select>
+              </div>
+            {% else %}
+              <div class="field">
+                <label>Fixed value</label>
+                <input type="number" step="any" name="value" value="{{ sensor.value if sensor.value is not none else '' }}">
+              </div>
+              <div class="field">
+                <label>Scripted values (csv)</label>
+                <input name="scripted_values" value="{{ sensor.scripted_values|join(',') if sensor.scripted_values else '' }}" placeholder="10,20,30">
+              </div>
+            {% endif %}
+            <div class="submit-cell">
+              <button type="submit" class="btn btn-filled">Apply</button>
+            </div>
+          </form>
+        </article>
+      {% else %}
+        <div class="twin-zone__sub">No distance/IR sensors configured.</div>
+      {% endfor %}
+    </section>
+
+    {# ---------- Assembly Area ---------- #}
+    <section class="twin-zone twin-zone--assembly" id="twin-zone-assembly">
+      <header class="twin-zone__header">
+        <h3>Assembly Area</h3>
+        {% if assembly_badge %}<span class="twin-badge">{{ assembly_badge }}</span>{% endif %}
+      </header>
+      <dl class="twin-kv">
+        <dt>Active step</dt>
+        <dd>{{ state.currentStepName or "—" }}</dd>
+        <dt>Step #</dt>
+        <dd>{{ state.currentStep }}</dd>
+      </dl>
+    </section>
+
+  </div>
+</div>

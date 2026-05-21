@@ -66,9 +66,11 @@ def create_app(config_path: str) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await kafka_observer.start()
+        engine.start_inventory_poller()
         try:
             yield
         finally:
+            await engine.stop_inventory_poller()
             await kafka_observer.stop()
 
     app = FastAPI(
@@ -166,10 +168,14 @@ def create_app(config_path: str) -> FastAPI:
             state=jsonable_encoder(engine.get_status()),
         )
 
-    @app.get("/fragments/sensors", response_class=HTMLResponse)
-    async def fragment_sensors(request: Request) -> HTMLResponse:
+    @app.get("/fragments/twin", response_class=HTMLResponse)
+    async def fragment_twin(request: Request) -> HTMLResponse:
         return _render_fragment(
-            request, "sensors", sensors=jsonable_encoder(engine.get_sensor_configs())
+            request,
+            "twin",
+            state=jsonable_encoder(engine.get_status()),
+            sensors=jsonable_encoder(engine.get_sensor_configs()),
+            inventory=engine.get_inventory_cache(),
         )
 
     @app.get("/fragments/events", response_class=HTMLResponse)
@@ -208,7 +214,14 @@ def create_app(config_path: str) -> FastAPI:
                     "state": jsonable_encoder(engine.get_status()),
                 },
             ),
-            ("sensors", {"sensors": jsonable_encoder(engine.get_sensor_configs())}),
+            (
+                "twin",
+                {
+                    "state": jsonable_encoder(engine.get_status()),
+                    "sensors": jsonable_encoder(engine.get_sensor_configs()),
+                    "inventory": engine.get_inventory_cache(),
+                },
+            ),
             (
                 "events",
                 {
@@ -299,6 +312,10 @@ def create_app(config_path: str) -> FastAPI:
     async def list_sensor_configs() -> JSONResponse:
         return JSONResponse(jsonable_encoder(engine.get_sensor_configs()))
 
+    @app.get("/api/inventory")
+    async def get_inventory() -> JSONResponse:
+        return JSONResponse(engine.get_inventory_cache())
+
     @app.put("/api/config/sensors/{sensor_id}", response_model=None)
     async def update_sensor(
         sensor_id: str, request: Request
@@ -346,11 +363,10 @@ def create_app(config_path: str) -> FastAPI:
         sensor = await engine.update_sensor(sensor_id, update)
 
         if request.headers.get("HX-Request") == "true":
-            return templates.TemplateResponse(
-                request,
-                "fragments/_sensor_card.html",
-                {"sensor": jsonable_encoder(sensor)},
-            )
+            # The twin panel is refreshed via the SSE OOB stream after the
+            # STATE event published by update_sensor; the form itself uses
+            # hx-swap="none" so we only need a minimal response body here.
+            return HTMLResponse("", status_code=200)
         return JSONResponse(jsonable_encoder(sensor))
 
     @app.get("/api/events")
