@@ -148,7 +148,12 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.get("/fragments/presets", response_class=HTMLResponse)
     async def fragment_presets(request: Request) -> HTMLResponse:
-        return _render_fragment(request, "presets", presets=engine.list_presets())
+        return _render_fragment(
+            request,
+            "presets",
+            presets=engine.list_presets(),
+            state=jsonable_encoder(engine.get_status()),
+        )
 
     @app.get("/fragments/sensors", response_class=HTMLResponse)
     async def fragment_sensors(request: Request) -> HTMLResponse:
@@ -185,7 +190,13 @@ def create_app(config_path: str) -> FastAPI:
         parts: list[str] = []
         renderers = [
             ("status", {"state": jsonable_encoder(engine.get_status())}),
-            ("presets", {"presets": engine.list_presets()}),
+            (
+                "presets",
+                {
+                    "presets": engine.list_presets(),
+                    "state": jsonable_encoder(engine.get_status()),
+                },
+            ),
             ("sensors", {"sensors": jsonable_encoder(engine.get_sensor_configs())}),
             (
                 "events",
