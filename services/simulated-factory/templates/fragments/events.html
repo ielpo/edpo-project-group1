@@ -1,21 +1,86 @@
-<div id="event-panel" class="card"{% if oob %} hx-swap-oob="true"{% endif %}>
+{# Events panel fragment. Supports two display modes selected via toggles:
+   - full: every recorded event including REST/STATE/MQTT noise
+   - process: only Camunda-process-relevant types (KAFKA, COMMAND,
+     PENDING_ACTION, ACTION_RESOLVED, SENSOR_REQUEST)
+   Filtering is applied at render time; full history is always retained
+   in the EventStore for debugging.
+
+   Process-event types are also marked with the `event-process` CSS class so
+   that client-side toggling can switch modes without a server roundtrip and
+   survive SSE-driven panel refreshes. #}
+{% set process_types = ['KAFKA', 'COMMAND', 'PENDING_ACTION', 'ACTION_RESOLVED', 'SENSOR_REQUEST'] %}
+{% set mode = filter_mode|default('full') %}
+<div id="event-panel" class="card events-panel" data-filter-mode="{{ mode }}"{% if oob %} hx-swap-oob="true"{% endif %}>
   <h2>Event History</h2>
-  <div class="supporting">REST requests, MQTT publishes, and simulator state changes appear in a single chronological stream.</div>
+  <div class="supporting">
+    Switch between the full debug log and the process-focused view.
+    Process view highlights Kafka topics, robot commands, sensor reads,
+    and operator-resolvable actions.
+  </div>
+  <div class="event-toggles" role="group" aria-label="Event filter mode">
+    <button type="button"
+            class="chip event-toggle{% if mode == 'full' %} chip-assist active{% endif %}"
+            data-filter-mode="full"
+            onclick="window.simulatedFactorySetEventFilter && window.simulatedFactorySetEventFilter('full')">Full log</button>
+    <button type="button"
+            class="chip event-toggle{% if mode == 'process' %} chip-assist active{% endif %}"
+            data-filter-mode="process"
+            onclick="window.simulatedFactorySetEventFilter && window.simulatedFactorySetEventFilter('process')">Process view</button>
+  </div>
   <div class="event-list">
     {% for event in events %}
-    <article class="item-card">
-      <header>
-        <h3>{{ event.type }}</h3>
-        <time>{{ event.ts }}</time>
-      </header>
-      <p>{{ event.message or 'No message' }}</p>
-      {% if event.method or event.endpoint or event.topic %}
-      <p><span class="chip">{{ event.method or '' }} {{ event.endpoint or event.topic or '' }}</span></p>
-      {% endif %}
-      {% if event.payload is not none %}
-      <pre class="code">{{ event.payload|tojson(indent=2) }}</pre>
-      {% endif %}
-    </article>
+      {% set is_process = event.type in process_types %}
+      <article class="item-card event event-type-{{ event.type }}{% if is_process %} event-process{% endif %}"
+               data-event-type="{{ event.type }}">
+        <header>
+          <h3>
+            <span class="chip chip-assist event-tag">{{ event.type }}</span>
+            {% if event.type == 'KAFKA' and event.topic %}
+              <span class="event-topic">{{ event.topic }}</span>
+            {% elif event.type == 'SENSOR_REQUEST' and event.endpoint %}
+              <span class="event-topic">{{ event.endpoint }}</span>
+            {% elif event.type == 'COMMAND' and event.payload and event.payload.robot %}
+              <span class="event-topic">robot: {{ event.payload.robot }}</span>
+            {% endif %}
+          </h3>
+          <time>{{ event.ts }}</time>
+        </header>
+        <p>{{ event.message or 'No message' }}</p>
+
+        {% if event.type == 'COMMAND' and event.payload and event.payload.commands %}
+          <ul class="event-actions">
+            {% for cmd in event.payload.commands %}
+              {% set ctype = cmd.type if cmd.type is defined else 'unknown' %}
+              <li>
+                <span class="chip">{{ ctype }}</span>
+                {% if ctype == 'move' and cmd.target %}
+                  → x={{ cmd.target.x }}, y={{ cmd.target.y }}, z={{ cmd.target.z }}, r={{ cmd.target.r|default(0) }}
+                  {% if cmd.mode %}<span class="supporting">({{ cmd.mode }})</span>{% endif %}
+                {% elif ctype == 'move-relative' and cmd.offset %}
+                  → Δx={{ cmd.offset.x|default(0) }}, Δy={{ cmd.offset.y|default(0) }}, Δz={{ cmd.offset.z|default(0) }}
+                {% elif ctype == 'suction-cup' %}
+                  → {% if cmd.enabled %}ON{% else %}OFF{% endif %}
+                {% elif ctype == 'set-speed' %}
+                  → speed={{ cmd.speed }}{% if cmd.acceleration is defined %}, accel={{ cmd.acceleration }}{% endif %}
+                {% elif ctype == 'run-conveyor' %}
+                  → speed={{ cmd.speed|default(0) }}, direction={{ cmd.direction|default('STOP') }}
+                {% elif ctype == 'move-conveyor' %}
+                  → distance={{ cmd.distance|default(0) }}, speed={{ cmd.speed|default(0) }}, direction={{ cmd.direction|default('STOP') }}
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% elif event.method or event.endpoint or event.topic %}
+          <p><span class="chip">{{ event.method or '' }} {{ event.endpoint or event.topic or '' }}</span></p>
+        {% endif %}
+
+        {% if event.payload is not none %}
+          <details class="event-raw">
+            <summary>Raw payload</summary>
+            <pre class="code">{{ event.payload|tojson(indent=2) }}</pre>
+          </details>
+        {% endif %}
+      </article>
     {% else %}
     <div class="supporting">No events yet.</div>
     {% endfor %}
