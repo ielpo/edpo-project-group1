@@ -61,11 +61,24 @@ The service MUST provide `POST /api/presets/run`, `POST /api/presets/stop`, and 
 ### Requirement: Sensor configuration management
 The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate sensor modes and values.
 
-#### Scenario: Sensor behavior is updated
-- **WHEN** a client updates a sensor with a valid mode such as `fixed`, `random`, or `scripted`
-- **AND** the submitted values satisfy validation rules such as the `failRate` range
+Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `failRate` field are removed from the API contract.
+
+- `fixed`: the sensor always returns `value`.
+- `scripted`: the sensor returns `scripted_values[currentStep - 1]` (clamped to bounds). If `scripted_values` is empty, behavior falls back to `value`.
+
+#### Scenario: Sensor behavior is updated with fixed mode
+- **WHEN** a client updates a sensor with `mode: fixed` and a `value`
 - **THEN** the service stores the updated sensor configuration in runtime memory
-- **AND** it returns the updated configuration
+- **AND** it returns the updated configuration with `mode: fixed`
+
+#### Scenario: Sensor behavior is updated with scripted mode
+- **WHEN** a client updates a sensor with `mode: scripted` and a non-empty `scripted_values` list
+- **THEN** the service stores the updated sensor configuration in runtime memory
+- **AND** subsequent reads return `scripted_values[currentStep - 1]` during a running preset
+
+#### Scenario: Unknown mode is rejected
+- **WHEN** a client updates a sensor with an unrecognized mode value
+- **THEN** the service MUST NOT apply the update silently; it returns an error or ignores the unknown mode field
 
 ### Requirement: Event history and live status stream
 The service MUST record an in-memory chronological event history and MUST expose it through `GET /api/events` with paging and filtering. It MUST stream state diffs and key events over WebSocket `/ws/status`.
