@@ -1,0 +1,9 @@
+[project]
+name = "kafka-streams-simulator"
+version = "1"
+requires-python = ">=3.13"
+description = "Simulator for the kafka-streams service — produces sensor events to test the Kafka Streams topology"
+
+dependencies = [
+    "kafka-python-ng",
+]

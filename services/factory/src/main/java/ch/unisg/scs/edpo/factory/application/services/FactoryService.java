@@ -17,6 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -80,7 +81,8 @@ public class FactoryService implements RequestItemsFromInventoryPort, AssembleOr
 
             log.info("Verifying block color");
             moveBlock.toColor();
-            var actualColour = readColor.get();
+            var cubeId = UUID.randomUUID().toString();
+            var actualColour = readColor.get(cubeId);
             if (actualColour != block.color()) {
                 moveBlock.toDiscard();
                 log.error("Unexpected color: {} instead of {}", actualColour, block.color());

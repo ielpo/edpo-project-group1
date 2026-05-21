@@ -1,0 +1,26 @@
+spring:
+  application.name: kafka-streams
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    streams:
+      application-id: kafka-streams-service
+      default-key-serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+      default-value-serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+      properties:
+        spring.json.trusted.packages: "ch.unisg.scs.edpo.kafkastreams.domain"
+
+server.port: 8104
+
+kafka:
+  topics:
+    distance-raw: sensor.distance.raw.v1
+    distance-raw-right: sensor.distance.right.raw.v1
+    color-raw: sensor.color.raw.v1
+    block-present: sensor.block-present.v1
+    block-detected: sensor.block-detected.v1
+    inventory-blocks: inventory.blocks.v1
+    conveyor-commands: control.conveyor.commands.v1
+    robot-arm-commands: control.robot-arm.commands.v1

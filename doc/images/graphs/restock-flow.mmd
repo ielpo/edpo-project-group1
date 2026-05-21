@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant stream as KStream Service
+    participant controller as Restock Controller Service
+    participant dobot as Dobot Service
+    participant inventory as Inventory Service
+
+    Note left of stream: New block is placed in delivery spot
+
+    activate stream
+    stream ->> controller: Move conveyor
+    controller ->> dobot: Move conveyor command
+    dobot ->> controller: Move done
+
+    controller ->> inventory: Request available position
+    inventory ->> controller: Position
+
+    controller ->> dobot: Pick up block and move to inventory
+
+    stream ->> stream: Detect color and assign ID
+    stream ->> controller: BlockID with color
+    deactivate stream
+
+    controller ->> inventory: Update inventory state
