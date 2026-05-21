@@ -22,11 +22,16 @@ services:
     ports:
       - "8400:8400"
     environment:
+      SIMULATOR_EVENT_BRIDGE: kafka
       SIMULATOR_BROKER_URL: tcp://mqtt:1883
-      SIMULATOR_EVENT_BRIDGE: none
       INVENTORY_URL: http://inventory:8103
+      SIMULATOR_CONFIG_PATH: /data/presets.yml
     depends_on:
       - mqtt
+      - kafka
+      - inventory
+    volumes:
+      - ./services/simulated-factory/presets.yml:/data/presets.yml:ro
 
   inventory:
     build: services/inventory
