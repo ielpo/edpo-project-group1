@@ -16,39 +16,23 @@ For each block colour specified on the command line:
 
 ```bash
 cd services/kafka-streams-simulator
-
-# Single block
-uv run simulate.py RED
-
-# Sequence of blocks
-uv run simulate.py RED GREEN BLUE YELLOW
-
-# Custom pause between blocks (default: 5 s)
-uv run simulate.py --pause 10 RED GREEN
+uv run simulate.py
 ```
 
-Available colours: `RED`, `GREEN`, `BLUE`, `YELLOW`
+The script starts and prompts you to enter colours interactively.
 
-## Subscribe to inventory events
+**Available colours:** `RED`, `GREEN`, `BLUE`, `YELLOW`
 
-You can also open a lightweight console subscriber for the Kafka output topic:
-
-```bash
-cd services/kafka-streams-simulator
-
-# Listen for new inventory events only
-uv run consume_inventory_events.py
-
-# Replay the full topic from the beginning
-uv run consume_inventory_events.py --from-beginning
-
-# Subscribe to a different topic if needed
-uv run consume_inventory_events.py --topic sensor.block-detected.v1
+Example interactive session:
 ```
-
-By default the subscriber listens to `inventory.blocks.v1` on `localhost:9092` and
-uses a random consumer group so you can start it on the fly without affecting other
-consumers.
+Select a colour (or 'exit' to quit): RED
+Placing one RED block
+─────────────────────────────────────────────────────
+  Block: RED
+─────────────────────────────────────────────────────
+[1/3] Distance burst published (10 readings, distance=10.0)
+...
+```
 
 ## Requirements
 
