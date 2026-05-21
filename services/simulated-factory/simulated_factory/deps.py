@@ -10,7 +10,9 @@ from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
 
 
-def build_dependencies(config_path: str, logger: logging.Logger | None = None) -> Dict[str, Any]:
+def build_dependencies(
+    config_path: str, logger: logging.Logger | None = None
+) -> Dict[str, Any]:
     """Create and wire service dependencies for the simulated factory.
 
     Returns a dict with keys: event_store, event_bridge, distance_publisher,

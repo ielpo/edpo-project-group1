@@ -21,7 +21,9 @@ async def test_wait_for_resolution_returns_true_when_resolved() -> None:
 
 
 async def test_wait_for_timeout_returns_false() -> None:
-    action = PendingAction(id="a2", robot_name="right", commands=[], correlation_id="c2")
+    action = PendingAction(
+        id="a2", robot_name="right", commands=[], correlation_id="c2"
+    )
     result = await action.wait_for_resolution(timeout=0.05)
     assert result is False
     assert action.outcome is None
