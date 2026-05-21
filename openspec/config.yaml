@@ -61,6 +61,7 @@ rules:
     - Provide architecture diagram (ASCII or mermaid)
     - Document alternatives and tradeoffs (short bullet list)
     - List concrete contracts: REST endpoints (path+method+sample payload) and Kafka topics (name+schema+example)
+    - Create an ADR if a major architectural decision is taken
   spec:
     - Include explicit schemas for APIs and messages (OpenAPI or JSON Schema)
     - Provide example request/response and validation rules
