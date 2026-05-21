@@ -1,0 +1,15 @@
+info:
+  name: Simulator Color Compatibility
+  type: http
+  seq: 14
+
+http:
+  method: GET
+  url: http://localhost:{{port}}/color
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

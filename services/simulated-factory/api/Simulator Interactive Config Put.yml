@@ -1,0 +1,22 @@
+info:
+  name: Simulator Interactive Config Put
+  type: http
+  seq: 17
+
+http:
+  method: PUT
+  url: http://localhost:{{port}}/api/interactive/config
+  auth: inherit
+  body:
+    mimeType: application/json
+    text: |
+      {
+        "intercepted": ["move", "suction-cup"],
+        "timeoutSeconds": 30
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
