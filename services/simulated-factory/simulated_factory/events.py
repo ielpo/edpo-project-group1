@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from collections import deque
-from typing import Any
+from typing import Any, Deque, Optional, Set
 
 import httpx
 from fastapi.encoders import jsonable_encoder
@@ -18,6 +18,9 @@ PROCESS_EVENT_TYPES: frozenset[str] = frozenset(
     {"KAFKA", "COMMAND", "PENDING_ACTION", "ACTION_RESOLVED", "SENSOR_REQUEST"}
 )
 
+# Size for the per-subscriber asyncio.Queue used to stream events to UI clients.
+EVENT_SUBSCRIBER_QUEUE_SIZE = 100
+
 
 def _normalize_filter_mode(filter_mode: str | None) -> str:
     if filter_mode is None:
@@ -29,9 +32,18 @@ def _normalize_filter_mode(filter_mode: str | None) -> str:
 
 
 class EventStore:
-    def __init__(self, max_entries: int = 500):
-        self._events: deque[EventEntry] = deque(maxlen=max_entries)
-        self._subscribers: set[asyncio.Queue] = set()
+    """In-memory event store with lightweight subscriber queues for SSE/SSE-like streams.
+
+    The class preserves existing public methods (`append`, `subscribe`,
+    `unsubscribe`, `list_events`) while adding small helpers for tests and
+    management (`size`, `clear`)."""
+
+    def __init__(self, max_entries: int = 500, subscriber_queue_size: int | None = None):
+        self._events: Deque[EventEntry] = deque(maxlen=max_entries)
+        self._subscribers: Set[asyncio.Queue] = set()
+        self._subscriber_queue_size: int = (
+            subscriber_queue_size if subscriber_queue_size is not None else EVENT_SUBSCRIBER_QUEUE_SIZE
+        )
 
     async def append(
         self,
@@ -66,7 +78,7 @@ class EventStore:
         return entry
 
     def subscribe(self) -> asyncio.Queue:
-        queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+        queue: asyncio.Queue = asyncio.Queue(maxsize=self._subscriber_queue_size)
         self._subscribers.add(queue)
         return queue
 
@@ -103,6 +115,14 @@ class EventStore:
         end = start + page_size
         next_page = page + 1 if end < len(items) else None
         return items[start:end], next_page
+
+    def size(self) -> int:
+        """Return the number of stored events."""
+        return len(self._events)
+
+    def clear(self) -> None:
+        """Clear stored events. Does not touch subscriber queues."""
+        self._events.clear()
 
 
 class EventBridge:

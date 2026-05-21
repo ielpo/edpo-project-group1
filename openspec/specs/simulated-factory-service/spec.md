@@ -2,8 +2,10 @@
 
 Version: v1
 
-## Requirements
+## Purpose
 
+Describe the externally visible simulator contract for the simulated-factory service, including HTTP, WebSocket, sensor, event history, and bridge behavior.
+## Requirements
 ### Requirement: Versioned simulator contract
 The simulator service MUST expose its developer-facing HTTP and WebSocket contract under the `/api` base path and MUST publish `v1` as the current contract version.
 
@@ -152,12 +154,15 @@ The service MUST publish Tinkerforge-compatible distance messages to a configura
 - **AND** the `messageID` advances deterministically for the run
 
 ### Requirement: Event bridge modes
-The service MUST support `SIMULATOR_EVENT_BRIDGE` values `kafka`, `http`, and `none`, and MUST route simulator-origin events according to the selected mode.
+The service MUST support `SIMULATOR_EVENT_BRIDGE` values `kafka`, `http`, and `none`, and MUST route simulator-origin events according to the selected mode. Bridge delivery MUST be scheduled asynchronously so slow external callbacks do not block simulation state progression.
 
 #### Scenario: HTTP bridge is enabled
 - **WHEN** `SIMULATOR_EVENT_BRIDGE=http`
-- **THEN** simulator-origin events are delivered to the configured HTTP callback target
+- **AND** the configured HTTP callback target responds slowly
+- **THEN** simulator-origin events are still queued for delivery asynchronously
+- **AND** the simulation loop continues advancing state
 - **AND** the same event remains in the local event history
+
 ### Requirement: Kafka process-event observer
 The simulated-factory service MUST run a Kafka consumer in observer mode that subscribes to process topics and appends consumed messages to local event history as `KAFKA` events.
 
@@ -180,3 +185,4 @@ The observer MUST subscribe to:
 - **THEN** the service remains available for HTTP simulation endpoints
 - **AND** it logs consumer connection failure
 - **AND** no synthetic process events are emitted for missing Kafka messages
+

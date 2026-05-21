@@ -12,7 +12,6 @@ even if Kafka is unreachable.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from typing import Any, Iterable
@@ -25,6 +24,7 @@ except Exception:  # pragma: no cover - aiokafka is a hard dep, but stay defensi
     KafkaError = Exception  # type: ignore[assignment,misc]
 
 from simulated_factory.events import EventStore
+from simulated_factory.utils import decode_kafka_value, decode_kafka_key
 
 
 DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092"
@@ -47,18 +47,6 @@ def _observer_enabled_by_env() -> bool:
         return True
     return raw.strip().lower() not in ("0", "false", "no", "off", "disabled")
 
-
-def _decode_value(value: bytes | None) -> Any:
-    if value is None:
-        return None
-    try:
-        text = value.decode("utf-8")
-    except UnicodeDecodeError:
-        return {"raw": repr(value)}
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return text
 
 
 class KafkaObserver:
@@ -176,16 +164,8 @@ class KafkaObserver:
 
     async def _record_event(self, record: Any) -> None:
         topic = getattr(record, "topic", None)
-        decoded = _decode_value(getattr(record, "value", None))
-        key_bytes = getattr(record, "key", None)
-        key = None
-        if isinstance(key_bytes, (bytes, bytearray)):
-            try:
-                key = key_bytes.decode("utf-8")
-            except UnicodeDecodeError:
-                key = repr(bytes(key_bytes))
-        elif key_bytes is not None:
-            key = str(key_bytes)
+        decoded = decode_kafka_value(getattr(record, "value", None))
+        key = decode_kafka_key(getattr(record, "key", None))
 
         await self.event_store.append(
             "KAFKA",
