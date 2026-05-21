@@ -1,0 +1,6 @@
+<div id="status-panel"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <span class="status-badge {{ state.status }}">
+    {{ state.status|upper }}
+    {% if state.currentPreset %} · {{ state.currentPreset }} · step {{ state.currentStep }}{% endif %}
+  </span>
+</div>

@@ -1,0 +1,7 @@
+<div id="sensor-panel" class="card"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2>Sensors</h2>
+  <div class="supporting">Edit runtime sensor behavior to reproduce wrong-color or missing-IR cases.</div>
+  {% for sensor in sensors %}
+    {% include "fragments/_sensor_card.html" %}
+  {% endfor %}
+</div>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulated Factory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+  <script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
+  <style>
+    /* ---------- MD3 design tokens ---------- */
+    :root {
+      /* Color roles (light scheme) */
+      --md-sys-color-primary: #6750a4;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #eaddff;
+      --md-sys-color-on-primary-container: #21005d;
+      --md-sys-color-secondary: #625b71;
+      --md-sys-color-on-secondary: #ffffff;
+      --md-sys-color-secondary-container: #e8def8;
+      --md-sys-color-on-secondary-container: #1d192b;
+      --md-sys-color-tertiary: #7d5260;
+      --md-sys-color-on-tertiary: #ffffff;
+      --md-sys-color-error: #b3261e;
+      --md-sys-color-on-error: #ffffff;
+      --md-sys-color-error-container: #f9dedc;
+      --md-sys-color-on-error-container: #410e0b;
+      --md-sys-color-background: #fef7ff;
+      --md-sys-color-on-background: #1d1b20;
+      --md-sys-color-surface: #fef7ff;
+      --md-sys-color-on-surface: #1d1b20;
+      --md-sys-color-surface-variant: #e7e0ec;
+      --md-sys-color-on-surface-variant: #49454f;
+      --md-sys-color-outline: #79747e;
+      --md-sys-color-outline-variant: #cac4d0;
+      --md-sys-color-surface-tint: var(--md-sys-color-primary);
+
+      /* Elevation overlays — surface tint opacity per MD3 spec */
+      --md-sys-elevation-0: 0;
+      --md-sys-elevation-1: 0.05;
+      --md-sys-elevation-2: 0.08;
+      --md-sys-elevation-3: 0.11;
+      --md-sys-elevation-4: 0.12;
+      --md-sys-elevation-5: 0.14;
+      --md-sys-elevation-shadow-1: 0 1px 2px rgba(0,0,0,0.30), 0 1px 3px 1px rgba(0,0,0,0.15);
+      --md-sys-elevation-shadow-2: 0 1px 2px rgba(0,0,0,0.30), 0 2px 6px 2px rgba(0,0,0,0.15);
+      --md-sys-elevation-shadow-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.30);
+      --md-sys-elevation-shadow-4: 0 6px 10px 4px rgba(0,0,0,0.15), 0 2px 3px rgba(0,0,0,0.30);
+      --md-sys-elevation-shadow-5: 0 8px 12px 6px rgba(0,0,0,0.15), 0 4px 4px rgba(0,0,0,0.30);
+
+      /* Typescale (size / line-height / weight / tracking) */
+      --md-sys-typescale-display-large: 400 57px/64px 'Roboto', sans-serif;
+      --md-sys-typescale-display-medium: 400 45px/52px 'Roboto', sans-serif;
+      --md-sys-typescale-display-small: 400 36px/44px 'Roboto', sans-serif;
+      --md-sys-typescale-headline-large: 400 32px/40px 'Roboto', sans-serif;
+      --md-sys-typescale-headline-medium: 400 28px/36px 'Roboto', sans-serif;
+      --md-sys-typescale-headline-small: 400 24px/32px 'Roboto', sans-serif;
+      --md-sys-typescale-title-large: 500 22px/28px 'Roboto', sans-serif;
+      --md-sys-typescale-title-medium: 500 16px/24px 'Roboto', sans-serif;
+      --md-sys-typescale-title-small: 500 14px/20px 'Roboto', sans-serif;
+      --md-sys-typescale-body-large: 400 16px/24px 'Roboto', sans-serif;
+      --md-sys-typescale-body-medium: 400 14px/20px 'Roboto', sans-serif;
+      --md-sys-typescale-body-small: 400 12px/16px 'Roboto', sans-serif;
+      --md-sys-typescale-label-large: 500 14px/20px 'Roboto', sans-serif;
+      --md-sys-typescale-label-medium: 500 12px/16px 'Roboto', sans-serif;
+      --md-sys-typescale-label-small: 500 11px/16px 'Roboto', sans-serif;
+
+      /* Shape tokens */
+      --md-sys-shape-corner-none: 0;
+      --md-sys-shape-corner-extra-small: 4px;
+      --md-sys-shape-corner-small: 8px;
+      --md-sys-shape-corner-medium: 12px;
+      --md-sys-shape-corner-large: 16px;
+      --md-sys-shape-corner-extra-large: 28px;
+      --md-sys-shape-corner-full: 9999px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+      font: var(--md-sys-typescale-body-medium);
+      padding: 24px;
+    }
+
+    /* Navigation bar stub */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      height: 64px;
+      background: var(--md-sys-color-surface);
+      border-radius: var(--md-sys-shape-corner-large);
+      box-shadow: var(--md-sys-elevation-shadow-2);
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .nav-bar::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: var(--md-sys-color-surface-tint);
+      opacity: var(--md-sys-elevation-2);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .nav-bar > * { position: relative; z-index: 1; }
+    .nav-bar h1 {
+      font: var(--md-sys-typescale-title-large);
+      margin: 0;
+      color: var(--md-sys-color-on-surface);
+    }
+    .nav-bar .spacer { flex: 1; }
+
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* MD3 Card (filled / elevation-1) */
+    .card {
+      position: relative;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      border-radius: var(--md-sys-shape-corner-medium);
+      box-shadow: var(--md-sys-elevation-shadow-1);
+      padding: 16px 20px;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: var(--md-sys-color-surface-tint);
+      opacity: var(--md-sys-elevation-1);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .card > * { position: relative; z-index: 1; }
+    .card h2 {
+      font: var(--md-sys-typescale-title-large);
+      margin: 0 0 4px;
+      color: var(--md-sys-color-on-surface);
+    }
+    .card .supporting {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 12px;
+    }
+
+    /* Inner item card (lower hierarchy) */
+    .item-card {
+      position: relative;
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface-variant);
+      border-radius: var(--md-sys-shape-corner-medium);
+      padding: 12px 14px;
+      margin: 8px 0;
+    }
+    .item-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .item-card h3 {
+      font: var(--md-sys-typescale-title-medium);
+      margin: 0;
+      color: var(--md-sys-color-on-surface);
+    }
+    .item-card time {
+      font: var(--md-sys-typescale-label-medium);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .item-card p {
+      margin: 4px 0;
+      font: var(--md-sys-typescale-body-medium);
+    }
+
+    /* Buttons */
+    .btn {
+      font: var(--md-sys-typescale-label-large);
+      border-radius: var(--md-sys-shape-corner-full);
+      border: none;
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: box-shadow 150ms ease, opacity 150ms ease;
+    }
+    .btn-filled {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+    .btn-filled:hover { box-shadow: var(--md-sys-elevation-shadow-1); opacity: 0.92; }
+    .btn-text {
+      background: transparent;
+      color: var(--md-sys-color-primary);
+      padding: 10px 12px;
+    }
+    .btn-text:hover { background: rgba(103, 80, 164, 0.08); }
+    .btn-error {
+      background: var(--md-sys-color-error);
+      color: var(--md-sys-color-on-error);
+    }
+    .btn-error:hover { box-shadow: var(--md-sys-elevation-shadow-1); opacity: 0.92; }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    /* Outlined text field */
+    .field {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .field label {
+      font: var(--md-sys-typescale-label-medium);
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 4px;
+    }
+    .field input, .field select {
+      font: var(--md-sys-typescale-body-large);
+      padding: 12px 14px;
+      border-radius: var(--md-sys-shape-corner-extra-small);
+      border: 1px solid var(--md-sys-color-outline);
+      background: transparent;
+      color: var(--md-sys-color-on-surface);
+      width: 100%;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--md-sys-color-primary);
+      box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+    }
+
+    /* Chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--md-sys-typescale-label-large);
+      padding: 6px 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      border: 1px solid var(--md-sys-color-outline);
+      color: var(--md-sys-color-on-surface-variant);
+      background: transparent;
+    }
+    .chip-assist {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      border-color: transparent;
+    }
+    .chip-error {
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      border-color: transparent;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--md-sys-color-outline-variant);
+      margin: 12px 0;
+      border: none;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      font: var(--md-sys-typescale-label-large);
+    }
+    .status-badge.running { background: #c2e7c0; color: #102a10; }
+    .status-badge.stopped { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+
+    /* Sensor form layout */
+    .sensor-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+      align-items: end;
+    }
+    .sensor-form .submit-cell { align-self: end; }
+
+    /* Event list */
+    .event-list {
+      max-height: 620px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    pre.code {
+      margin: 8px 0 0;
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      background: #1d1b20;
+      color: #e6e1e5;
+      overflow: auto;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 980px) {
+      .grid, .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+    }
+  </style>
+</head>
+<body hx-ext="sse,json-enc" sse-connect="/sse/status">
+  <div class="shell">
+    <header class="nav-bar">
+      <h1>Simulated Factory</h1>
+      <span class="spacer"></span>
+      <div id="status-panel" hx-get="/fragments/status" hx-trigger="load" hx-swap="outerHTML">
+        <span class="status-badge">Loading…</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div id="preset-panel" class="card" hx-get="/fragments/presets" hx-trigger="load" hx-swap="outerHTML">
+        <h2>Presets</h2>
+        <div class="supporting">Loading…</div>
+      </div>
+
+      <div id="sensor-panel" class="card" hx-get="/fragments/sensors" hx-trigger="load" hx-swap="outerHTML">
+        <h2>Sensors</h2>
+        <div class="supporting">Loading…</div>
+      </div>
+    </section>
+
+    <section id="pending-panel" class="card" hx-get="/fragments/pending" hx-trigger="load" hx-swap="outerHTML">
+      <h2>Pending Actions</h2>
+      <div class="supporting">Loading…</div>
+    </section>
+
+    <section id="event-panel" class="card" hx-get="/fragments/events" hx-trigger="load" hx-swap="outerHTML">
+      <h2>Event History</h2>
+      <div class="supporting">Loading…</div>
+    </section>
+  </div>
+</body>
+</html>

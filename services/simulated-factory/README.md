@@ -8,10 +8,40 @@ physical setup.
 
 - Deterministic presets such as `happy-path`, `wrong-color`, and `pickup-failure`
 - REST endpoints compatible with the simulator contract consumed by `dobot-control`
-- WebSocket live updates at `/ws/status`
+- htmx-driven UI with server-rendered Jinja2 templates and Material Design 3 styling
+- Server-Sent Events at `/sse/status` push out-of-band HTML fragments so panels live-update without page reloads
+- WebSocket live updates at `/ws/status` (kept for backend consumers; UI uses SSE)
 - In-memory event history for REST, MQTT, and simulator state transitions
 - Color sensor and Dobot sensor endpoints, plus MQTT distance sensor publishing
 - Health endpoint at `/health`
+
+## UI Architecture
+
+The browser UI is composed of small server-rendered fragments instead of a JS
+state machine:
+
+```
+templates/
+├─ base.html                  page shell (Roboto, htmx, MD3 tokens)
+└─ fragments/
+   ├─ status.html             status badge
+   ├─ presets.html            preset cards with run buttons
+   ├─ sensors.html            sensor list (uses _sensor_card.html)
+   ├─ _sensor_card.html       single sensor card with hx-put form
+   ├─ events.html             chronological event list
+   └─ pending.html            pending-action approve/reject cards
+```
+
+- `GET /` renders `base.html`. Each panel uses `hx-get="/fragments/{name}"`
+  with `hx-trigger="load"` for the initial paint.
+- `GET /sse/status` opens a `text/event-stream` connection. On every simulator
+  event the server re-renders all panels as HTML fragments wrapped with
+  `hx-swap-oob="true"` so htmx swaps them into the DOM by id.
+- `PUT /api/config/sensors/{id}` returns an updated sensor card fragment when
+  called with `HX-Request: true` and JSON otherwise, so direct API consumers
+  are unaffected.
+- htmx and the SSE / json-enc extensions are loaded from CDN; no Node build
+  step is required. Roboto is loaded from Google Fonts.
 
 ## Development
 
