@@ -17,7 +17,9 @@ from simulated_factory.models import RunPresetRequest, SensorUpdateRequest, utc_
 
 
 def create_app(config_path: str) -> FastAPI:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+    )
     logger = logging.getLogger(__name__)
 
     event_store = EventStore()
@@ -92,7 +94,9 @@ def create_app(config_path: str) -> FastAPI:
         try:
             run_id = await engine.run_preset(request_body.preset, request_body.speed)
         except KeyError:
-            raise HTTPException(status_code=404, detail=f"Unknown preset {request_body.preset}")
+            raise HTTPException(
+                status_code=404, detail=f"Unknown preset {request_body.preset}"
+            )
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
         return {"runId": run_id, "status": "accepted"}
@@ -114,7 +118,9 @@ def create_app(config_path: str) -> FastAPI:
         return JSONResponse(jsonable_encoder(engine.get_sensor_configs()))
 
     @app.put("/api/config/sensors/{sensor_id}")
-    async def update_sensor(sensor_id: str, request_body: SensorUpdateRequest) -> JSONResponse:
+    async def update_sensor(
+        sensor_id: str, request_body: SensorUpdateRequest
+    ) -> JSONResponse:
         sensor = await engine.update_sensor(sensor_id, request_body)
         return JSONResponse(jsonable_encoder(sensor))
 
@@ -124,7 +130,9 @@ def create_app(config_path: str) -> FastAPI:
         pageSize: int = 50,
         filter: str | None = None,
     ) -> dict[str, Any]:
-        items, next_page = event_store.list_events(page=page, page_size=pageSize, filter_text=filter)
+        items, next_page = event_store.list_events(
+            page=page, page_size=pageSize, filter_text=filter
+        )
         return {"items": items, "nextPage": next_page}
 
     @app.post("/api/events", status_code=202)
