@@ -6,6 +6,28 @@ Version: v1
 
 Describe the externally visible simulator contract for the simulated-factory service, including HTTP, WebSocket, sensor, event history, and bridge behavior.
 ## Requirements
+
+### Requirement: Coherent factory simulation snapshot
+The service MUST expose the current simulation state as one coherent snapshot across runtime status, gate state, pending actions, sensor configuration, and event history. Within a single request-response cycle, the snapshot MUST remain internally consistent and MUST not require callers to infer state by combining unrelated endpoints.
+
+#### Scenario: Client inspects the simulator during a gated step
+- **WHEN** a client reads runtime status and pending actions while a preset is waiting on a gate
+- **THEN** both responses describe the same run identifier and active gate
+- **AND** the client can determine the current factory state without contradictory snapshots
+
+### Requirement: Explicit sensor type selection with backward compatibility
+The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted. Built-in sensor behavior MUST remain compatible with the existing `fixed` and `scripted` sensor modes, including legacy `scripted_values` input forms where they are already supported.
+
+#### Scenario: Sensor type is declared explicitly
+- **WHEN** a sensor is configured with `type: color`
+- **THEN** the service uses the color sensor implementation for that sensor
+- **AND** the sensor continues to honor the configured mode and value fields
+
+#### Scenario: Existing sensor config without type still works
+- **WHEN** an existing configuration defines `color-left` without an explicit `type`
+- **THEN** the service infers the sensor type from the sensor id prefix
+- **AND** the sensor behavior remains unchanged
+
 ### Requirement: Versioned simulator contract
 The simulator service MUST expose its developer-facing HTTP and WebSocket contract under the `/api` base path and MUST publish `v1` as the current contract version.
 
@@ -23,14 +45,15 @@ The service MUST provide `GET /health` and MUST return `200 OK` when the service
 - **AND** the response indicates the service is ready
 
 ### Requirement: Runtime status endpoint
-The service MUST provide `GET /api/status` and MUST return the current simulation state, including a run identifier, status, current preset, current step, and timestamp.
+The service MUST provide `GET /api/status` and MUST return a coherent snapshot of the current simulation state, including a run identifier, status, current preset, current step, timestamp, and the active `waitingForRequest` gate when one exists.
 
-#### Scenario: Client reads runtime status
-- **WHEN** a client requests `GET /api/status`
-- **THEN** the response includes the current run identifier, status, current preset, current step, and timestamp
+#### Scenario: Client reads runtime status during a gated step
+- **WHEN** a client requests `GET /api/status` while a preset is waiting on a request gate
+- **THEN** the response includes the current run identifier, status, current preset, current step, timestamp, and a `waitingForRequest` object with the gate method and path pattern
+- **AND** the snapshot reflects the same run state seen by the rest of the service
 
 ### Requirement: Preset catalog and deterministic execution
-The service MUST load named presets from `presets.yml`, MUST expose the available preset names, and MUST execute a requested preset deterministically. Steps without `awaitRequest` advance after `delayMs` milliseconds. Steps with `awaitRequest` advance when a matching incoming HTTP request is received or `delayMs` milliseconds elapse as a timeout — whichever comes first.
+The service MUST load named presets from `presets.yml`, MUST expose the available preset names, and MUST execute a requested preset deterministically. Steps without `awaitRequest` advance after `delayMs` milliseconds. Steps with `awaitRequest` hold until a matching incoming HTTP request is received or `delayMs` milliseconds elapse as a timeout, whichever comes first. When a gate fires, the updated simulation state MUST be visible before the triggering request completes.
 
 #### Scenario: Happy-path preset runs reproducibly (non-gated steps)
 - **WHEN** a client requests `POST /api/presets/run` with `{ "preset": "happy-path" }`
@@ -43,32 +66,39 @@ The service MUST load named presets from `presets.yml`, MUST expose the availabl
 - **WHEN** a client requests `POST /api/presets/run` with a preset that has steps declaring `awaitRequest`
 - **THEN** the service starts the preset
 - **AND** gated steps hold until a matching incoming request arrives or `delayMs` elapses
-- **AND** repeating the run with the same request sequence yields the same outcome
+- **AND** a request that fires the gate observes the updated sensor and state snapshot
 
 #### Scenario: Preset list includes configured names
 - **WHEN** a client requests `GET /api/presets`
 - **THEN** the service returns the configured preset names, including presets loaded from `presets.yml`
 
 ### Requirement: Run control endpoints
-The service MUST provide `POST /api/presets/run`, `POST /api/presets/stop`, and `POST /api/presets/reset` to control the current simulation run.
+The service MUST provide `POST /api/presets/run`, `POST /api/presets/stop`, and `POST /api/presets/reset` to control the current simulation run, and stop/reset MUST clear any active gate state before returning.
 
-#### Scenario: Active run is stopped
-- **WHEN** a client requests `POST /api/presets/stop`
-- **THEN** the service stops the active run and reports that the simulation is stopping or stopped
+#### Scenario: Stop clears the active gate
+- **WHEN** a client requests `POST /api/presets/stop` while the engine is waiting on a gated step
+- **THEN** the active gate is cleared
+- **AND** the simulation reports that it is stopping or stopped
 
-#### Scenario: State is reset
+#### Scenario: Reset clears the active gate and pending run state
 - **WHEN** a client requests `POST /api/presets/reset`
-- **THEN** the service resets the runtime state to the initial idle state
+- **THEN** the active gate is cleared
+- **AND** the runtime state returns to the initial idle state
 
 ### Requirement: Sensor configuration management
-The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate sensor modes and values.
+The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate sensor modes and values. The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted. Built-in sensor behavior MUST remain compatible with the existing `fixed` and `scripted` modes, and legacy `scripted_values` input forms MUST continue to be supported.
 
-Note: The `PUT /api/config/sensors/{sensorId}` endpoint accepts either an array for `scripted_values` or a legacy CSV string; the server supports both for backward compatibility.
+Note: The `PUT /api/config/sensors/{sensorId}` endpoint accepts either an array for `scripted_values` or a legacy CSV string; the server supports both for backward compatibility. Unknown or invalid modes MUST be rejected.
 
 Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `failRate` field are removed from the API contract.
 
 - `fixed`: the sensor always returns `value`.
 - `scripted`: the sensor returns `scripted_values[currentStep - 1]` (clamped to bounds). If `scripted_values` is empty, behavior falls back to `value`.
+
+#### Scenario: Sensor behavior is updated with explicit type
+- **WHEN** a client updates a sensor configuration that includes `type: ir`
+- **THEN** the service stores the updated sensor configuration in runtime memory
+- **AND** subsequent reads use the IR sensor implementation and return the updated configuration with `mode: fixed` or `mode: scripted` as appropriate
 
 #### Scenario: Sensor behavior is updated with fixed mode
 - **WHEN** a client updates a sensor with `mode: fixed` and a `value`
@@ -82,7 +112,8 @@ Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `f
 
 #### Scenario: Unknown mode is rejected
 - **WHEN** a client updates a sensor with an unrecognized mode value
-- **THEN** the service MUST NOT apply the update silently; it returns an error or ignores the unknown mode field
+- **THEN** the service MUST NOT apply the update silently
+- **AND** it returns an error or ignores the unknown mode field
 
 ### Requirement: Event history and live status stream
 The service MUST record an in-memory chronological event history and MUST expose it through `GET /api/events` with paging and filtering. It MUST stream state diffs and key events over WebSocket `/ws/status`.

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from models import SensorConfig
+from simulated_factory.models import SensorConfig
 
 class BaseSensor(ABC):
     """Abstract base class all sensor plugins must implement.
@@ -15,6 +15,15 @@ class BaseSensor(ABC):
     def __init__(self, name: str, config: SensorConfig):
         self.name = name
         self._cfg = config
+
+    def __getattr__(self, item: str) -> Any:
+        # Delegate attribute access to _cfg for backward compat
+        cfg = object.__getattribute__(self, "_cfg")
+        if hasattr(cfg, item):
+            return getattr(cfg, item)
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{item}'"
+        )
 
     # ------------------------------------------------------------------
     # Abstract interface

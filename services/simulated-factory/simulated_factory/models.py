@@ -36,8 +36,9 @@ class DobotRuntimeState(BaseModel):
 
 
 class SensorConfig(BaseModel):
-    name: str
-    type: str
+    name: str = ""
+    type: str = ""
+    sensorId: str = ""
 
 class AwaitRequest(BaseModel):
     method: str
@@ -91,6 +92,7 @@ class EventEntry(BaseModel):
 
 class RunPresetRequest(BaseModel):
     preset: str
+    speed: float = 1.0
 
 class SensorUpdateRequest(BaseModel):
     mode: str | None = None

@@ -122,3 +122,34 @@ class EventStore:
     def clear(self) -> None:
         """Clear stored events. Does not touch subscriber queues."""
         self._events.clear()
+
+
+class EventBridge:
+    """Forwards events to an external system (HTTP callback, Kafka, or none).
+
+    Used in tests and production to optionally relay events to an external
+    observer endpoint.
+    """
+
+    def __init__(
+        self,
+        mode: str,
+        target_url: str | None,
+        logger: Any,
+    ):
+        self._mode = mode.lower() if mode else "none"
+        self._target_url = target_url
+        self._logger = logger
+
+    async def emit(self, event: dict) -> None:
+        if self._mode == "none":
+            return
+        if self._mode == "http" and self._target_url:
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    await client.post(self._target_url, json=event)
+            except Exception as exc:
+                self._logger.warning("EventBridge HTTP emit failed: %s", exc)
+        # kafka and other modes are no-ops for now

@@ -14,20 +14,23 @@ python -c "from simulated_factory.api import create_app; app = create_app('confi
 
 **Architecture (high level)**
 - **Entry point**: `create_app()` wires dependencies from [deps.py](services/simulated-factory/simulated_factory/deps.py) and installs lifecycle hooks (starts adapters and background pollers).
-- **Engine**: `SimulationEngine` in [engine.py](services/simulated-factory/simulated_factory/engine.py) holds simulator state, runs presets, manages sensors, handles commands and records events.
+- **Engine (facade)**: `SimulationEngine` in [engine/\_\_init\_\_.py](services/simulated-factory/simulated_factory/engine/__init__.py) is a thin facade that delegates to three internal components:
+  - **ProcessRunner** (`engine/process_runner.py`) — owns preset step sequencing, gate awaiting, distance publishing, and side-effect execution.
+  - **ControlPointManager** (`engine/control_points.py`) — owns request gates, pending actions, and dobot command interception/resolution.
+  - **ResourceManager** (`engine/resources.py`) — owns sensor plugins, dobot state, config loading, and inventory polling.
+- **Runtime model**: `engine/runtime.py` defines internal mutable dataclasses (`FactoryState`, `ProcessState`, `ControlState`, `PhysicalResources`, `SimulationRuntime`) that hold all engine state. The public API returns immutable Pydantic snapshots from `models.py`.
 - **Event store**: `EventStore` in [events.py](services/simulated-factory/simulated_factory/events.py) is the central in-memory store for simulator events and used by the SSE endpoint in the API.
-- **Adapters**: Kafka and MQTT adapters live in [adapters/](services/simulated-factory/simulated_factory/adapters) and integrate external process activity (Kafka) and publishing (MQTT).
+- **Adapters**: Kafka and MQTT adapters live in [adapters/](services/simulated-factory/simulated_factory/adapters) and integrate external process activity (Kafka) and publishing (MQTT). `DistancePublisher` (`adapters/distance_publisher.py`) handles MQTT distance sensor publishes.
 - **Sensors**: Sensor plugins under [sensors/](services/simulated-factory/simulated_factory/sensors) implement a small plugin API used by the engine to read/update sensor state.
 
 **Module Summary (concise)**
 - **`services/simulated-factory/simulated_factory/api.py`**: FastAPI app factory and HTTP/SSE/HTML endpoints. Installs middleware that records requests to the `EventStore` and delegates simulator actions to the `SimulationEngine`.
 - **`services/simulated-factory/simulated_factory/deps.py`**: Dependency factory. Constructs and wires `EventStore`, (optional) `EventBridge`, distance/ MQTT publishers, `SimulationEngine`, and `KafkaObserver` for consistent runtime wiring.
-- **`services/simulated-factory/simulated_factory/engine.py`**: `SimulationEngine` implementation. Responsibilities:
-  - Load `config.yml` presets and default sensor definitions.
-  - Run presets (`run_preset`, `_execute_preset`) and apply step side-effects (sensor updates, distance publishes).
-  - Manage simulation state and `PendingAction` interactive flow for intercepted commands.
-  - Instantiate sensor plugins dynamically and expose `read_color`, `read_ir`, `update_sensor`, and command handling.
-  - Background inventory polling and state snapshot for the UI.
+- **`services/simulated-factory/simulated_factory/engine/__init__.py`**: `SimulationEngine` facade. Constructs and wires internal components, exposes the full public API unchanged, and provides backward-compatible properties (`_step_gate`, `_run_task`, `_inventory_cache`) for existing tests.
+- **`services/simulated-factory/simulated_factory/engine/runtime.py`**: Internal mutable runtime model (dataclasses). `SimulationRuntime` aggregates `FactoryState`, `ProcessState`, `ControlState`, and `PhysicalResources`. Provides `reset()` for clean restarts.
+- **`services/simulated-factory/simulated_factory/engine/process_runner.py`**: Preset step sequencing. Responsibilities: run/stop presets, execute steps sequentially, await step gates with timeout, apply step side-effects (sensor updates, distance publishes).
+- **`services/simulated-factory/simulated_factory/engine/control_points.py`**: Request gate management. Responsibilities: evaluate `fire_gate_if_matches()` against pending gates, manage `PendingAction` lifecycle, intercept and apply dobot commands.
+- **`services/simulated-factory/simulated_factory/engine/resources.py`**: Physical resource management. Responsibilities: load config, instantiate sensor plugins, expose `read_color`/`read_ir`/`update_sensor`, manage dobot state dict, run background inventory polling.
 - **`services/simulated-factory/simulated_factory/events.py`**: `EventStore` — in-memory event log with subscriber queues for SSE and utilities to list and filter events.
 - **`services/simulated-factory/simulated_factory/models.py`**: Pydantic models and small dataclasses used across the package: `SimulationState`, `PresetDefinition`/`PresetStep`, `SensorConfig`, request/response models and `PendingAction`.
 - **`services/simulated-factory/simulated_factory/utils.py`**: Small helpers used across modules: path-pattern → regex, color helpers, Kafka payload decoding and SSE formatting.

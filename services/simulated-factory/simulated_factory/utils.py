@@ -69,3 +69,43 @@ def format_sse(data: str, event: str = "update") -> bytes:
     payload_lines = data.splitlines() or [""]
     body = "\n".join(f"data: {line}" for line in payload_lines)
     return f"event: {event}\n{body}\n\n".encode("utf-8")
+
+
+def parse_broker_target(url: str) -> tuple[str, int]:
+    """Parse an MQTT broker URL into (hostname, port).
+
+    Supports forms like 'tcp://host:port' or plain 'host'.
+    Falls back to ('localhost', 1883) when parsing fails.
+
+    Note: bare strings like 'mqtt:1883' are treated as ambiguous by urlparse
+    (scheme='mqtt', path='1883'), so the implementation falls back to localhost.
+    """
+    from urllib.parse import urlparse
+
+    default_port = 1883
+
+    if "://" in url:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or "localhost"
+        port = parsed.port or default_port
+        return hostname, port
+
+    # No scheme separator — try urlparse to see if it can resolve a hostname.
+    parsed = urlparse(url)
+    # urlparse treats "mqtt:1883" as scheme=mqtt, so hostname will be None.
+    if parsed.hostname:
+        port = parsed.port or default_port
+        return parsed.hostname, port
+
+    # Bare string without colon → treat as hostname
+    if ":" not in url:
+        return url if url else "localhost", default_port
+
+    # Has colon but no scheme separator → ambiguous, fall back to localhost
+    # Try to extract port from after the colon
+    parts = url.rsplit(":", 1)
+    try:
+        port = int(parts[1])
+    except (ValueError, IndexError):
+        port = default_port
+    return "localhost", port
