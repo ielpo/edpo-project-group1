@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from simulated_factory.api import create_app
 
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "presets.yml"
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 
 
 def test_status_and_presets_endpoints() -> None:

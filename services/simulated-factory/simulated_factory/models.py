@@ -39,6 +39,7 @@ class DobotRuntimeState(BaseModel):
 
 class SensorConfig(BaseModel):
     sensorId: str
+    type: str | None = None
     mode: str = "fixed"
     value: Any = None
     raw_color: list[int] = Field(default_factory=lambda: [0, 0, 0])
