@@ -1,12 +1,26 @@
 info:
   name: Dobot Commands
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
   url: http://localhost:{{port}}/api/dobot/{{name}}/commands
   auth: inherit
+
+  body:
+    type: json
+    data: |-
+      {
+        "type": "move",
+        "target": {
+          "x": 150.0,
+          "y": 20.0,
+          "z": 40.0,
+          "r": 0.0
+        },
+        "mode": "MOVE_LINEAR"
+      }
 
 settings:
   encodeUrl: true
