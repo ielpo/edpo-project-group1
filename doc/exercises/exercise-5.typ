@@ -37,6 +37,12 @@ The diagram shows the normal path from order submission to completion.
   caption: [Sequence Diagram]
 )
 
+The flow begins when a customer selects a single furniture item and submits the order form through Camunda Forms in the Order Service. The Order Service, acting as the orchestrator, immediately calls the Inventory Service via REST to reserve the required components. If the reservation succeeds, the Order Service publishes a manufacture command to the `order.manufacture.v1` Kafka topic and then waits at an event-based gateway, listening for either a completion event, an error event, or a 10-minute timeout.
+
+The Factory Service consumes the command from Kafka and starts its own BPMN process. It first calls the Inventory Service via REST to retrieve the physical locations of the reserved components. Once it has the component data, it emits a status event to `info.v1` to signal that manufacturing has started, then drives the Dobot robot through the assembly steps, picking and placing each block. When assembly is complete, the Factory Service publishes an event to `order.complete.v1`.
+
+The Order Service receives the `order.complete.v1` event, which unblocks the waiting gateway. It then publishes a success status event to `info.v1` and the process ends. The Dashboard, which continuously consumes from `info.v1`, reflects the updated order status to the customer in real time.
+
 == Dobot Control Service
 
 #link("https://github.com/ielpo/edpo-project-group1/tree/main/services/dobot-control")[github.com/ielpo/edpo-project-group1/services/dobot-control]
