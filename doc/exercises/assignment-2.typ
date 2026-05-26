@@ -101,7 +101,7 @@ All events are serialized and deserialized using a custom `JsonSerde<T>` built o
 
 #figure(
   image("../images/kafka-streaming-topology-BlockColorTopology.png", width: 100%),
-  caption: [BlockColorTopology — block detection and colour classification]
+  caption: [BlockColorTopology: block detection and colour classification]
 )
 
 `BlockColorTopology` is the most complex of the three topologies. It detects block presence on the conveyor (distance branch), detects when a block has passed (inactivity processor), classifies the block's colour (colour branch), joins the two observations to produce a `BlockColorEvent`, and maintains a deduplicated inventory of all detected blocks.
