@@ -143,14 +143,15 @@ This topology mirrors the structure of `MoveBlockTopology` but operates on a sep
 
 = ADRs
 
-The following ADRs relate to this assignment:
-
 The following ADRs are related to this assignment:
 
+- ADR 0007: Structure of the Kafka topics.
+- ADR 0008: Kafka Deployment and Consumer Offset Policy.
+- ADR 0009: Granularity of Factory Service.
+- ADR 0010: Communication Protocol per Integration.
 - ADR 0011: Rising-Edge Detection for Sensor Triggers.
 - ADR 0012: Wall-Clock Punctuation for Block Detection.
-- ADR 0013: Shared block-present Topic Between Topologies.
-- ADR 0014: JSON Serialization over Avro.
+- ADR 0013: JSON Serialization over Avro.
 
 
 = Reflections
