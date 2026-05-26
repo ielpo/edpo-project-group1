@@ -153,16 +153,6 @@ The following ADRs are related to this assignment:
 - ADR 0014: JSON Serialization over Avro.
 
 
-= Insights and Experiments
-
-// TODO: add observations from running the system
-
-*Stream-time vs. wall-clock time:* The session window approach originally used in the early design was replaced by the wall-clock inactivity processor after observing that session windows do not close when no new records arrive. This was discovered during development by running the service with a simulated sensor that pauses between blocks.
-
-*Join key repartitioning:* The first version of the join did not explicitly repartition before joining. This caused task assignment issues when running with more than one partition. Adding explicit `repartition()` calls on both sides of the join resolved the problem.
-
-*Rising-edge sensitivity:* The 2-second gap threshold was tuned empirically. A threshold that was too short caused duplicate commands when a block briefly left and re-entered the sensor range at low conveyor speeds.
-
 = Reflections
 
 What we would improve next:
