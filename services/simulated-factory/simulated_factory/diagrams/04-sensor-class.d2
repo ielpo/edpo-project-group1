@@ -1,0 +1,123 @@
+# Sensor plugin hierarchy and config classes.
+# Note: sensors/sensor_loader.py (load_sensor function) exists in the tree but is
+# NOT called by the running system — ResourceManager._make_plugin handles dynamic
+# loading directly via importlib. Omitted from the diagram to reflect live state.
+# Render: d2 04-sensor-class.d2 sensor-class.svg
+
+BaseSensor: {
+  shape: class
+  # abstract
+  +name: str
+  -_cfg: SensorConfig
+  +read()*: Any
+  +update(value)*
+  +to_dict()*: dict
+}
+
+MqttSensor: {
+  shape: class
+  # abstract mix-in
+  +get_topic()*: str
+  +get_payload()*: str
+}
+
+ColorSensor: {
+  shape: class
+  -_cfg: ColorSensorConfig
+  +read(step?): tuple
+  +update(value)
+  +to_dict(): dict
+  +to_sensor_config(): ColorSensorConfig
+  +clone(): ColorSensor
+  +apply_overrides(overrides)
+  +apply_update_request(update)
+}
+
+IrSensor: {
+  shape: class
+  -_cfg: IrSensorConfig
+  +read(step?): bool
+  +update(value)
+  +to_dict(): dict
+  +to_sensor_config(): IrSensorConfig
+  +clone(): IrSensor
+  +apply_overrides(overrides)
+  +apply_update_request(update)
+}
+
+DistanceSensor: {
+  shape: class
+  -_cfg: DistanceSensorConfig
+  -_message_id: int
+  +read(step?): float
+  +update(value)
+  +get_topic(): str
+  +get_payload(): str
+  +to_dict(): dict
+  +to_sensor_config(): DistanceSensorConfig
+  +clone(): DistanceSensor
+  +apply_overrides(overrides)
+  +apply_update_request(update)
+}
+
+GenericSensor: {
+  shape: class
+  +read(step?): Any
+  +update(value)
+  +to_dict(): dict
+}
+
+DobotColorSensor: {
+  shape: class
+  -_cfg: DobotColorSensorConfig
+  +read(): tuple
+  +update(value)
+  +to_dict(): dict
+}
+
+SensorConfig: {
+  shape: class
+  +name: str
+  +type: str
+  +sensorId: str
+}
+
+ColorSensorConfig: {
+  shape: class
+  +mode: str
+  +value: str?
+  +raw_color: list
+  +scripted_values: list
+}
+
+IrSensorConfig: {
+  shape: class
+  +mode: str
+  +value: Any
+  +scripted_values: list
+}
+
+DistanceSensorConfig: {
+  shape: class
+  +mode: str
+  +value: float?
+  +mqtt_topic: str
+  +message_type: str
+  +uid: str
+  +location: str
+  +cadence_ms: int
+}
+
+# Inheritance (child -> parent label = "extends")
+ColorSensor      -> BaseSensor: "extends"
+IrSensor         -> BaseSensor: "extends"
+DistanceSensor   -> BaseSensor: "extends"
+GenericSensor    -> BaseSensor: "extends"
+DobotColorSensor -> BaseSensor: "extends"
+DistanceSensor   -> MqttSensor: "implements"
+
+ColorSensorConfig    -> SensorConfig: "extends"
+IrSensorConfig       -> SensorConfig: "extends"
+DistanceSensorConfig -> SensorConfig: "extends"
+
+BaseSensor -> SensorConfig: "_cfg"

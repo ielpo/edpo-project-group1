@@ -1,601 +1,530 @@
 # Simulated Factory — Architecture
 
-## Overview
+The **Simulated Factory** is a FastAPI service that emulates a physical factory
+(Dobot arms, conveyors, sensors). It executes scripted presets (step sequences),
+exposes a REST/SSE API for dashboards and orchestrators, and integrates with
+Kafka and MQTT for event-driven communication.
 
-The **Simulated Factory** is a FastAPI-based service that emulates a physical factory with dobot robots, conveyor belts, and sensors. It executes scripted presets (step sequences), exposes a REST/SSE API for dashboards and orchestrators, and integrates with Kafka and MQTT for event-driven communication.
-
----
-
-## Component Diagram
-
-```mermaid
-graph TB
-    subgraph External
-        Kafka[Kafka Broker]
-        MQTT[MQTT Broker]
-        Inventory[Inventory Service]
-        Dashboard[Dashboard / HTMX UI]
-        Orchestrator[Dobot Control / Orchestrator]
-    end
-
-    subgraph SimulatedFactory["Simulated Factory Service"]
-        subgraph API["API Layer (FastAPI)"]
-            REST[REST Endpoints]
-            SSE[SSE Live Stream]
-            Fragments[HTMX Fragments]
-            Middleware[Request Capture Middleware]
-        end
-
-        subgraph Engine["Engine (Core Domain)"]
-            Facade[SimulationEngine Facade]
-            ProcessRunner[ProcessRunner]
-            ControlPointMgr[ControlPointManager]
-            ResourceMgr[ResourceManager]
-            Runtime[SimulationRuntime]
-        end
-
-        subgraph Sensors["Sensor Plugin System"]
-            BaseSensorABC[BaseSensor ABC]
-            ColorSensor[ColorSensor]
-            IrSensor[IrSensor]
-            DistanceSensorPlugin[DistanceSensor]
-            GenericSensor[GenericSensor]
-            DobotColorSensor[DobotColorSensor]
-            SensorLoader[SensorLoader]
-        end
-
-        subgraph Adapters["Adapters (Infrastructure)"]
-            DistPub[DistancePublisher]
-            KafkaObs[KafkaObserver]
-            MqttPub[MqttPublisher]
-        end
-
-        subgraph Events["Event Infrastructure"]
-            EventStore[EventStore]
-            EventBridge[EventBridge]
-        end
-    end
-
-    Dashboard -->|HTTP/SSE| API
-    Orchestrator -->|REST commands| REST
-    REST --> Middleware
-    Middleware --> Facade
-    Facade --> ProcessRunner
-    Facade --> ControlPointMgr
-    Facade --> ResourceMgr
-    ProcessRunner --> Runtime
-    ControlPointMgr --> Runtime
-    ResourceMgr --> Runtime
-    ResourceMgr --> Sensors
-    ProcessRunner --> EventStore
-    ControlPointMgr --> EventStore
-    ResourceMgr --> EventStore
-    ProcessRunner --> DistPub
-    DistPub -->|MQTT publish| MQTT
-    KafkaObs -->|consume topics| Kafka
-    KafkaObs --> EventStore
-    EventBridge -->|HTTP callback| External
-    EventStore --> SSE
-    ResourceMgr -->|poll inventory| Inventory
-    MqttPub -->|MQTT publish| MQTT
-```
+This document is text-only by design — every diagram is also available as a
+renderable [D2](https://d2lang.com) source file under [`diagrams/`](./diagrams).
+Render with `d2 diagrams/<file>.d2 <file>.svg`, or paste the file contents
+into <https://play.d2lang.com>.
 
 ---
 
-## Runtime State Diagram
+## Table of Contents
 
-```mermaid
-graph LR
-    subgraph SimulationRuntime
-        FS[FactoryState]
-        PS[ProcessState]
-        CS[ControlState]
-        PR[PhysicalResources]
-    end
-
-    FS --- |run lifecycle| PS
-    PS --- |step gates| CS
-    CS --- |sensor access| PR
-```
+1. [System Overview](#system-overview)
+2. [Component Inventory](#component-inventory)
+3. [Engine — Core Domain](#engine--core-domain)
+4. [Sensor Plugin System](#sensor-plugin-system)
+5. [API / Domain Models](#api--domain-models)
+6. [Adapters & Events](#adapters--events)
+7. [Dependency Wiring](#dependency-wiring)
+8. [Lifecycle](#lifecycle)
+9. [Preset Execution Flow](#preset-execution-flow)
+10. [Key Design Decisions](#key-design-decisions)
+11. [Diagram Index](#diagram-index)
 
 ---
 
-## Class Diagram — Engine
+## System Overview
 
-```mermaid
-classDiagram
-    class SimulationEngine {
-        +event_store: EventStore
-        +distance_publisher: DistancePublisher
-        +event_bridge: EventBridge
-        -_runtime: SimulationRuntime
-        -_resource_mgr: ResourceManager
-        -_process_runner: ProcessRunner
-        -_control_mgr: ControlPointManager
-        +get_status() SimulationState
-        +list_presets() list
-        +run_preset(preset_name, speed) str
-        +stop()
-        +reset()
-        +fire_gate_if_matches(method, path) bool
-        +get_sensor_configs() list
-        +get_inventory_cache() dict
-        +get_pending_actions() list
-        +start_inventory_poller()
-        +stop_inventory_poller()
-    }
+The diagram below shows the *live* runtime architecture. Two modules present
+in the tree are intentionally omitted because nothing in the running system
+wires them up: `sensors/sensor_loader.py` (`load_sensor()` is never called —
+`ResourceManager` does its own dynamic import) and
+`adapters/mqtt_publisher.py` (`MqttPublisher` is never instantiated by
+`build_dependencies()`).
 
-    class SimulationRuntime {
-        +factory: FactoryState
-        +process: ProcessState
-        +control: ControlState
-        +resources: PhysicalResources
-        +reset()
-    }
-
-    class FactoryState {
-        +run_id: str
-        +status: SimulationStatus
-        +current_preset: str?
-        +run_counter: int
-        +stop_requested: bool
-        +run_task: Task?
-        +lock: asyncio.Lock
-    }
-
-    class ProcessState {
-        +current_step: int
-        +current_step_name: str?
-        +presets: dict~str, PresetDefinition~
-    }
-
-    class ControlState {
-        +step_gate: tuple?
-        +waiting_for_request: AwaitRequest?
-        +interactive_config: InteractiveConfig
-        +pending: dict~str, PendingAction~
-        +pending_counter: int
-    }
-
-    class PhysicalResources {
-        +default_sensors: dict~str, BaseSensor~
-        +sensors: dict~str, BaseSensor~
-        +dobots: dict~str, DobotRuntimeState~
-        +inventory_cache: dict?
-        +inventory_poll_task: Task?
-    }
-
-    class ProcessRunner {
-        -_factory: FactoryState
-        -_process: ProcessState
-        -_control: ControlState
-        -_resources: PhysicalResources
-        -_event_store: EventStore
-        -_distance_publisher: DistancePublisher
-        +list_presets() list
-        +run_preset(preset_name, speed) str
-        -_execute_preset(preset, speed)
-        -_await_step_gate(step, speed)
-        -_apply_step_side_effects_sync(step)
-        -_publish_distance_if_needed(step)
-        -_clear_step_gate()
-    }
-
-    class ControlPointManager {
-        -_factory: FactoryState
-        -_process: ProcessState
-        -_control: ControlState
-        -_resources: PhysicalResources
-        -_event_store: EventStore
-        +fire_gate_if_matches(method, path)
-        +matches_gate(method, path) bool
-        +handle_dobot_commands(robot_name, payload) dict
-        +resolve_pending_action(action_id, outcome, reason)
-        -_apply_gate_side_effects(step)
-        -_apply_commands(robot_name, command_list)
-    }
-
-    class ResourceManager {
-        -_resources: PhysicalResources
-        -_event_store: EventStore
-        -_config_path: Path
-        -_inventory_url: str
-        +get_presets() dict
-        +sensor_map_for_preset(preset) dict
-        +get_sensor_configs() list~SensorConfig~
-        +update_sensor(sensor_id, update) SensorConfig
-        +read_color(robot_name) tuple
-        +read_ir(robot_name) bool
-        +make_plugin(sensor_id, config) BaseSensor
-        -_load_config()
-        -_make_plugin(sensor_id, config) BaseSensor
-        -_infer_sensor_type(sensor_id, config) str
-    }
-
-    SimulationEngine *-- SimulationRuntime
-    SimulationEngine *-- ProcessRunner
-    SimulationEngine *-- ControlPointManager
-    SimulationEngine *-- ResourceManager
-    SimulationRuntime *-- FactoryState
-    SimulationRuntime *-- ProcessState
-    SimulationRuntime *-- ControlState
-    SimulationRuntime *-- PhysicalResources
-    ProcessRunner --> FactoryState
-    ProcessRunner --> ProcessState
-    ProcessRunner --> ControlState
-    ProcessRunner --> PhysicalResources
-    ControlPointManager --> FactoryState
-    ControlPointManager --> ProcessState
-    ControlPointManager --> ControlState
-    ControlPointManager --> PhysicalResources
-    ResourceManager --> PhysicalResources
 ```
+                                EXTERNAL
+                                --------
+
+      Dashboard          Orchestrator       Inventory       Kafka        MQTT
+       (HTMX)            (Dobot Ctrl)        Service       Broker      Broker
+          |                   |                  ^            ^           ^
+          | HTTP/SSE          | REST             | poll       | consume   | publish
+          v                   v                  |            |           |
+   +======+===================+==================+============+===========+======+
+   |                                                                             |
+   |                       SIMULATED FACTORY SERVICE                             |
+   |                                                                             |
+   |   +------------------- API Layer (FastAPI) -------------------+             |
+   |   |  REST endpoints  |  SSE stream  |  HTMX fragments         |             |
+   |   |               Request-Capture Middleware                  |             |
+   |   +-------------------------+--------------------------------+              |
+   |                             | fire_gate_if_matches() + dispatch             |
+   |                             v                                               |
+   |   +---------------- SimulationEngine (facade) ----------------+             |
+   |   +------+--------------+--------------+---------------------+             |
+   |          |              |              |                                    |
+   |          v              v              v                                    |
+   |    ProcessRunner   ControlPoint     ResourceManager                         |
+   |                    Manager                                                  |
+   |          \             |              /                                     |
+   |           \            v             /                                      |
+   |            +--> SimulationRuntime <-+                                       |
+   |                (factory / process /                                         |
+   |                 control / resources)                                        |
+   |                                                                             |
+   |   Sensor plugins (color, ir, distance, generic, dobot_color)                |
+   |                                                                             |
+   |   +---- Adapters ----+        +----- Events -----+                          |
+   |   |  KafkaObserver   |        |   EventStore     | <-- SSE subscribers      |
+   |   |  DistancePub     |        |   EventBridge    | --> optional HTTP relay  |
+   |   +--+------------+--+        +------------------+                          |
+   +------|------------|---------------------------------------------------------+
+          |            |
+          |            +-------------- MQTT publish ---------------> (MQTT)
+          +------------- consumes Kafka topics ----------------------- (Kafka)
+```
+
+> **D2 source:** [`diagrams/01-component.d2`](./diagrams/01-component.d2)
 
 ---
 
-## Class Diagram — Sensor Plugin System
+## Component Inventory
 
-```mermaid
-classDiagram
-    class BaseSensor {
-        <<abstract>>
-        +name: str
-        #_cfg: SensorConfig
-        +read()* Any
-        +update(value)* 
-        +to_dict()* dict
-    }
+| Layer    | Component                | File                                    | Responsibility                                                       |
+|----------|--------------------------|-----------------------------------------|----------------------------------------------------------------------|
+| API      | FastAPI app + middleware | `api.py`                                | HTTP/SSE surface, request capture, HTMX fragments                    |
+| API      | Dependency wiring        | `deps.py`                               | Builds EventStore, EventBridge, DistancePublisher, Engine, Observer  |
+| Engine   | SimulationEngine         | `engine/__init__.py`                    | Facade exposing the engine API; delegates to sub-managers            |
+| Engine   | ProcessRunner            | `engine/process_runner.py`              | Preset loading, step advancement, step side-effects                  |
+| Engine   | ControlPointManager      | `engine/control_points.py`              | Request gates, pending actions, command interception                 |
+| Engine   | ResourceManager          | `engine/resources.py`                   | Sensor lifecycle, dobot state reads, inventory polling               |
+| Engine   | SimulationRuntime        | `engine/runtime.py`                     | Mutable runtime state (factory / process / control / resources)      |
+| Sensors  | BaseSensor + plugins     | `sensors/`                              | Pluggable sensor implementations                                     |
+| Adapters | DistancePublisher        | `adapters/distance_publisher.py`        | MQTT publish of distance readings                                    |
+| Adapters | KafkaObserver            | `adapters/kafka_observer.py`            | Read-only Kafka consumer feeding the event store                     |
+| Events   | EventStore               | `events.py`                             | In-memory event log + pub/sub queues for SSE                         |
+| Events   | EventBridge              | `events.py`                             | Optional HTTP relay of events to external systems                    |
+| Models   | Pydantic + dataclasses   | `models.py`                             | API + domain shapes                                                  |
+| Utils    | Utility functions        | `utils.py`                              | Path-pattern regex, color helpers, broker parsing                    |
 
-    class MqttSensor {
-        <<abstract>>
-        +get_topic()* str
-        +get_payload()* str
-    }
+**Inactive code (present in the tree but not wired at runtime):**
 
-    class ColorSensor {
-        -_cfg: ColorSensorConfig
-        +read(step?) tuple~str, list~
-        +update(value)
-        +to_dict() dict
-        +to_sensor_config() ColorSensorConfig
-        +clone() ColorSensor
-        +apply_overrides(overrides)
-        +apply_update_request(update)
-    }
-
-    class IrSensor {
-        -_cfg: IrSensorConfig
-        +read(step?) bool
-        +update(value)
-        +to_dict() dict
-        +to_sensor_config() IrSensorConfig
-        +clone() IrSensor
-        +apply_overrides(overrides)
-        +apply_update_request(update)
-    }
-
-    class DistanceSensor {
-        -_cfg: DistanceSensorConfig
-        -_message_id: int
-        +read(step?) float
-        +update(value)
-        +get_topic() str
-        +get_payload() str
-        +to_dict() dict
-        +to_sensor_config() DistanceSensorConfig
-        +clone() DistanceSensor
-        +apply_overrides(overrides)
-        +apply_update_request(update)
-    }
-
-    class GenericSensor {
-        +read(step?) Any
-        +update(value)
-    }
-
-    class DobotColorSensor {
-        -_cfg: DobotColorSensorConfig
-        +read() tuple~str, list~
-        +update(value)
-    }
-
-    class SensorConfig {
-        +name: str
-        +type: str
-        +sensorId: str
-    }
-
-    class ColorSensorConfig {
-        +mode: str
-        +value: str?
-        +raw_color: list~int~
-        +scripted_values: list
-    }
-
-    class IrSensorConfig {
-        +mode: str
-        +value: Any
-        +scripted_values: list
-    }
-
-    class DistanceSensorConfig {
-        +mode: str
-        +value: float?
-        +mqtt_topic: str
-        +message_type: str
-        +uid: str
-        +location: str
-        +cadence_ms: int
-    }
-
-    BaseSensor <|-- ColorSensor
-    BaseSensor <|-- IrSensor
-    BaseSensor <|-- DistanceSensor
-    BaseSensor <|-- GenericSensor
-    BaseSensor <|-- DobotColorSensor
-    MqttSensor <|.. DistanceSensor
-    SensorConfig <|-- ColorSensorConfig
-    SensorConfig <|-- IrSensorConfig
-    SensorConfig <|-- DistanceSensorConfig
-    BaseSensor --> SensorConfig : _cfg
-```
+| Module                          | Status                                                                          |
+|---------------------------------|---------------------------------------------------------------------------------|
+| `sensors/sensor_loader.py`      | `load_sensor()` function — never imported. `ResourceManager` loads plugins itself. |
+| `adapters/mqtt_publisher.py`    | `MqttPublisher` class — never instantiated by `build_dependencies()`.           |
 
 ---
 
-## Class Diagram — Models (API / Domain)
+## Engine — Core Domain
 
-```mermaid
-classDiagram
-    class SimulationStatus {
-        <<enum>>
-        IDLE
-        RUNNING
-        STOPPED
-    }
+The engine is one facade plus three focused managers. The managers share
+references to a single mutable `SimulationRuntime` instead of keeping their
+own copies of state.
 
-    class SimulationState {
-        +id: str
-        +status: SimulationStatus
-        +currentPreset: str?
-        +currentStep: int
-        +currentStepName: str?
-        +timestamp: datetime
-        +dobots: dict~str, DobotRuntimeState~
-        +waitingForRequest: AwaitRequest?
-    }
+### Subcomponent roles
 
-    class DobotRuntimeState {
-        +position: Position
-        +speed: float
-        +acceleration: float
-        +suction_enabled: bool
-        +conveyor_speed: float
-        +conveyor_distance: float
-        +conveyor_direction: str
-        +last_command: str?
-    }
+| Component             | Owns                                | Drives                                                                      |
+|-----------------------|-------------------------------------|-----------------------------------------------------------------------------|
+| `SimulationEngine`    | runtime + all managers              | Exposes the public engine API; assembles the rest at construction time      |
+| `ProcessRunner`       | (holds refs only)                   | Preset task lifecycle, step sleeping, distance publish                      |
+| `ControlPointManager` | (holds refs only)                   | Gate matching, command interception, pending action resolution              |
+| `ResourceManager`     | sensor plugins, inventory poll task | Config loading, sensor instantiation, dobot reads, inventory polling        |
 
-    class Position {
-        +x: float
-        +y: float
-        +z: float
-        +r: float
-    }
+### Runtime state structure
 
-    class PresetDefinition {
-        +name: str
-        +description: str
-        +sensor_overrides: dict
-        +steps: list~PresetStep~
-    }
-
-    class PresetStep {
-        +name: str
-        +delayMs: int
-        +note: str?
-        +publishDistance: float?
-        +sensorUpdates: dict
-        +awaitRequest: AwaitRequest?
-    }
-
-    class AwaitRequest {
-        +method: str
-        +path: str
-    }
-
-    class PendingAction {
-        +id: str
-        +robot_name: str
-        +commands: list
-        +correlation_id: str
-        +created_at: datetime
-        +outcome: str?
-        +reason: str?
-        +timed_out: bool
-        +wait_for_resolution(timeout?) bool
-        +resolve(outcome, reason?)
-        +mark_timed_out()
-        +to_public_dict() dict
-    }
-
-    class InteractiveConfig {
-        +intercepted: set~str~
-        +timeout_seconds: int
-    }
-
-    class EventEntry {
-        +id: str
-        +ts: datetime
-        +type: str
-        +source: str?
-        +message: str?
-        +topic: str?
-        +endpoint: str?
-        +method: str?
-        +statusCode: int?
-        +payload: Any
-    }
-
-    SimulationState --> SimulationStatus
-    SimulationState --> DobotRuntimeState
-    SimulationState --> AwaitRequest
-    DobotRuntimeState --> Position
-    PresetDefinition --> PresetStep
-    PresetStep --> AwaitRequest
 ```
+SimulationRuntime
+|
++-- FactoryState        run_id, status, current_preset, run_counter,
+|                       stop_requested, run_task, lock
+|
++-- ProcessState        current_step, current_step_name, presets
+|
++-- ControlState        step_gate, waiting_for_request,
+|                       interactive_config, pending, pending_counter
+|
++-- PhysicalResources   default_sensors, sensors, dobots,
+                        inventory_cache, inventory_poll_task
+```
+
+State flow: `FactoryState` drives the run lifecycle → `ProcessState` advances
+through preset steps → `ControlState` holds the gate the runner is waiting on
+→ when the gate fires, sensor updates land in `PhysicalResources` so the
+triggering request observes them.
+
+> **D2 source:** [`diagrams/02-runtime-state.d2`](./diagrams/02-runtime-state.d2)
+
+### Class APIs
+
+#### `SimulationEngine` (facade)
+
+| Method                                                   | Returns                  | Purpose                                                       |
+|----------------------------------------------------------|--------------------------|---------------------------------------------------------------|
+| `get_status()`                                           | `SimulationState`        | Snapshot of current run/state                                 |
+| `list_presets()`                                         | `list`                   | Available preset definitions                                  |
+| `run_preset(name, speed)`                                | `str` (run_id)           | Start a preset run                                            |
+| `stop()`                                                 | —                        | Request stop on the current run                               |
+| `reset()`                                                | —                        | Cancel current run, reset runtime                             |
+| `fire_gate_if_matches(method, path)`                     | `bool`                   | Trigger the preset step gate if it matches                    |
+| `handle_dobot_commands(robot, payload)`                  | `dict`                   | Execute or intercept dobot commands                           |
+| `resolve_action(id, outcome, reason)`                    | `PendingAction`          | Resolve a pending intercepted action                          |
+| `get_pending_actions()`                                  | `list`                   | Currently waiting actions                                     |
+| `get_interactive_config()` / `set_interactive_config()`  | `InteractiveConfig`      | Interactive interception config                               |
+| `get_sensor_configs()`                                   | `list[SensorConfig]`     | All configured sensors                                        |
+| `update_sensor(id, update)`                              | `SensorConfig`           | Apply mode/value update to a sensor                           |
+| `read_color(robot)`                                      | `tuple[str, list[int]]`  | Color sensor read                                             |
+| `read_ir(robot)`                                         | `bool`                   | IR sensor read                                                |
+| `read_color_sensor_bytes()`                              | `dict`                   | RGB-byte view of the left color sensor                        |
+| `get_dobot_state(robot)`                                 | `DobotRuntimeState`      | Snapshot of a dobot                                           |
+| `get_inventory_cache()`                                  | `dict`                   | Latest polled inventory snapshot                              |
+| `start_inventory_poller()` / `stop_inventory_poller()`   | —                        | Inventory poll task lifecycle                                 |
+| `record_external_event(payload)`                         | —                        | Inject an external event into `EventStore`                    |
+
+**Backward-compat surface:** `state` (returns a `_MutableStateProxy` so legacy
+tests can mutate engine state directly), `sensors`, `presets`,
+`interactive_config`, `_step_gate`, `_run_task`, `_inventory_cache`.
+
+#### `ProcessRunner`
+
+| Public method                | Notes                                                                          |
+|------------------------------|--------------------------------------------------------------------------------|
+| `list_presets()`             | Preset summaries `[{name, description, steps:[{name}]}]`                       |
+| `run_preset(name, speed)`    | Creates the `_execute_preset` task; raises `KeyError` / `RuntimeError`         |
+
+Internal: `_execute_preset`, `_await_step_gate`, `_apply_step_side_effects_sync`,
+`_publish_distance_if_needed`, `_clear_step_gate`, `_record_event`.
+
+#### `ControlPointManager`
+
+| Public method                                            | Notes                                                            |
+|----------------------------------------------------------|------------------------------------------------------------------|
+| `fire_gate_if_matches(method, path)`                     | Apply step side-effects then signal the runner                   |
+| `matches_gate(method, path)`                             | Read-only: is there a gate that matches?                         |
+| `handle_dobot_commands(robot, payload)`                  | Execute or intercept based on interactive config                 |
+| `resolve_action(action_id, outcome, reason)`             | Resolve a waiting action                                         |
+| `get_pending_actions()`                                  | Public view of `control.pending`                                 |
+| `get_interactive_config()` / `set_interactive_config()`  | Interactive mode settings                                        |
+
+> *Original diagrams labelled this `resolve_pending_action()`; the actual
+> method is `resolve_action()`.*
+
+#### `ResourceManager`
+
+| Public method                                            | Notes                                                            |
+|----------------------------------------------------------|------------------------------------------------------------------|
+| `get_presets()`                                          | Parsed `PresetDefinition`s from config                           |
+| `sensor_map_for_preset(preset)`                          | Build sensor dict with overrides applied                         |
+| `get_sensor_configs()`                                   | Sorted list of current sensor configs                            |
+| `update_sensor(id, update)`                              | Apply update + emit STATE event                                  |
+| `read_color(robot)` / `read_ir(robot)`                   | Sensor reads (auto-creates plugin if missing)                    |
+| `read_color_sensor_bytes()`                              | RGB bytes for the left color sensor                              |
+| `get_dobot_state(robot)`                                 | Snapshot of a dobot state                                        |
+| `make_plugin(id, cfg)`                                   | Public access to plugin instantiation                            |
+| `set_current_step_getter(getter)`                        | Wire the engine's step getter for step-aware sensors             |
+| `get_inventory_cache()`                                  | Latest inventory snapshot                                        |
+| `start_inventory_poller()` / `stop_inventory_poller()`   | Poll task lifecycle                                              |
+
+> **D2 source (full class diagram including runtime sub-states):**
+> [`diagrams/03-engine-class.d2`](./diagrams/03-engine-class.d2)
 
 ---
 
-## Class Diagram — Adapters & Events
+## Sensor Plugin System
 
-```mermaid
-classDiagram
-    class EventStore {
-        -_events: deque~EventEntry~
-        -_subscribers: set~Queue~
-        -_subscriber_queue_size: int
-        +append(event_type, ...)
-        +subscribe() Queue
-        +unsubscribe(queue)
-        +list_events(page, page_size, filter_text, filter_mode) tuple
-        +size() int
-        +clear()
-    }
+### Plugin discovery
 
-    class EventBridge {
-        -_mode: str
-        -_target_url: str?
-        -_logger: Logger
-        +emit(event)
-    }
+`ResourceManager._make_plugin(sensor_id, config)` performs dynamic loading:
 
-    class DistancePublisher {
-        -_broker_url: str?
-        -_event_store: EventStore
-        -_logger: Logger
-        -_message_id: int
-        +publish(sensor, distance)
-        -_build_payload(sensor, distance) dict
-    }
+1. Infer the plugin type from `config["type"]`, or fall back to a sensor-id
+   prefix rule (`color-*` → `color`, `ir-*` → `ir`, `distance-*` → `distance`,
+   anything else → `generic`).
+2. Import `simulated_factory.sensors.<type>` and look up `<Type>Sensor` and
+   optionally `<Type>SensorConfig`.
+3. Build a config instance (typed if a `*Config` class exists, otherwise a
+   plain `SensorConfig`).
+4. Instantiate `<Type>Sensor(sensor_id, cfg)`.
 
-    class KafkaObserver {
-        +event_store: EventStore
-        +logger: Logger
-        +bootstrap_servers: str
-        +group_id: str
-        +topics: tuple
-        -_consumer: AIOKafkaConsumer?
-        -_task: Task?
-        -_running: bool
-        +start()
-        +stop()
-        -_run()
-    }
+Sensors are also cloned per preset so per-preset overrides do not mutate the
+default plugins.
 
-    class MqttPublisher {
-        +hostname: str
-        +port: int
-        +event_store: EventStore
-        +logger: Logger
-        +publish(topic, payload)
-    }
+> Note: `sensors/sensor_loader.py` exposes a standalone `load_sensor()` helper
+> that is **not used** by the running system. Treat it as legacy unless the
+> intent is to consolidate plugin loading later.
 
-    DistancePublisher --> EventStore
-    KafkaObserver --> EventStore
-    MqttPublisher --> EventStore
-    EventBridge ..> EventStore : optional relay
+### Built-in plugins
+
+| Type          | Class               | Read returns             | Config highlights                                                          |
+|---------------|---------------------|--------------------------|----------------------------------------------------------------------------|
+| `color`       | `ColorSensor`       | `tuple[str, list[int]]`  | `mode`, `value`, `raw_color`, `scripted_values`                            |
+| `ir`          | `IrSensor`          | `bool`                   | `mode`, `value`, `scripted_values`                                         |
+| `distance`    | `DistanceSensor`*   | `float`                  | `mode`, `value`, `mqtt_topic`, `uid`, `location`, `cadence_ms`             |
+| `generic`     | `GenericSensor`     | `Any`                    | Fallback for unrecognized types                                            |
+| `dobot_color` | `DobotColorSensor`  | `tuple[str, list[int]]`  | Color readings tied to a dobot                                             |
+
+*`DistanceSensor` also implements `MqttSensor` (`get_topic()` / `get_payload()`).
+
+### Plugin interface
+
 ```
+BaseSensor (ABC)
+   +name: str
+   -_cfg: SensorConfig
+   +read()                  (abstract)
+   +update(value)           (abstract)
+   +to_dict()               (abstract)
+
+MqttSensor (ABC mix-in)
+   +get_topic()             (abstract)
+   +get_payload()           (abstract)
+```
+
+Concrete plugins also commonly offer: `to_sensor_config()`, `clone()`,
+`apply_overrides(overrides)`, `apply_update_request(update)`. `ResourceManager`
+uses these when available and falls back to attribute manipulation otherwise.
+
+> **D2 source:** [`diagrams/04-sensor-class.d2`](./diagrams/04-sensor-class.d2)
+
+---
+
+## API / Domain Models
+
+### Live state
+
+| Model               | Kind     | Purpose                                                                |
+|---------------------|----------|------------------------------------------------------------------------|
+| `SimulationStatus`  | enum     | `IDLE` / `RUNNING` / `STOPPED`                                         |
+| `SimulationState`   | pydantic | Snapshot returned by `get_status()`                                    |
+| `DobotRuntimeState` | pydantic | Per-dobot pose, suction, conveyor state                                |
+| `Position`          | pydantic | `x, y, z, r`                                                           |
+| `AwaitRequest`      | pydantic | `method, path` pair used by gates                                      |
+
+### Preset definitions
+
+| Model               | Kind     | Purpose                                                                |
+|---------------------|----------|------------------------------------------------------------------------|
+| `PresetDefinition`  | pydantic | `name, description, sensor_overrides, steps[]`                         |
+| `PresetStep`        | pydantic | `name, delayMs, note?, publishDistance?, sensorUpdates, awaitRequest?` |
+
+### Control / events
+
+| Model               | Kind      | Purpose                                                                |
+|---------------------|-----------|------------------------------------------------------------------------|
+| `PendingAction`     | dataclass | Action awaiting decision; has `resolve()` / `wait_for_resolution()`    |
+| `InteractiveConfig` | pydantic  | `intercepted: set[str]`, `timeout_seconds: int`                        |
+| `EventEntry`        | pydantic  | Event log row stored by `EventStore`                                   |
+
+### Request DTOs
+
+| Model                       | Used by                                  |
+|-----------------------------|------------------------------------------|
+| `RunPresetRequest`          | `POST /api/presets/run`                  |
+| `SensorUpdateRequest`       | `PUT /api/config/sensors/{id}`           |
+| `InteractiveConfigRequest`  | `PUT /api/interactive/config`            |
+| `ResolveActionRequest`      | `POST /api/interactive/{id}/resolve`     |
+
+> **D2 source:** [`diagrams/05-models-class.d2`](./diagrams/05-models-class.d2)
+
+---
+
+## Adapters & Events
+
+### Adapter status
+
+| Adapter             | Wired by `deps.py`? | Direction              | Notes                                                                                       |
+|---------------------|---------------------|------------------------|---------------------------------------------------------------------------------------------|
+| `DistancePublisher` | yes                 | service → MQTT         | Always appends an `MQTT` event; only publishes if `SIMULATOR_BROKER_URL` is set and `paho.mqtt` is importable |
+| `KafkaObserver`     | yes                 | Kafka → service        | Read-only; appends `KAFKA` events. Failures are non-fatal                                  |
+| `EventBridge`       | yes                 | service → External     | Modes: `none` (default), `http` (POST to `SIMULATOR_EVENT_BRIDGE_URL`), `kafka` (no-op stub)|
+| `MqttPublisher`     | **no**              | (unused at runtime)    | Standalone class in `adapters/mqtt_publisher.py` — not instantiated anywhere                |
+
+### EventStore
+
+In-memory bounded `deque` (default `max_entries=500`) plus a set of subscriber
+`asyncio.Queue`s. Each appended event is delivered to subscribers via
+`put_nowait`, dropping when a queue is full (subscriber queue size is
+`EVENT_SUBSCRIBER_QUEUE_SIZE = 100`).
+
+**Event types emitted in the system:**
+
+| Type              | Source                                       | When                                                                  |
+|-------------------|----------------------------------------------|-----------------------------------------------------------------------|
+| `STATE`           | engine                                       | Lifecycle transitions, step progress, sensor updates                  |
+| `REST`            | api middleware                               | Every non-`/health` HTTP request                                      |
+| `SENSOR_REQUEST`  | api middleware                               | `GET /api/dobot/{name}/color\|ir` (reclassified from `REST`)          |
+| `EVENT`           | engine                                       | `record_external_event()` payloads                                    |
+| `KAFKA`           | `KafkaObserver`                              | Every consumed record from observed topics                            |
+| `MQTT`            | `DistancePublisher` (and `MqttPublisher` if wired) | On each publish                                                  |
+| `COMMAND`         | `ControlPointManager`                        | When a dobot command is dispatched or intercepted                     |
+| `PENDING_ACTION`  | `ControlPointManager`                        | When an action is added to the pending queue                          |
+| `ACTION_RESOLVED` | `ControlPointManager`                        | When `resolve_action()` settles a pending action                      |
+
+The operator-focused "process" view filters to `PROCESS_EVENT_TYPES`:
+`KAFKA`, `COMMAND`, `PENDING_ACTION`, `ACTION_RESOLVED`, `SENSOR_REQUEST`.
+
+### EventBridge
+
+Thin pluggable forwarder. Modes:
+
+- `none`  — no-op
+- `http`  — POSTs each event payload to the configured URL
+- `kafka` — currently a no-op placeholder
+
+> **D2 source:** [`diagrams/06-adapters-events-class.d2`](./diagrams/06-adapters-events-class.d2)
 
 ---
 
 ## Dependency Wiring
 
-```mermaid
-graph TD
-    Main["main.py"] -->|create_app| API["api.py (FastAPI)"]
-    API -->|build_dependencies| Deps["deps.py"]
-    Deps --> ES[EventStore]
-    Deps --> EB[EventBridge]
-    Deps --> DP[DistancePublisher]
-    Deps --> SE[SimulationEngine]
-    Deps --> KO[KafkaObserver]
-
-    SE --> RM[ResourceManager]
-    SE --> PR[ProcessRunner]
-    SE --> CM[ControlPointManager]
-    SE --> RT[SimulationRuntime]
-
-    RM -->|loads| Config["config.yml"]
-    RM -->|instantiates| Sensors[Sensor Plugins]
-    KO -->|consumes| Kafka[Kafka Topics]
-    DP -->|publishes| MQTT[MQTT Broker]
 ```
+main.py
+   |
+   |  create_app(config_path)
+   v
+api.py  -- build_dependencies() -->  deps.py
+                                       |
+                                       +-- EventStore
+                                       |
+                                       +-- EventBridge
+                                       |     reads SIMULATOR_EVENT_BRIDGE
+                                       |     and  SIMULATOR_EVENT_BRIDGE_URL
+                                       |
+                                       +-- DistancePublisher
+                                       |     reads SIMULATOR_BROKER_URL
+                                       |
+                                       +-- SimulationEngine
+                                       |     internally constructs:
+                                       |       ResourceManager
+                                       |       ProcessRunner
+                                       |       ControlPointManager
+                                       |       SimulationRuntime
+                                       |
+                                       +-- KafkaObserver
+                                             reads SIMULATED_FACTORY_KAFKA_OBSERVER
+
+FastAPI lifespan:
+   startup   -> kafka_observer.start()
+             -> engine.start_inventory_poller()
+   shutdown  -> engine.stop_inventory_poller()
+             -> kafka_observer.stop()
+```
+
+> **D2 source:** [`diagrams/07-dependency-wiring.d2`](./diagrams/07-dependency-wiring.d2)
+
+> Note: `MqttPublisher` and `sensor_loader.load_sensor()` exist in the tree
+> but are **not** instantiated or called by `build_dependencies()`.
 
 ---
 
-## Simulation Lifecycle (State Machine)
+## Lifecycle
 
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> RUNNING : run_preset()
-    RUNNING --> IDLE : preset completed
-    RUNNING --> STOPPED : stop() or cancel
-    STOPPED --> IDLE : reset()
-    IDLE --> IDLE : reset()
 ```
+                +--------+
+   (initial) -->|  IDLE  |<--- reset()
+                +--------+<--+
+                    |         |
+              run_preset()    |  preset
+                    |         |  completed
+                    v         |
+                +--------+    |
+                | RUNNING|----+
+                +--------+
+                    |
+            stop() or task cancel
+                    |
+                    v
+                +--------+
+                | STOPPED|---- reset() ----> IDLE
+                +--------+
+```
+
+> **D2 source:** [`diagrams/08-lifecycle.d2`](./diagrams/08-lifecycle.d2)
 
 ---
 
-## Preset Execution Sequence
+## Preset Execution Flow
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Engine as SimulationEngine
-    participant Runner as ProcessRunner
-    participant Control as ControlPointManager
-    participant Sensors
-    participant EventStore
-    participant MQTT
-
-    Client->>API: POST /api/presets/run
-    API->>Engine: run_preset(name, speed)
-    Engine->>Runner: run_preset(name, speed)
-    Runner->>EventStore: append(STATE, "Started preset")
-    Runner->>Runner: create asyncio.Task(_execute_preset)
-
-    loop For each PresetStep
-        alt step has awaitRequest
-            Runner->>Runner: set step_gate (Event + AwaitRequest)
-            Note over Runner: Waits for matching HTTP request or timeout
-            Client->>API: GET /api/dobot/{name}/color
-            API->>Control: fire_gate_if_matches(method, path)
-            Control->>Sensors: apply sensor updates
-            Control->>Runner: signal Event
-        else normal step
-            Runner->>Sensors: apply sensorUpdates
-            Runner->>MQTT: publish distance (if configured)
-            Runner->>Runner: sleep(delayMs / speed)
-        end
-        Runner->>EventStore: append(STATE, step info)
-    end
-
-    Runner->>EventStore: append(STATE, "Preset completed")
-    Runner-->>Engine: task done, status → IDLE
 ```
+ 1. Client -> POST /api/presets/run        (body: {preset, speed})
+ 2. API    -> SimulationEngine.run_preset(name, speed)
+ 3. Engine -> ProcessRunner.run_preset(name, speed)
+                - acquire factory.lock
+                - status -> RUNNING, run_id allocated
+                - emit STATE "Started preset"
+                - asyncio.create_task(_execute_preset)
+ 4. For each PresetStep:
+       a. If step.awaitRequest is set:
+            - control.step_gate = (AwaitRequest, asyncio.Event, step)
+            - await event.wait() (optional timeout)
+            - unblocked when ControlPointManager.fire_gate_if_matches()
+              matches an incoming request; sensor updates applied
+              synchronously BEFORE the handler reads sensors
+       b. Else:
+            - apply step.sensorUpdates to plugins
+            - if step.publishDistance: DistancePublisher.publish(...) -> MQTT
+            - sleep(step.delayMs / speed)
+       c. Emit a STATE event with step info
+ 5. After last step:
+       - emit STATE "Preset completed"
+       - status -> IDLE, run_task cleared
+```
+
+Concurrent path for a request-gated step:
+
+```
+ProcessRunner                Middleware              ControlPointManager
+    (waiting)                    |                          |
+        |  <--- client request --|                          |
+        |                        |--- fire_gate_if_matches->|
+        |                        |                          |
+        |                        |        apply step's      |
+        |                        |        sensorUpdates     |
+        | <---------------- event.set() --------------------|
+        |                        |                          |
+        |                        |  call_next(request)      |
+        |                        |  handler reads updated   |
+        |                        |  sensor state            |
+        v                        v                          v
+```
+
+> **D2 source:** [`diagrams/09-preset-sequence.d2`](./diagrams/09-preset-sequence.d2)
 
 ---
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| **Facade pattern** (SimulationEngine) | Single entry point for API; delegates to focused sub-components |
-| **Runtime dataclasses** vs Pydantic models | Mutable internal state (dataclass) separate from immutable API snapshots (Pydantic) |
-| **Plugin-based sensors** | New sensor types added by dropping a module in `sensors/`; resolved by naming convention |
-| **Request gating** | Steps can pause until a real HTTP request arrives, enabling realistic timing |
-| **In-memory EventStore** | Bounded deque with pub/sub queues for real-time SSE without external dependencies |
-| **Kafka Observer (read-only)** | Makes upstream process-topic activity visible in the UI without producing |
-| **DistancePublisher via MQTT** | Emulates Tinkerforge-style distance messages consumed by downstream services |
+| Decision                                                | Rationale                                                                                              |
+|---------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| **Facade pattern** (`SimulationEngine`)                 | Single stable entry point for API and tests; delegates to three focused managers                       |
+| **Dataclass runtime vs. Pydantic snapshots**            | Mutable internal `SimulationRuntime` stays decoupled from API-facing immutable `SimulationState`       |
+| **Plugin-based sensors**                                | New sensor types are added by dropping a module in `sensors/`; type inferred from config or sensor-id  |
+| **Request gating**                                      | Preset steps can pause until a matching real HTTP request arrives — enables realistic timing           |
+| **In-memory `EventStore`**                              | Bounded `deque` + per-subscriber `asyncio.Queue`s give real-time SSE without external dependencies     |
+| **Kafka observer is read-only**                         | Surfaces upstream process-topic activity in the operator UI without ever producing                     |
+| **DistancePublisher via MQTT**                          | Emulates Tinkerforge-style distance messages consumed by downstream services                           |
+| **`_MutableStateProxy` compatibility shim**             | Lets legacy tests mutate `engine.state.*` directly while real state lives in `SimulationRuntime`       |
+| **Lazy / no-op MQTT publish**                           | When `SIMULATOR_BROKER_URL` is unset, publishes are no-ops — tests run without a broker                |
+| **Inventory poller inside `ResourceManager`**           | Simple 3s `httpx` poll loop; cancelled cleanly via FastAPI lifespan                                    |
+
+---
+
+## Diagram Index
+
+All diagrams are also provided as [D2](https://d2lang.com) source files in
+[`diagrams/`](./diagrams).
+
+| # | File                                                                                  | What it shows                                                          |
+|---|---------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| 1 | [`diagrams/01-component.d2`](./diagrams/01-component.d2)                              | Live runtime architecture (external systems + service internals)       |
+| 2 | [`diagrams/02-runtime-state.d2`](./diagrams/02-runtime-state.d2)                      | Substructures of `SimulationRuntime`                                   |
+| 3 | [`diagrams/03-engine-class.d2`](./diagrams/03-engine-class.d2)                        | Engine facade + managers + runtime sub-states                          |
+| 4 | [`diagrams/04-sensor-class.d2`](./diagrams/04-sensor-class.d2)                        | Sensor plugin hierarchy and config classes                             |
+| 5 | [`diagrams/05-models-class.d2`](./diagrams/05-models-class.d2)                        | API / domain models                                                    |
+| 6 | [`diagrams/06-adapters-events-class.d2`](./diagrams/06-adapters-events-class.d2)      | Adapters + `EventStore` + `EventBridge`                                |
+| 7 | [`diagrams/07-dependency-wiring.d2`](./diagrams/07-dependency-wiring.d2)              | What `build_dependencies()` actually instantiates                      |
+| 8 | [`diagrams/08-lifecycle.d2`](./diagrams/08-lifecycle.d2)                              | Simulation status state machine                                        |
+| 9 | [`diagrams/09-preset-sequence.d2`](./diagrams/09-preset-sequence.d2)                  | Preset execution sequence diagram                                      |
+
+Render one with:
+
+```
+d2 diagrams/01-component.d2 component.svg
+```
+
+or paste any file's contents into <https://play.d2lang.com>.

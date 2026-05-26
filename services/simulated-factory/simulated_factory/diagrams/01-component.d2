@@ -1,0 +1,87 @@
+# Component diagram: live runtime architecture of the Simulated Factory.
+# Render: d2 01-component.d2 component.svg
+
+direction: right
+
+External: {
+  label: "External Systems"
+  style.stroke-dash: 3
+
+  kafka:       "Kafka Broker"
+  mqtt:        "MQTT Broker"
+  inventory:   "Inventory Service"
+  dashboard:   "Dashboard / HTMX UI"
+  orchestrator:"Dobot Control / Orchestrator"
+}
+
+Sim: "Simulated Factory Service" {
+  API: "API Layer (FastAPI)" {
+    rest:       "REST Endpoints"
+    sse:        "SSE Live Stream"
+    fragments:  "HTMX Fragments"
+    middleware: "Request Capture Middleware"
+  }
+
+  Engine: "Engine (Core Domain)" {
+    facade:        "SimulationEngine (facade)"
+    process_runner:"ProcessRunner"
+    control_mgr:   "ControlPointManager"
+    resource_mgr:  "ResourceManager"
+    runtime:       "SimulationRuntime"
+  }
+
+  Sensors: "Sensor Plugin System" {
+    base:        "BaseSensor (ABC)"
+    color:       "ColorSensor"
+    ir:          "IrSensor"
+    distance:    "DistanceSensor"
+    generic:     "GenericSensor"
+    dobot_color: "DobotColorSensor"
+  }
+
+  Adapters: "Adapters (Infrastructure)" {
+    dist_pub:  "DistancePublisher"
+    kafka_obs: "KafkaObserver"
+  }
+
+  Events: "Event Infrastructure" {
+    event_store:  "EventStore"
+    event_bridge: "EventBridge"
+  }
+}
+
+# Inbound traffic
+External.dashboard    -> Sim.API:              "HTTP / SSE"
+External.orchestrator -> Sim.API.rest:         "REST commands"
+
+# Request pipeline
+Sim.API.rest        -> Sim.API.middleware:     "wraps"
+Sim.API.middleware  -> Sim.Engine.facade:      "fire gate + dispatch"
+Sim.API.fragments   -> Sim.Engine.facade:      "read state"
+Sim.API.sse         -> Sim.Events.event_store: "subscribe()"
+
+# Facade -> domain managers
+Sim.Engine.facade -> Sim.Engine.process_runner
+Sim.Engine.facade -> Sim.Engine.control_mgr
+Sim.Engine.facade -> Sim.Engine.resource_mgr
+
+# Domain managers share runtime state
+Sim.Engine.process_runner -> Sim.Engine.runtime: "mutates"
+Sim.Engine.control_mgr    -> Sim.Engine.runtime: "mutates"
+Sim.Engine.resource_mgr   -> Sim.Engine.runtime: "owns sensors/dobots"
+
+# Sensor access
+Sim.Engine.resource_mgr -> Sim.Sensors: "instantiate / read / update"
+
+# Event emission
+Sim.Engine.process_runner -> Sim.Events.event_store: "append()"
+Sim.Engine.control_mgr    -> Sim.Events.event_store: "append()"
+Sim.Engine.resource_mgr   -> Sim.Events.event_store: "append()"
+
+# Outbound integrations
+Sim.Engine.process_runner -> Sim.Adapters.dist_pub:    "publish distance"
+Sim.Adapters.dist_pub     -> External.mqtt:            "MQTT publish"
+Sim.Adapters.kafka_obs    -> External.kafka:           "consume topics"
+Sim.Adapters.kafka_obs    -> Sim.Events.event_store:   "append KAFKA events"
+Sim.Events.event_bridge   -> External:                 "optional HTTP relay"
+Sim.Engine.resource_mgr   -> External.inventory:       "poll /inventory"

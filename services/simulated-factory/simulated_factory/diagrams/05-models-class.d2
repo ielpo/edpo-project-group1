@@ -1,0 +1,139 @@
+# API / domain models (Pydantic + dataclasses) in simulated_factory.models.
+# Render: d2 05-models-class.d2 models-class.svg
+
+SimulationStatus: {
+  shape: class
+  # enum
+  IDLE
+  RUNNING
+  STOPPED
+}
+
+SimulationState: {
+  shape: class
+  +id: str
+  +status: SimulationStatus
+  +currentPreset: str?
+  +currentStep: int
+  +currentStepName: str?
+  +timestamp: datetime
+  +dobots: dict
+  +waitingForRequest: AwaitRequest?
+}
+
+DobotRuntimeState: {
+  shape: class
+  +position: Position
+  +speed: float
+  +acceleration: float
+  +suction_enabled: bool
+  +conveyor_speed: float
+  +conveyor_distance: float
+  +conveyor_direction: str
+  +last_command: str?
+}
+
+Position: {
+  shape: class
+  +x: float
+  +y: float
+  +z: float
+  +r: float
+}
+
+PresetDefinition: {
+  shape: class
+  +name: str
+  +description: str
+  +sensor_overrides: dict
+  +steps: list
+}
+
+PresetStep: {
+  shape: class
+  +name: str
+  +delayMs: int
+  +note: str?
+  +publishDistance: float?
+  +sensorUpdates: dict
+  +awaitRequest: AwaitRequest?
+}
+
+AwaitRequest: {
+  shape: class
+  +method: str
+  +path: str
+}
+
+PendingAction: {
+  shape: class
+  # dataclass
+  +id: str
+  +robot_name: str
+  +commands: list
+  +correlation_id: str
+  +created_at: datetime
+  +outcome: str?
+  +reason: str?
+  +timed_out: bool
+  -_event: asyncio.Event
+  +wait_for_resolution(timeout?): bool
+  +resolve(outcome, reason?)
+  +mark_timed_out()
+  +to_public_dict(): dict
+}
+
+InteractiveConfig: {
+  shape: class
+  +intercepted: set
+  +timeout_seconds: int
+}
+
+EventEntry: {
+  shape: class
+  +id: str
+  +ts: datetime
+  +type: str
+  +source: str?
+  +message: str?
+  +topic: str?
+  +endpoint: str?
+  +method: str?
+  +statusCode: int?
+  +payload: Any
+}
+
+# Request DTOs
+RunPresetRequest: {
+  shape: class
+  +preset: str
+  +speed: float
+}
+
+SensorUpdateRequest: {
+  shape: class
+  +mode: str?
+  +value: Any
+  +raw_color: list?
+  +scripted_values: list?
+}
+
+InteractiveConfigRequest: {
+  shape: class
+  +intercepted: list
+  +timeoutSeconds: int
+}
+
+ResolveActionRequest: {
+  shape: class
+  +outcome: str
+  +reason: str?
+}
+
+# Associations
+SimulationState   -> SimulationStatus
+SimulationState   -> DobotRuntimeState
+SimulationState   -> AwaitRequest
+DobotRuntimeState -> Position
+PresetDefinition  -> PresetStep
+PresetStep        -> AwaitRequest

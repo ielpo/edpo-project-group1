@@ -1,0 +1,16 @@
+# Runtime state grouping inside SimulationRuntime.
+# Render: d2 02-runtime-state.d2 runtime-state.svg
+
+direction: right
+
+SimulationRuntime: {
+  factory:   "FactoryState\n(run id, status, run_task)"
+  process:   "ProcessState\n(current_step, presets)"
+  control:   "ControlState\n(step_gate, pending, interactive_config)"
+  resources: "PhysicalResources\n(sensors, dobots, inventory_cache)"
+}
+
+SimulationRuntime.factory   -> SimulationRuntime.process:   "run lifecycle drives step sequence"
+SimulationRuntime.process   -> SimulationRuntime.control:   "steps consult gates"
+SimulationRuntime.control   -> SimulationRuntime.resources: "fire gate applies sensor updates"
+SimulationRuntime.resources -> SimulationRuntime.process:   "sensor reads observe step index"

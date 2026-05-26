@@ -1,0 +1,49 @@
+# Dependency wiring as performed by build_dependencies() in deps.py.
+# Reflects what is actually instantiated at startup — not every class in the tree.
+# Render: d2 07-dependency-wiring.d2 dependency-wiring.svg
+
+direction: down
+
+main:    "main.py"
+api:     "api.py / create_app()"
+deps:    "deps.py / build_dependencies()"
+
+event_store:        "EventStore"
+event_bridge:       "EventBridge"
+distance_publisher: "DistancePublisher"
+engine:             "SimulationEngine"
+kafka_observer:     "KafkaObserver"
+
+resource_mgr:   "ResourceManager"
+process_runner: "ProcessRunner"
+control_mgr:    "ControlPointManager"
+runtime:        "SimulationRuntime"
+
+config:    "config.yml"
+sensors:   "Sensor Plugins"
+kafka:     "Kafka Topics"
+mqtt:      "MQTT Broker"
+inventory: "Inventory Service"
+
+main -> api: "create_app(config_path)"
+api  -> deps: "build_dependencies(...)"
+
+deps -> event_store
+deps -> event_bridge
+deps -> distance_publisher
+deps -> engine
+deps -> kafka_observer
+
+engine -> resource_mgr
+engine -> process_runner
+engine -> control_mgr
+engine -> runtime
+
+resource_mgr   -> config: "loads"
+resource_mgr   -> sensors: "instantiates via importlib"
+resource_mgr   -> inventory: "polls /inventory"
+kafka_observer -> kafka: "consumes"
+distance_publisher -> mqtt: "publishes"
+
+# Note: adapters/mqtt_publisher.py exists but is NOT created here.
+# Note: sensors/sensor_loader.py exists but ResourceManager bypasses it.
