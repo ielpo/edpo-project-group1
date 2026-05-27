@@ -28,7 +28,7 @@ size: 12pt
 
 KAFKEA is an event-driven manufacturing system for custom furniture orders.
 In the first assignment, we implemented the core order processing and factory execution logic using Camunda BPMN processes.
-A customer can place an order via a Camunda form; the Order service orchestrates the end-to-end process; the Factory service operates the Dobot Magician robot arm. For a full description of the project see the previous reports (Exercises 1–2 and 3–4).
+A customer can place an order via a Camunda form; the Order service orchestrates the end-to-end process; the Factory service operates the Dobot Magician robot arm. For a full description of the project see the previous reports (Exercises 1–2, 3–4, and 5).
 
 This report covers the stream processing layer added for Assignment 2, implemented in the `kafka-streams` service. The service uses Kafka Streams to process sensor data to restock the existing inventory of KAFKEA: it detects blocks, classifies their colour, and controls the conveyor and robot arm.
 
