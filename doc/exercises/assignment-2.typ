@@ -11,6 +11,8 @@ font: "Nimbus Sans",
 size: 12pt
 )
 
+#set heading(numbering: "1.1.")
+
 #show link: underline
 
 #title()
@@ -28,7 +30,7 @@ size: 12pt
 
 KAFKEA is an event-driven manufacturing system for custom furniture orders.
 In the first assignment, we implemented the core order processing and factory execution logic using Camunda BPMN processes.
-A customer can place an order via a Camunda form; the Order service orchestrates the end-to-end process; the Factory service operates the Dobot Magician robot arm. For a full description of the project see the previous reports (Exercises 1–2, 3–4, and 5).
+A customer can place an order via a Camunda form. The Order service orchestrates the end-to-end process. The Factory service operates the Dobot Magician robot arm. For a full description of the project see the previous reports (Exercises 1–2, 3–4, and 5).
 
 This report covers the stream processing layer added for Assignment 2, implemented in the `kafka-streams` service. The service uses Kafka Streams to process sensor data to restock the existing inventory of KAFKEA: it detects blocks, classifies their colour, and controls the conveyor and robot arm.
 
@@ -37,6 +39,23 @@ To simplify development, the simulator was enhanced to produce synthetic sensor 
 #figure(
   image("../images/simulated-factory.png", width: 100%),
   caption: [Simulated factory layout: left (colour) sensor and right (pick-up) sensor]
+)
+
+The following table lists the Kafka topics consumed and produced by the `kafka-streams` service.
+
+#figure(
+  table(
+    columns: (38%, 17%, 45%),
+    table.header([*Topic*], [*Direction*], [*Purpose*]),
+    [`sensor.distance.raw.v1`],    [in],      [Raw distance readings from the left conveyor sensor (Factory service via MQTT)],
+    [`sensor.distance.right.raw.v1`], [in],   [Raw distance readings from the right conveyor sensor (Simulator)],
+    [`sensor.color.raw.v1`],       [in],      [Raw RGB readings from the colour sensor (Factory service)],
+    [`sensor.block-present.v1`],   [internal],[Filtered block-present readings forwarded from BlockColorTopology to MoveBlockTopology],
+    [`inventory.blocks.v1`],       [out],     [Enriched block and colour events; also queryable via `GET /inventory`],
+    [`control.conveyor.commands.v1`], [out],  [Conveyor stop commands emitted by MoveBlockTopology],
+    [`control.robot-arm.commands.v1`], [out], [Robot arm pick-and-place commands emitted by PickUpBlockTopology],
+  ),
+  caption: [Kafka topics consumed and produced by the kafka-streams service],
 )
 
 = Stream Processing Implementation
@@ -75,25 +94,23 @@ Both streams are explicitly repartitioned before the join to ensure matching key
 
 == Interactive Queries (Week 9)
 
-The `inventory-store` KTable is exposed as a queryable state store. The `InventoryQueryController` REST endpoint allows any client to query the current inventory state directly from the Kafka Streams instance, without reading from Kafka topics. `GET /inventory` returns all detected blocks as a cubeId-to-color map; `GET /inventory/{cubeId}` returns the entry for a specific cube.
+The `inventory-store` KTable is exposed as a queryable state store. The `InventoryQueryController` REST endpoint allows any client to query the current inventory state directly from the Kafka Streams instance, without reading from Kafka topics. `GET /inventory` returns all detected blocks as a cubeId-to-color map. `GET /inventory/{cubeId}` returns the entry for a specific cube.
 
 The controller uses `StoreQueryParameters.fromNameAndType` and `QueryableStoreTypes.keyValueStore()` to access the read-only key-value store at runtime.
 
 == Windowed Operations (Week 10)
 
-*Sliding window join:* The stream-stream join in `BlockColorTopology` uses `JoinWindows.ofTimeDifferenceAndGrace(Duration.ofSeconds(10), Duration.ofSeconds(1))`. This is a sliding window over event time, allowing block and colour events that arrive within 10 seconds of each other to be joined.
+*Sliding window join:* The stream-stream join in `BlockColorTopology` uses `JoinWindows.ofTimeDifferenceAndGrace(Duration.ofSeconds(10), Duration.ofSeconds(1))`. This is a sliding window over event time, allowing block and colour events that arrive within 10 seconds of each other to be joined. Unlike tumbling or hopping windows, a sliding window considers every possible time interval of the given size, making it well-suited for joining two streams that are not aligned to a fixed schedule.
 
-*Wall-clock inactivity window (custom processor):* Block detection in `BlockColorTopology` relies on a custom `BlockInactivityProcessor`. A wall-clock punctuation fires every 200 ms and emits a `BlockDetectedEvent` when a sensor key has been quiet for 3 seconds. This implements session-like semantics driven by wall-clock time rather than stream time, which is necessary because physical blocks create a continuous stream of distance readings with no natural end marker.
+*Wall-clock inactivity window (custom processor):* Block detection in `BlockColorTopology` relies on a custom `BlockInactivityProcessor`. A wall-clock punctuation fires every 200 ms and emits a `BlockDetectedEvent` when a sensor key has been quiet for 3 seconds. This implements session-window semantics driven by wall-clock time rather than stream time, which is necessary because physical blocks create a continuous stream of distance readings with no natural end marker. A standard Kafka Streams session window was not used because it advances only when new records arrive (see ADR 0012).
 
-*Rising-edge aggregation:* `MoveBlockTopology` and `PickUpBlockTopology` use a stateful `aggregate` with a 2-second gap threshold to detect the first reading of a new block. This is conceptually an inactivity-based windowing decision, emitting once per detected presence event after a silence gap.
+*Rising-edge aggregation:* `MoveBlockTopology` and `PickUpBlockTopology` use a stateful `aggregate` with a 2-second gap threshold to detect the first reading of a new block. This mirrors a session-window boundary condition: after a period of inactivity exceeding the gap threshold, the next record is treated as the start of a new session and triggers exactly one command.
 
-// TODO: consider adding an explicit tumbling or hopping window aggregation to more directly satisfy the windowed-operations requirement.
+Tumbling and hopping windows are not used in the current implementation. The use cases in KAFKEA (block detection and colour join) do not require fixed-interval aggregation, making sliding and session-style windows more appropriate. See the Reflections section for a discussion of where a tumbling window could be added as an additional analytical step.
 
 == Serialization
 
 All events are serialized and deserialized using a custom `JsonSerde<T>` built on Jackson. This keeps the setup self-contained without requiring a schema registry.
-
-// Avro serialization was not implemented in this assignment.
 
 = Topology Descriptions
 
@@ -110,9 +127,33 @@ The topology reads from two source topics: `sensor.distance.raw.v1` (continuous 
 
 Additionally, every raw distance reading that indicates a block is present is forwarded to `sensor.block-present.v1`, where it is consumed by `MoveBlockTopology`.
 
+*Processing steps:*
+
+Distance branch:
++ Source `sensor.distance.raw.v1` → `KStream<String, DistanceEvent>`.
++ Filter: `distance < 25.0` cm → block is present.
++ SelectKey → `"distance-sensor"` (fixed key for consistent partitioning).
++ Publish block-present readings to `sensor.block-present.v1` (consumed by `MoveBlockTopology`).
++ Custom `BlockInactivityProcessor` backed by the `block-activity-store` KV state store: records the last-seen wall-clock timestamp per key. A wall-clock punctuation fires every 200 ms and emits a `BlockDetectedEvent(cubeId=UUID, timestamp)` when the key has been quiet for at least 3 seconds.
++ SelectKey → `"sliding-window-join"` + explicit repartition (ensures join tasks see matching keys).
+
+Colour branch:
++ Source `sensor.color.raw.v1` → `KStream<String, ColorEvent>`.
++ MapValues: classify `(r, g, b)` → `BlockColor` enum (RED / GREEN / BLUE / YELLOW, or UNKNOWN if below brightness threshold).
++ Filter: discard UNKNOWN readings.
++ SelectKey → `"sliding-window-join"` + explicit repartition.
++ Publish classified colour to `color.classified.v1`.
+
+Join and materialisation:
++ Stream-stream sliding-window join (10 s window, 1 s grace) → `BlockColorEvent(cubeId, color, timestamp)`.
++ SelectKey → `cubeId` + groupByKey + `reduce(first)` materialised as KTable `"inventory-store"`: keeps only the first confirmed colour per cube, ensuring idempotent inventory entries regardless of duplicate join outputs.
++ `toStream` → publish to `inventory.blocks.v1`.
+
+*Implementation state:* Fully implemented. The colour classification thresholds in `BlockColor.from()` are heuristic constants and may require calibration for specific sensor hardware or lighting conditions.
+
 *Justification:* The wall-clock inactivity processor was chosen over a session window because Kafka Streams session windows advance only with new records which could take a significant amount of time in a low-traffic or test environment like KAFKEA restocking. Wall-clock punctuation ensures block detection fires even when the sensor stream stops.
 
-The sliding window join was chosen over a table join because colour events are continuous and not keyed to a specific block identity; temporal proximity is the only way to associate a colour reading with a block.
+The sliding window join was chosen over a table join because colour events are continuous and not keyed to a specific block identity. Temporal proximity is the only way to associate a colour reading with a block.
 
 #figure(
   image("../images/kafka-streaming-topology-BlockColorTopologyTimeline.png", width: 100%),
@@ -126,7 +167,17 @@ The sliding window join was chosen over a table join because colour events are c
   caption: [MoveBlockTopology: conveyor stop trigger]
 )
 
-`MoveBlockTopology` stops the conveyor belt when a block arrives at the left sensor. It reads from `sensor.block-present.v1` (pre-filtered readings published by `BlockColorTopology`) and applies a rising-edge detection via stateful `aggregate`: a `ConveyorCommandEvent("STOP")` is emitted once per block arrival, defined as the first reading after a 2-second absence gap.
+`MoveBlockTopology` stops the conveyor belt when a block arrives at the left sensor. It reads from `sensor.block-present.v1` (pre-filtered readings published by `BlockColorTopology`) and applies rising-edge detection via a stateful `aggregate`: a `ConveyorCommandEvent("STOP")` is emitted exactly once per block arrival, defined as the first reading after a 2-second absence gap.
+
+*Processing steps:*
++ Source `sensor.block-present.v1` → `KStream<String, DistanceEvent>` (already keyed to `"distance-sensor"` by `BlockColorTopology`).
++ GroupByKey + `aggregate` → KTable `"move-block-edge-store"` of `BlockPresenceState(lastSeenTimestamp, risingEdge, edgeTimestamp)`. A rising edge is flagged when `currentTimestamp − lastSeenTimestamp > 2 s`.
++ `toStream` + filter: keep only states where `risingEdge == true`.
++ MapValues → `BlockMoveTriggerEvent(UUID, edgeTimestamp)`.
++ MapValues → `ConveyorCommandEvent("STOP", triggerId, timestamp)`.
++ Publish to `control.conveyor.commands.v1`.
+
+*Implementation state:* Fully implemented.
 
 *Justification:* Consuming from `sensor.block-present.v1` rather than re-reading the raw distance topic avoids duplicating the filter logic and keeps the topology simple. The rising-edge aggregation prevents a flood of stop commands from a single block that lingers in front of the sensor.
 
@@ -137,9 +188,23 @@ The sliding window join was chosen over a table join because colour events are c
 
 == PickUpBlockTopology
 
+#text(fill: red)[_Diagram pending — to be added before submission._]
+
 `PickUpBlockTopology` commands the robot arm to pick up and place a block when it arrives at the right sensor. It reads raw distance from `sensor.distance.right.raw.v1`, applies the same `distance < 25.0` filter and rising-edge detection (2-second gap), and emits a `RobotArmCommandEvent("PICK_AND_PLACE")` to `control.robot-arm.commands.v1`.
 
-This topology mirrors the structure of `MoveBlockTopology` but operates on a separate physical sensor and a different output channel (robot arm vs. conveyor). The rising-edge logic is duplicated rather than shared to keep each topology independently deployable and testable.
+This topology mirrors the structure of `MoveBlockTopology` but operates on a separate physical sensor and a different output channel (robot arm vs. conveyor). The rising-edge logic is intentionally duplicated rather than shared to keep each topology independently deployable and testable.
+
+*Processing steps:*
++ Source `sensor.distance.right.raw.v1` → `KStream<String, DistanceEvent>`.
++ Filter: `distance < 25.0` cm → block is present at the right sensor.
++ SelectKey → `"distance-sensor-right"`.
++ GroupByKey + `aggregate` → KTable `"pick-up-block-edge-store"` of `BlockPresenceState(lastSeenTimestamp, risingEdge, edgeTimestamp)`. Rising edge fires when `currentTimestamp − lastSeenTimestamp > 2 s`.
++ `toStream` + filter: keep only states where `risingEdge == true`.
++ MapValues → `BlockPickUpTriggerEvent(UUID, edgeTimestamp)`.
++ MapValues → `RobotArmCommandEvent("PICK_AND_PLACE", triggerId, timestamp)`.
++ Publish to `control.robot-arm.commands.v1`.
+
+*Implementation state:* Fully implemented. In the KAFKEA system the robot arm is also driven by the Factory service's Operaton BPMN process for order fulfilment. The Kafka Streams path provides an independent, sensor-driven pick-and-place trigger specifically for the restocking workflow.
 
 = ADRs
 
@@ -152,9 +217,39 @@ The following ADRs are related to this assignment:
 
 = Reflections
 
-What we would improve next:
+== What went well
 
-Adding Avro serialization with a schema registry would provide schema evolution guarantees and a more compact wire format.
+The three-topology decomposition made it straightforward to reason about, test, and evolve each stream independently. `BlockColorTopology` handles block identity and colour classification. `MoveBlockTopology` and `PickUpBlockTopology` consume pre-processed events and apply simple rising-edge logic. The separation of concerns meant changes to inactivity detection (for example, adjusting the 3-second gap) had no impact on the conveyor or robot-arm topologies.
+
+Materialising the inventory as a KTable with `reduce(first)` gave us idempotent inventory updates without any additional deduplication step. Kafka's at-least-once delivery combined with the first-wins reduction means that duplicate join outputs (which are expected with sliding windows) do not corrupt the inventory state.
+
+The simulator made end-to-end testing possible without physical hardware. Being able to replay synthetic sensor sequences locally significantly reduced iteration time when tuning the inactivity and rising-edge thresholds.
+
+== Challenges
+
+The wall-clock punctuation in `BlockColorTopology` required stepping outside the Kafka Streams DSL and manually managing a state store, making the implementation more verbose than a DSL session window would have been. It was also necessary to be careful about the order of state store registration and topology wiring to avoid startup errors.
+
+Getting the sliding-window join to produce correct results required explicit repartitioning of both input streams before the join. Without it, records with the same logical key could land on different tasks and never be joined. This behaviour is not immediately obvious from the Kafka Streams documentation.
+
+The RGB colour classification thresholds are heuristic and sensitive to ambient light. Calibrating them against real sensor readings required iterating with the physical hardware. The simulator uses ideal values that do not fully reflect real lighting conditions.
+
+== What we would improve
+
+*Avro serialisation.* The current `JsonSerde<T>` backed by Jackson is self-contained but provides no schema evolution guarantees. Replacing it with Avro and a schema registry would enforce compatibility between producers and consumers and reduce payload size on the wire.
+
+*Explicit windowed aggregation.* The windowed operations in this assignment are covered by the sliding-window join and the rising-edge aggregate. Adding an explicit tumbling or hopping window aggregation (for example, counting blocks per colour per minute for restocking analytics) would more directly illustrate the windowed-operations pattern from the lecture.
+
+*Integration tests.* No `TopologyTestDriver` tests exist for any of the three topologies. Adding unit-level topology tests would make regressions immediately visible without needing to run a full Kafka stack.
+
+*Configurable colour thresholds.* The RGB classification thresholds in `BlockColor.from()` are currently hardcoded constants. Externalising them into `application.yml` would simplify calibration for different lighting conditions or sensor hardware without requiring a recompile.
+
+#pagebreak()
+
+= Repository
+
+Source code: #link("https://github.com/ielpo/edpo-project-group1")[github.com/ielpo/edpo-project-group1]
+
+The `kafka-streams` service is located at `services/kafka-streams/`. A release tag for Assignment 2 will be added at submission time.
 
 #pagebreak()
 
