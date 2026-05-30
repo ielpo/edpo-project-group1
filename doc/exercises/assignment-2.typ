@@ -26,6 +26,11 @@ size: 12pt
 #outline()
 #pagebreak()
 
+= Changes to Assignment 1
+
+Since the hand-in of Assignment 1, the documentation for Exercise 5 has been updated. ADR 0010 was added to document the decisions around communication protocols.
+The flow-success sequence diagram was extended for clarity, accompanied by additional explanatory text.
+
 = Project Overview
 
 KAFKEA is an event-driven manufacturing system for custom furniture orders.
@@ -33,6 +38,14 @@ In the first assignment, we implemented the core order processing and factory ex
 A customer can place an order via a Camunda form. The Order service orchestrates the end-to-end process. The Factory service operates the Dobot Magician robot arm. For a full description of the project see the previous reports (Exercises 1–2, 3–4, and 5).
 
 This report covers the stream processing layer added for Assignment 2, implemented in the `kafka-streams` service. The service uses Kafka Streams to process sensor data to restock the existing inventory of KAFKEA: it detects blocks, classifies their colour, and controls the conveyor and robot arm.
+
+
+The new service resides in the inventory bounded context. Because the inventory is now being restocked by the Dobot Magician robot, the Dobot Magician control is now a shared kernel between the the inventory and factory contexts.
+
+#figure(
+  image("../images/contextmap-assignment2.png", width: 70%),
+  caption: [Updated context map]
+)
 
 To simplify development, the simulator was enhanced to produce synthetic sensor data that mimics the real factory layout. The left conveyor sensor produces distance readings that indicate when a block is present, while the colour sensor produces RGB readings that are classified to determine the block's colour.
 
@@ -258,7 +271,7 @@ The `kafka-streams` service is located at `services/kafka-streams/`. A release t
 #table(
   columns: (30%, 70%),
   table.header([*Person*], [*Tasks*]),
-  [Michael], [Building topologies, Validation against lecture content, Documentation, Presentation],
+  [Michael], [Building topologies, Validation against lecture content, Documentation, ADRs, Presentation],
   [Eva], [Building topologies, Topology implementation, Presentation],
   [Gianluca], [Building topologies, Simulator, Presentation],
 )
