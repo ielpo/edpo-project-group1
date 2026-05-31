@@ -23,7 +23,7 @@
         class="btn btn-filled"
         hx-post="/api/presets/run"
         hx-headers='{"Content-Type": "application/json"}'
-        hx-vals='{"preset": "{{ preset.name }}", "speed": "normal"}'
+        hx-vals='{"preset": "{{ preset.name }}"}'
         hx-ext="json-enc"
         hx-swap="none"
       >Run {{ preset.name }}</button>

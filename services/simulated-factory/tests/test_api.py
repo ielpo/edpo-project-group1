@@ -1,3 +1,5 @@
+import json
+import re
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -138,6 +140,27 @@ def test_fragment_presets_idle_has_no_pipeline() -> None:
     response = client.get("/fragments/presets")
     assert response.status_code == 200
     assert "step-pipeline" not in response.text
+
+
+def test_rendered_preset_button_payload_is_accepted_by_run_endpoint() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    fragment = client.get("/fragments/presets")
+    assert fragment.status_code == 200
+
+    payloads = [
+        json.loads(raw_payload)
+        for raw_payload in re.findall(r"hx-vals='([^']+)'", fragment.text)
+    ]
+    happy_path_payload = next(
+        payload for payload in payloads if payload.get("preset") == "happy-path"
+    )
+
+    response = client.post("/api/presets/run", json=happy_path_payload)
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "accepted"
 
 
 def test_sse_status_streams_event_stream() -> None:
