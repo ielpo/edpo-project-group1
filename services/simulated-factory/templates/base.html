@@ -623,13 +623,15 @@
         applyMode(normalized);
       };
 
-      // Re-apply the persisted mode after any swap (initial load or SSE refresh).
-      document.body.addEventListener('htmx:afterSwap', function () {
+      function reapplyPersistedMode() {
         applyMode(readMode());
-      });
-      document.body.addEventListener('htmx:load', function () {
-        applyMode(readMode());
-      });
+      }
+
+      // Re-apply the persisted mode after initial load, normal swaps, and
+      // SSE out-of-band swaps that replace the event panel while presets run.
+      document.body.addEventListener('htmx:afterSwap', reapplyPersistedMode);
+      document.body.addEventListener('htmx:oobAfterSwap', reapplyPersistedMode);
+      document.body.addEventListener('htmx:load', reapplyPersistedMode);
     })();
   </script>
 </body>

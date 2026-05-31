@@ -435,3 +435,17 @@ def test_events_fragment_marks_process_event_class() -> None:
     # Articles are tagged so client-side toggle can hide non-process entries
     assert "event-process" in body
     assert "event-type-COMMAND" in body
+
+
+def test_base_template_reapplies_event_filter_after_oob_swaps() -> None:
+    base_template = (
+        Path(__file__).resolve().parents[1] / "templates" / "base.html"
+    ).read_text(encoding="utf-8")
+
+    handler_marker = "function reapplyPersistedMode() {"
+    assert handler_marker in base_template
+    handler_body = base_template.split(handler_marker, 1)[1].split("      }", 1)[0]
+    assert "applyMode(readMode());" in handler_body
+
+    marker = "document.body.addEventListener('htmx:oobAfterSwap', reapplyPersistedMode);"
+    assert marker in base_template
