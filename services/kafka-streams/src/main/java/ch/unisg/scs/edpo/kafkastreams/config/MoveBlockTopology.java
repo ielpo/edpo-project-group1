@@ -28,7 +28,7 @@ import java.util.UUID;
 //    → groupByKey + aggregate      (rising-edge detection: emit once when gap > 2 s)
 //    → filter                      (keep only rising-edge events)
 //    → mapValues                   (wrap in BlockMoveTriggerEvent)
-//    → mapValues                   (wrap in ConveyorCommandEvent "STOP")
+//    → mapValues                   (wrap in ConveyorCommandEvent "MOVE")
 //    → [control.conveyor.commands.v1]
 @Configuration
 public class MoveBlockTopology {
