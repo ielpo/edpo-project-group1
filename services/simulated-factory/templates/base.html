@@ -586,6 +586,18 @@
     // filter toggle, update the page URL and reconnect the existing
     // page-wide SSE stream so live updates use the new filter mode.
     (function () {
+      var currentSSESource = null;
+
+      // Track the active EventSource so we can close it on reconnect.
+      document.body.addEventListener('htmx:sseOpen', function (e) {
+        currentSSESource = e.detail.source;
+      });
+      document.body.addEventListener('htmx:sseClose', function (e) {
+        if (e.detail.source === currentSSESource) {
+          currentSSESource = null;
+        }
+      });
+
       function onEventPanelSwapped(evt) {
         var panel = document.getElementById('event-panel');
         if (!panel) return;
@@ -602,6 +614,14 @@
         params.set('filter', mode);
         var newUrl = window.location.pathname + '?' + params.toString();
         history.replaceState(null, '', newUrl);
+
+        // Close the old SSE connection before reconnecting; htmx-ext-sse
+        // does not close the previous EventSource when a new one is created
+        // via htmx.process(), leaving the orphaned connection active.
+        if (currentSSESource) {
+          currentSSESource.close();
+          currentSSESource = null;
+        }
 
         // Reconnect SSE with the new filter
         var body = document.body;
