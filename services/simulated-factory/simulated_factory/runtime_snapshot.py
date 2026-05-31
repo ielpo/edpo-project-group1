@@ -53,7 +53,7 @@ class RuntimeSnapshot:
             currentStepName=lifecycle.currentStepName,
             timestamp=lifecycle.timestamp,
             dobots=dobots,
-            waitingForRequest=lifecycle.waitingForRequest,
+            activeGate=lifecycle.activeGate,
         )
         return jsonable_encoder(state)
 
@@ -115,7 +115,7 @@ class RuntimeSnapshot:
             currentStepName=lifecycle.currentStepName,
             timestamp=lifecycle.timestamp,
             dobots=dobots,
-            waitingForRequest=lifecycle.waitingForRequest,
+            activeGate=lifecycle.activeGate,
         )
         state_encoded = jsonable_encoder(state)
 

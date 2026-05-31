@@ -1,8 +1,7 @@
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -41,18 +40,63 @@ class SensorConfig(BaseModel):
     sensorId: str = ""
 
 
-class AwaitRequest(BaseModel):
-    method: str
-    path: str
+TriggerType = Literal["http", "kafka", "manual"]
+
+
+class AwaitTrigger(BaseModel):
+    """Declarative gate spec attached to a preset step.
+
+    A single discriminated-union field replacing the old separate awaitRequest /
+    interactive-interception mechanisms. ``timeoutMs`` is required so behaviour
+    is explicit at the preset level.
+    """
+
+    type: TriggerType
+    timeoutMs: int = 30000
+    # http
+    method: str | None = None
+    path: str | None = None
+    # kafka
+    topic: str | None = None
+
+    @model_validator(mode="after")
+    def _check_type_fields(self) -> "AwaitTrigger":
+        if self.type == "http":
+            if not self.method or not self.path:
+                raise ValueError("awaitTrigger type=http requires method and path")
+        elif self.type == "kafka":
+            if not self.topic:
+                raise ValueError("awaitTrigger type=kafka requires topic")
+        return self
+
+
+@dataclass
+class TriggerEvent:
+    """Runtime event passed to ``SimulationEngine.try_fire_gate``."""
+
+    type: TriggerType
+    method: str | None = None
+    path: str | None = None
+    topic: str | None = None
 
 
 class PresetStep(BaseModel):
     name: str
-    delayMs: int = 100
+    delayMs: int | None = None
     note: str | None = None
-    triggerMqtt: bool = False
     sensorUpdates: dict[str, Any] = Field(default_factory=dict)
-    awaitRequest: AwaitRequest | None = None
+    awaitTrigger: AwaitTrigger | None = None
+
+    @model_validator(mode="after")
+    def _check_timing(self) -> "PresetStep":
+        if self.delayMs is not None and self.awaitTrigger is not None:
+            raise ValueError(
+                f"step {self.name!r}: delayMs and awaitTrigger are mutually exclusive"
+            )
+        if self.delayMs is None and self.awaitTrigger is None:
+            # Default to a tiny delay so non-gated steps still advance.
+            self.delayMs = 100
+        return self
 
 
 class PresetDefinition(BaseModel):
@@ -70,7 +114,7 @@ class EngineLifecycleState(BaseModel):
     currentStep: int = 0
     currentStepName: str | None = None
     timestamp: datetime = Field(default_factory=utc_now)
-    waitingForRequest: AwaitRequest | None = None
+    activeGate: AwaitTrigger | None = None
 
 
 class SimulationState(BaseModel):
@@ -88,7 +132,7 @@ class SimulationState(BaseModel):
             "right": DobotRuntimeState(),
         }
     )
-    waitingForRequest: AwaitRequest | None = None
+    activeGate: AwaitTrigger | None = None
 
 
 class EventEntry(BaseModel):
@@ -183,68 +227,28 @@ class SensorUpdateRequest(BaseModel):
         return self
 
 
-class InteractiveConfig(BaseModel):
-    intercepted: set[str] = Field(default_factory=set)
-    timeout_seconds: int = 30
-
-
-class InteractiveConfigRequest(BaseModel):
-    intercepted: list[str] = Field(default_factory=list)
-    timeoutSeconds: int = 30
-
-
-class ResolveActionRequest(BaseModel):
-    outcome: str
-    reason: str | None = None
-
-
 @dataclass
 class PendingAction:
+    """UI-facing snapshot of the currently-active gate.
+
+    The engine maintains at most one pending action at a time — the one
+    corresponding to the gate currently being waited on. Manual gates render
+    approve/reject buttons; other types render a read-only status card.
+    """
+
     id: str
-    robot_name: str
-    commands: list[Any]
-    correlation_id: str
-    created_at: datetime = field(default_factory=utc_now)
-    outcome: str | None = None
-    reason: str | None = None
-    timed_out: bool = False
-    _event: asyncio.Event = field(default_factory=asyncio.Event)
+    step_name: str
+    trigger_type: TriggerType
+    trigger_spec: dict[str, Any]
+    timeout_ms: int
+    started_at: datetime = field(default_factory=utc_now)
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
-            "robotName": self.robot_name,
-            "commands": self.commands,
-            "commandTypes": [
-                str(cmd.get("type", "unknown")) if isinstance(cmd, dict) else "unknown"
-                for cmd in self.commands
-            ],
-            "correlationId": self.correlation_id,
-            "createdAt": self.created_at.isoformat(),
+            "stepName": self.step_name,
+            "triggerType": self.trigger_type,
+            "triggerSpec": dict(self.trigger_spec),
+            "timeoutMs": self.timeout_ms,
+            "startedAt": self.started_at.isoformat(),
         }
-
-    async def wait_for_resolution(self, timeout: float | None = None) -> bool:
-        """Wait for the action to be resolved.
-
-        Returns True if the action was resolved before the timeout, False if
-        the wait timed out.
-        """
-        try:
-            if timeout is None:
-                await self._event.wait()
-                return True
-            await asyncio.wait_for(self._event.wait(), timeout=timeout)
-            return True
-        except asyncio.TimeoutError:
-            return False
-
-    def resolve(self, outcome: str, reason: str | None = None) -> None:
-        """Mark the action as resolved and notify any waiter."""
-        self.outcome = outcome
-        self.reason = reason
-        self._event.set()
-
-    def mark_timed_out(self) -> None:
-        """Convenience to mark the action as timed out and notify waiters."""
-        self.timed_out = True
-        self._event.set()

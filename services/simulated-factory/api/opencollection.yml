@@ -47,12 +47,10 @@ docs:
     - **GET /color** - Compatibility endpoint matching the existing color sensor service, returning RGB bytes.
     - **GET /health** - Returns `200 OK` when the service is ready.
 
-    ## Interactive Mode
+    ## Gate Mechanism
 
-    - **GET /api/interactive/config** - Returns the current interactive configuration.
-    - **PUT /api/interactive/config** - Replaces the interactive configuration.
-    - **GET /api/interactive/pending** - Returns the list of pending actions waiting for operator resolution.
-    - **POST /api/interactive/{actionId}/resolve** - Resolves a pending action.
+    - **POST /api/gate/fire** - Fires the active manual gate (returns 404 if no active gate).
+    - **POST /api/gate/reject** - Rejects the active gate and aborts the running preset.
 
     ## WebSocket
 

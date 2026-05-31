@@ -41,7 +41,9 @@ def build_dependencies(
         actuator_registry=actuator_registry,
     )
 
-    kafka_observer = KafkaObserver(event_store=event_store, logger=logger)
+    kafka_observer = KafkaObserver(
+        event_store=event_store, logger=logger, gate_firer=engine
+    )
 
     return {
         "event_store": event_store,

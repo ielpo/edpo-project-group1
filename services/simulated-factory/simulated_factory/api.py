@@ -18,12 +18,10 @@ from fastapi.templating import Jinja2Templates
 
 from simulated_factory.deps import build_dependencies
 from simulated_factory.models import (
-    InteractiveConfig,
-    InteractiveConfigRequest,
-    ResolveActionRequest,
     RunPresetRequest,
     SensorUpdateRequest,
     SimulationStatus,
+    TriggerEvent,
     utc_now,
 )
 from simulated_factory.runtime_snapshot import RuntimeSnapshot
@@ -92,12 +90,18 @@ def create_app(config_path: str) -> FastAPI:
         if request.url.path != "/health":
             # Fire any active preset gate that matches this incoming request
             # BEFORE the handler runs so its sensor reads observe the updated
-            # state. Side-effects (sensor updates, distance publish) are
-            # applied inside fire_gate_if_matches.
+            # state. The unified try_fire_gate is a no-op when no HTTP gate is
+            # active or the request does not match.
             try:
-                engine.fire_gate_if_matches(request.method, request.url.path)
+                engine.try_fire_gate(
+                    TriggerEvent(
+                        type="http",
+                        method=request.method,
+                        path=request.url.path,
+                    )
+                )
             except Exception:  # pragma: no cover - defensive
-                logger.exception("fire_gate_if_matches raised")
+                logger.exception("try_fire_gate raised")
 
         response = await call_next(request)
 
@@ -384,49 +388,19 @@ def create_app(config_path: str) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Unknown robot {name}")
         return result
 
-    @app.get("/api/interactive/config")
-    async def get_interactive_config() -> dict[str, Any]:
-        config = engine.get_interactive_config()
-        return {
-            "intercepted": sorted(config.intercepted),
-            "timeoutSeconds": config.timeout_seconds,
-        }
+    @app.post("/api/gate/fire")
+    async def fire_gate() -> dict[str, str]:
+        fired = engine.try_fire_gate(TriggerEvent(type="manual"))
+        if not fired:
+            raise HTTPException(status_code=404, detail="no active manual gate")
+        return {"status": "fired"}
 
-    @app.put("/api/interactive/config")
-    async def put_interactive_config(
-        request_body: InteractiveConfigRequest,
-    ) -> dict[str, Any]:
-        new_config = InteractiveConfig(
-            intercepted=set(request_body.intercepted),
-            timeout_seconds=request_body.timeoutSeconds,
-        )
-        config = engine.set_interactive_config(new_config)
-        return {
-            "intercepted": sorted(config.intercepted),
-            "timeoutSeconds": config.timeout_seconds,
-        }
-
-    @app.get("/api/interactive/pending")
-    async def list_pending_actions() -> dict[str, Any]:
-        return {"items": engine.get_pending_actions()}
-
-    @app.post("/api/interactive/{action_id}/resolve")
-    async def resolve_pending_action(
-        action_id: str, request_body: ResolveActionRequest
-    ) -> dict[str, Any]:
-        try:
-            action = await engine.resolve_action(
-                action_id, request_body.outcome, request_body.reason
-            )
-        except KeyError:
-            raise HTTPException(status_code=404, detail=f"Unknown action {action_id}")
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        return {
-            "actionId": action.id,
-            "outcome": action.outcome,
-            "reason": action.reason,
-        }
+    @app.post("/api/gate/reject")
+    async def reject_gate() -> dict[str, str]:
+        rejected = engine.reject_active_gate()
+        if not rejected:
+            raise HTTPException(status_code=404, detail="no active manual gate")
+        return {"status": "rejected"}
 
     @app.get("/api/dobot/{name}/color")
     async def read_dobot_color(name: str) -> dict[str, Any]:

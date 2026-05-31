@@ -51,35 +51,20 @@ def test_dobot_command_and_sensor_aliases() -> None:
     assert health_response.json() == {"status": "ok"}
 
 
-def test_resolve_unknown_action_returns_404() -> None:
+def test_gate_fire_returns_404_when_no_active_gate() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
-    response = client.post(
-        "/api/interactive/act-does-not-exist/resolve",
-        json={"outcome": "success"},
-    )
+    response = client.post("/api/gate/fire")
     assert response.status_code == 404
 
 
-def test_interactive_config_round_trip() -> None:
+def test_gate_reject_returns_404_when_no_active_gate() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
-    initial = client.get("/api/interactive/config")
-    assert initial.status_code == 200
-    assert initial.json() == {"intercepted": [], "timeoutSeconds": 30}
-
-    updated = client.put(
-        "/api/interactive/config",
-        json={"intercepted": ["move"], "timeoutSeconds": 5},
-    )
-    assert updated.status_code == 200
-    assert updated.json() == {"intercepted": ["move"], "timeoutSeconds": 5}
-
-    pending = client.get("/api/interactive/pending")
-    assert pending.status_code == 200
-    assert pending.json() == {"items": []}
+    response = client.post("/api/gate/reject")
+    assert response.status_code == 404
 
 
 def test_index_renders_htmx_shell() -> None:

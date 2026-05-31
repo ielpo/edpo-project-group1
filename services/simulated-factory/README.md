@@ -142,14 +142,36 @@ value when the run ends.
 - Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `config.yml`.
 - The Docker image defines a healthcheck against `/health`, so the endpoint can be reused for compose or Kubernetes readiness probes.
 
-## Interactive Mode
+## Gate Mechanism
 
-The simulator supports an optional **interactive mode** that suspends selected Dobot
-command batches until a human approves or rejects them through the UI or
-`POST /api/interactive/{actionId}/resolve`. See [api.md](./api.md#interactive-mode)
-for the full endpoint reference.
+Preset steps can declare an `awaitTrigger` that suspends execution until a matching
+event arrives. Three trigger types are supported:
 
-When enabling interactive mode, raise the HTTP timeout used by `dobot-control` above
-the configured `timeoutSeconds` (default 30 s; recommended ≥ 35 s) so its requests do
-not abort while waiting for the operator. Interactive mode is in-memory only and
-resets on restart, so CI runs are unaffected.
+| Type | Fires when | Config fields |
+|---|---|---|
+| `http` | An HTTP request matching `method` + `path` hits the simulator | `method`, `path` |
+| `kafka` | A record arrives on the configured `topic` | `topic` |
+| `manual` | Operator clicks **Approve** in the UI or calls the gate API | — |
+
+Each gate has a `timeoutMs` (default 30 000 ms). If the timeout elapses without a
+trigger, the preset run aborts.
+
+### Gate API
+
+```
+POST /api/gate/fire    — fires the active manual gate (returns 404 if none)
+POST /api/gate/reject  — rejects the active gate and aborts the preset
+```
+
+### Example preset step
+
+```yaml
+- name: wait-for-order
+  awaitTrigger:
+    type: kafka
+    topic: orders
+    timeoutMs: 60000
+```
+
+`delayMs` and `awaitTrigger` are mutually exclusive on a step; if neither is set
+the step defaults to a 100 ms delay.

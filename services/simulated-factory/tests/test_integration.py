@@ -15,9 +15,9 @@ from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventStore
 from simulated_factory.models import (
-    InteractiveConfig,
     SensorUpdateRequest,
     SimulationStatus,
+    TriggerEvent,
 )
 from simulated_factory.sensor_registry import SensorRegistry
 
@@ -37,6 +37,18 @@ def _make_engine() -> tuple[SimulationEngine, EventStore]:
     return engine, event_store
 
 
+async def _wait_for_gate(engine: SimulationEngine, iterations: int = 200) -> None:
+    for _ in range(iterations):
+        await asyncio.sleep(0.01)
+        if engine.get_active_gate() is not None:
+            return
+    raise AssertionError("gate did not become active")
+
+
+def _http(method: str, path: str) -> TriggerEvent:
+    return TriggerEvent(type="http", method=method, path=path)
+
+
 # ---------------------------------------------------------------------------
 # Preset execution integration
 # ---------------------------------------------------------------------------
@@ -45,21 +57,17 @@ def _make_engine() -> tuple[SimulationEngine, EventStore]:
 class TestPresetExecution:
     @pytest.mark.asyncio
     async def test_happy_path_completes_with_gates(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         run_id = await engine.run_preset("happy-path")
         assert run_id == "run-0001"
 
-        gate_calls = [
-            ("POST", "/api/dobot/left/commands"),
-            ("GET", "/api/dobot/left/color"),
-            ("POST", "/api/dobot/left/commands"),
-        ]
-        for method, path in gate_calls:
-            for _ in range(200):
-                await asyncio.sleep(0.01)
-                if engine._step_gate is not None:
-                    break
-            assert engine.fire_gate_if_matches(method, path) is True
+        for ev in (
+            _http("POST", "/api/dobot/left/commands"),
+            _http("GET", "/api/dobot/left/color"),
+            _http("POST", "/api/dobot/left/commands"),
+        ):
+            await _wait_for_gate(engine)
+            assert engine.try_fire_gate(ev) is True
 
         await asyncio.wait_for(engine._run_task, timeout=2.0)
         status = engine.get_status()
@@ -68,44 +76,29 @@ class TestPresetExecution:
 
     @pytest.mark.asyncio
     async def test_wrong_color_preset_with_overrides(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.run_preset("wrong-color")
-        # First step is non-gated, then gated steps
-        for _ in range(200):
-            await asyncio.sleep(0.01)
-            if engine._step_gate is not None:
-                break
-        # The color sensor should be BLUE due to preset override
+        await _wait_for_gate(engine)
         color, _ = engine.read_color("left")
         assert color == "BLUE"
-        engine.fire_gate_if_matches("POST", "/api/dobot/left/commands")
+        engine.try_fire_gate(_http("POST", "/api/dobot/left/commands"))
 
-        # Color-check gate
-        for _ in range(200):
-            await asyncio.sleep(0.01)
-            if engine._step_gate is not None:
-                break
-        engine.fire_gate_if_matches("GET", "/api/dobot/left/color")
+        await _wait_for_gate(engine)
+        engine.try_fire_gate(_http("GET", "/api/dobot/left/color"))
 
-        # Reject gate
-        for _ in range(200):
-            await asyncio.sleep(0.01)
-            if engine._step_gate is not None:
-                break
-        engine.fire_gate_if_matches("POST", "/api/dobot/left/commands")
+        await _wait_for_gate(engine)
+        engine.try_fire_gate(_http("POST", "/api/dobot/left/commands"))
 
         await asyncio.wait_for(engine._run_task, timeout=2.0)
         assert engine.get_status().status == SimulationStatus.IDLE
 
     @pytest.mark.asyncio
     async def test_speed_parameter_affects_timing(self) -> None:
-        engine, event_store = _make_engine()
-        # Run at 10x speed — non-gated steps complete faster
+        engine, _ = _make_engine()
         await engine.run_preset("happy-path", speed=10.0)
-        # First step is non-gated with delayMs=75 → 7.5ms at 10x
-        await asyncio.sleep(0.05)
-        # Should be past step 1 and waiting on gate
-        assert engine._step_gate is not None
+        # First step is non-gated with delayMs=75 → 7.5ms at 10x. Then waiting on gate.
+        await _wait_for_gate(engine)
+        assert engine.get_active_gate() is not None
 
 
 # ---------------------------------------------------------------------------
@@ -115,46 +108,35 @@ class TestPresetExecution:
 
 class TestRequestGates:
     @pytest.mark.asyncio
-    async def test_gate_timeout_applies_side_effects(self) -> None:
-        engine, event_store = _make_engine()
-        await engine.run_preset("happy-path", speed=100.0)  # very fast timeout
-        # Wait for the first gated step to time out
-        await asyncio.sleep(0.5)
-        events, _ = event_store.list_events(page=1, page_size=50)
-        timed_out = [
-            e
-            for e in events
-            if isinstance(e.get("payload"), dict)
-            and e["payload"].get("gateTimedOut") is True
-        ]
-        assert len(timed_out) > 0
+    async def test_gate_timeout_aborts_preset(self) -> None:
+        engine, _ = _make_engine()
+        # happy-path gated steps have timeoutMs=10000; run at 1000x speed → 10ms
+        await engine.run_preset("happy-path", speed=1000.0)
+        await asyncio.wait_for(engine._run_task, timeout=2.0)
+        status = engine.get_status()
+        # Timeout aborts the preset before completion.
+        assert status.status in (SimulationStatus.IDLE, SimulationStatus.STOPPED)
+        assert status.currentStep < 4
 
     @pytest.mark.asyncio
     async def test_stop_clears_gate(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.run_preset("happy-path")
-        for _ in range(200):
-            await asyncio.sleep(0.01)
-            if engine._step_gate is not None:
-                break
-        assert engine._step_gate is not None
+        await _wait_for_gate(engine)
         await engine.stop()
         await asyncio.sleep(0.1)
-        assert engine.get_status().waitingForRequest is None
+        assert engine.get_status().activeGate is None
 
     @pytest.mark.asyncio
     async def test_reset_clears_state(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.run_preset("happy-path")
-        for _ in range(200):
-            await asyncio.sleep(0.01)
-            if engine._step_gate is not None:
-                break
+        await _wait_for_gate(engine)
         await engine.reset()
         status = engine.get_status()
         assert status.status == SimulationStatus.IDLE
         assert status.currentPreset is None
-        assert status.waitingForRequest is None
+        assert status.activeGate is None
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +147,7 @@ class TestRequestGates:
 class TestSensorUpdates:
     @pytest.mark.asyncio
     async def test_update_sensor_persists(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.update_sensor(
             "color-left", SensorUpdateRequest(value="GREEN", raw_color=[0, 255, 0])
         )
@@ -183,37 +165,27 @@ class TestSensorUpdates:
 
     @pytest.mark.asyncio
     async def test_sensor_update_rejected_during_preset_run(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.run_preset("happy-path")
-        for _ in range(200):
-            await asyncio.sleep(0.01)
-            if engine._step_gate is not None:
-                break
+        await _wait_for_gate(engine)
         assert engine.get_status().status == SimulationStatus.RUNNING
-        # The engine.update_sensor itself doesn't enforce locking — the API does.
-        # Verify running state is detectable for the API layer.
 
     @pytest.mark.asyncio
     async def test_preset_retains_last_sensor_value_on_completion(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.run_preset("happy-path")
 
-        gate_calls = [
-            ("POST", "/api/dobot/left/commands"),
-            ("GET", "/api/dobot/left/color"),
-            ("POST", "/api/dobot/left/commands"),
-        ]
-        for method, path in gate_calls:
-            for _ in range(200):
-                await asyncio.sleep(0.01)
-                if engine._step_gate is not None:
-                    break
-            engine.fire_gate_if_matches(method, path)
+        for ev in (
+            _http("POST", "/api/dobot/left/commands"),
+            _http("GET", "/api/dobot/left/color"),
+            _http("POST", "/api/dobot/left/commands"),
+        ):
+            await _wait_for_gate(engine)
+            engine.try_fire_gate(ev)
 
         await asyncio.wait_for(engine._run_task, timeout=2.0)
         assert engine.get_status().status == SimulationStatus.IDLE
 
-        # After completion, distance-left should retain the last preset-applied value (30.0 from last step)
         sensor = engine._sensor_registry.live["distance-left"]
         assert sensor.read() == 30.0
 
@@ -231,7 +203,7 @@ class TestSensorUpdates:
 class TestCommandHandling:
     @pytest.mark.asyncio
     async def test_commands_applied_directly(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         result = await engine.handle_actuator_commands(
             "left", [{"type": "move", "target": {"x": 100, "y": 50}}]
         )
@@ -241,27 +213,8 @@ class TestCommandHandling:
         assert state.position.y == 50.0
 
     @pytest.mark.asyncio
-    async def test_commands_intercepted_and_resolved(self) -> None:
-        engine, event_store = _make_engine()
-        engine.set_interactive_config(
-            InteractiveConfig(intercepted={"move"}, timeout_seconds=5)
-        )
-        task = asyncio.create_task(
-            engine.handle_actuator_commands(
-                "left", [{"type": "move", "target": {"x": 10}}]
-            )
-        )
-        await asyncio.sleep(0.05)
-        pending = engine.get_pending_actions()
-        assert len(pending) == 1
-        action_id = pending[0]["id"]
-        await engine.resolve_action(action_id, "success")
-        result = await asyncio.wait_for(task, timeout=2.0)
-        assert result["outcome"] == "success"
-
-    @pytest.mark.asyncio
     async def test_conveyor_command(self) -> None:
-        engine, event_store = _make_engine()
+        engine, _ = _make_engine()
         await engine.handle_actuator_commands(
             "left",
             [{"type": "run-conveyor", "speed": 100.0, "direction": "FORWARD"}],

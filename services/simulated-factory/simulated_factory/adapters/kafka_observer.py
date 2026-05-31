@@ -22,6 +22,7 @@ except Exception:  # pragma: no cover - aiokafka is a hard dep, but stay defensi
     KafkaError = Exception  # type: ignore[assignment,misc]
 
 from simulated_factory.events import EventStore
+from simulated_factory.models import TriggerEvent
 from simulated_factory.utils import decode_kafka_value, decode_kafka_key
 
 
@@ -58,6 +59,7 @@ class KafkaObserver:
         group_id: str = DEFAULT_GROUP_ID,
         topics: Iterable[str] = DEFAULT_TOPICS,
         consumer_factory: Any = None,
+        gate_firer: Any = None,
     ) -> None:
         self.event_store = event_store
         self.logger = logger
@@ -65,9 +67,14 @@ class KafkaObserver:
         self.group_id = group_id
         self.topics: tuple[str, ...] = tuple(topics)
         self._consumer_factory = consumer_factory or AIOKafkaConsumer
+        self._gate_firer = gate_firer
         self._consumer: Any = None
         self._task: asyncio.Task | None = None
         self._running = False
+
+    def set_gate_firer(self, gate_firer: Any) -> None:
+        """Inject the engine (or any object with ``try_fire_gate``) after wiring."""
+        self._gate_firer = gate_firer
 
     async def start(self) -> None:
         """Start consuming. Connection runs in the background so application
@@ -175,3 +182,11 @@ class KafkaObserver:
                 "value": decoded,
             },
         )
+
+        if self._gate_firer is not None and topic is not None:
+            try:
+                self._gate_firer.try_fire_gate(
+                    TriggerEvent(type="kafka", topic=topic)
+                )
+            except Exception:  # pragma: no cover - defensive
+                self.logger.exception("try_fire_gate raised for topic %s", topic)

@@ -8,15 +8,15 @@ from fastapi.encoders import jsonable_encoder
 
 from simulated_factory.events import EventStore
 from simulated_factory.models import (
-    AwaitRequest,
+    AwaitTrigger,
     EngineLifecycleState,
-    InteractiveConfig,
     PendingAction,
     PresetDefinition,
     PresetStep,
     SensorConfig,
     SensorUpdateRequest,
     SimulationStatus,
+    TriggerEvent,
     utc_now,
 )
 from simulated_factory.actuator_registry import ActuatorRegistry
@@ -26,19 +26,6 @@ from simulated_factory.utils import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Default to intercepting all known command types between runs so the UI
-# always regains control unless explicitly configured otherwise.
-_DEFAULT_INTERCEPTED: frozenset[str] = frozenset(
-    {
-        "move",
-        "move-relative",
-        "set-speed",
-        "suction-cup",
-        "run-conveyor",
-        "move-conveyor",
-    }
-)
 
 
 class SimulationEngine:
@@ -67,24 +54,20 @@ class SimulationEngine:
         self._run_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
 
-        self._step_gate: tuple[AwaitRequest, asyncio.Event, PresetStep] | None = None
-        self._waiting_for_request: AwaitRequest | None = None
+        # Unified gate state.
+        self._active_gate: (
+            tuple[AwaitTrigger, asyncio.Event, PresetStep] | None
+        ) = None
+        self._gate_aborted: bool = False
         self._pending_action: PendingAction | None = None
-        self._interactive_config = InteractiveConfig()
+        self._action_counter: int = 0
 
     @property
     def presets(self) -> dict[str, PresetDefinition]:
         return self._presets
 
-    @property
-    def interactive_config(self) -> InteractiveConfig:
-        return self._interactive_config
-
-    @interactive_config.setter
-    def interactive_config(self, value: InteractiveConfig) -> None:
-        self._interactive_config = value
-
     def get_status(self) -> EngineLifecycleState:
+        gate = self._active_gate
         return EngineLifecycleState(
             id=self._run_id,
             status=self._status,
@@ -92,11 +75,7 @@ class SimulationEngine:
             currentStep=self._current_step,
             currentStepName=self._current_step_name,
             timestamp=utc_now(),
-            waitingForRequest=(
-                self._waiting_for_request.model_copy(deep=True)
-                if self._waiting_for_request is not None
-                else None
-            ),
+            activeGate=gate[0].model_copy(deep=True) if gate is not None else None,
         )
 
     async def run_preset(self, preset_name: str, speed: float = 1.0) -> str:
@@ -115,7 +94,6 @@ class SimulationEngine:
             self._current_step = 0
             self._current_step_name = None
             self._stop_requested = False
-            self._interactive_config = InteractiveConfig()
             self._sensor_registry.reset()
 
             await self._record_event(
@@ -130,7 +108,7 @@ class SimulationEngine:
 
     async def stop(self) -> None:
         self._stop_requested = True
-        self._clear_step_gate()
+        self._abort_active_gate()
         await self._record_event(
             "STATE",
             message="Stop requested",
@@ -139,7 +117,7 @@ class SimulationEngine:
 
     async def reset(self) -> None:
         self._stop_requested = True
-        self._clear_step_gate()
+        self._abort_active_gate()
 
         if self._run_task is not None and not self._run_task.done():
             self._run_task.cancel()
@@ -157,10 +135,9 @@ class SimulationEngine:
         self._stop_requested = False
         self._run_task = None
 
-        self._step_gate = None
-        self._waiting_for_request = None
+        self._active_gate = None
+        self._gate_aborted = False
         self._pending_action = None
-        self._interactive_config = InteractiveConfig()
 
         self._sensor_registry.reset()
         self._actuator_registry.reset()
@@ -202,214 +179,198 @@ class SimulationEngine:
 
                 await self._run_step(step, speed)
 
-            self._status = SimulationStatus.IDLE
-            await self._record_event(
-                "STATE",
-                message=f"Preset {preset.name} completed",
-                payload={
-                    "runId": self._run_id,
-                    "preset": preset.name,
-                },
-            )
+            if self._stop_requested:
+                self._status = SimulationStatus.STOPPED
+            else:
+                self._status = SimulationStatus.IDLE
+                await self._record_event(
+                    "STATE",
+                    message=f"Preset {preset.name} completed",
+                    payload={
+                        "runId": self._run_id,
+                        "preset": preset.name,
+                    },
+                )
         except asyncio.CancelledError:
             self._status = SimulationStatus.STOPPED
             raise
         finally:
             self._stop_requested = False
-            self._clear_step_gate()
+            self._active_gate = None
+            self._gate_aborted = False
+            self._pending_action = None
             await self._sensor_registry.deactivate()
-            self._interactive_config = InteractiveConfig(
-                intercepted=set(_DEFAULT_INTERCEPTED)
-            )
 
     async def _run_step(self, step: PresetStep, speed: float) -> None:
-        if step.awaitRequest is not None:
+        # Sensor updates apply immediately, regardless of gating.
+        if step.sensorUpdates:
+            self._sensor_registry.apply_updates(step.sensorUpdates)
+
+        if step.awaitTrigger is not None:
             await self._await_gate(step, speed)
             return
 
-        self._sensor_registry.apply_updates(step.sensorUpdates)
-
-        delay = step.delayMs / 1000.0
+        delay_ms = step.delayMs if step.delayMs is not None else 0
+        delay = delay_ms / 1000.0
         if speed > 0:
             delay /= speed
-        await asyncio.sleep(delay)
+        if delay > 0:
+            await asyncio.sleep(delay)
 
     async def _await_gate(self, step: PresetStep, speed: float) -> None:
-        assert step.awaitRequest is not None
+        trigger = step.awaitTrigger
+        assert trigger is not None
 
         event = asyncio.Event()
-        self._step_gate = (step.awaitRequest, event, step)
-        self._waiting_for_request = step.awaitRequest.model_copy(deep=True)
+        self._active_gate = (trigger, event, step)
+        self._gate_aborted = False
 
-        timeout = step.delayMs / 1000.0
+        # Surface the gate via PendingAction for the UI snapshot.
+        self._action_counter += 1
+        action = PendingAction(
+            id=f"gate-{self._action_counter}",
+            step_name=step.name,
+            trigger_type=trigger.type,
+            trigger_spec=_trigger_spec(trigger),
+            timeout_ms=trigger.timeoutMs,
+        )
+        self._pending_action = action
+
+        await self._record_event(
+            "PENDING_ACTION",
+            message=f"Gate waiting at step {step.name} ({trigger.type})",
+            payload={
+                "actionId": action.id,
+                "stepName": step.name,
+                "triggerType": trigger.type,
+                "triggerSpec": action.trigger_spec,
+                "timeoutMs": trigger.timeoutMs,
+            },
+        )
+
+        timeout = trigger.timeoutMs / 1000.0
         if speed > 0:
             timeout /= speed
 
+        timed_out = False
         try:
             await asyncio.wait_for(event.wait(), timeout=timeout)
         except asyncio.TimeoutError:
-            self._sensor_registry.apply_updates(step.sensorUpdates)
+            timed_out = True
+        finally:
+            gate = self._active_gate
+            if gate is not None and gate[1] is event:
+                self._active_gate = None
+            self._pending_action = None
+
+        if self._stop_requested:
+            # Stop/reset took precedence; let the outer loop handle teardown.
+            return
+
+        if timed_out or self._gate_aborted:
+            reason = "rejected" if self._gate_aborted else "timed out"
             await self._record_event(
-                "STATE",
-                message=f"Step {step.name} gate timed out",
+                "ACTION_RESOLVED",
+                message=f"Gate {reason} at step {step.name}",
                 payload={
-                    "runId": self._run_id,
-                    "preset": self._current_preset,
-                    "step": self._current_step,
+                    "actionId": action.id,
                     "stepName": step.name,
-                    "gateTimedOut": True,
+                    "triggerType": trigger.type,
+                    "outcome": "failure",
+                    "timedOut": timed_out,
+                    "rejected": self._gate_aborted,
+                    "gateAborted": True,
                 },
             )
-        finally:
-            gate = self._step_gate
-            if gate is not None and gate[1] is event:
-                self._step_gate = None
-            self._waiting_for_request = None
+            self._gate_aborted = False
+            # Abort preset run.
+            self._stop_requested = True
+            return
 
-    def _clear_step_gate(self) -> None:
-        gate = self._step_gate
+        await self._record_event(
+            "ACTION_RESOLVED",
+            message=f"Gate fired at step {step.name}",
+            payload={
+                "actionId": action.id,
+                "stepName": step.name,
+                "triggerType": trigger.type,
+                "outcome": "success",
+            },
+        )
+
+    def _abort_active_gate(self) -> None:
+        """Wake any waiter without firing the gate.
+
+        Used by stop/reset to cancel a pending wait. The waiter's ``finally``
+        block will tear down ``_active_gate``.
+        """
+        gate = self._active_gate
         if gate is not None:
             _, event, _ = gate
             event.set()
-            self._step_gate = None
-        self._waiting_for_request = None
 
-    def _matches_gate(self, method: str, path: str) -> bool:
-        gate = self._step_gate
+    # ------------------------------------------------------------------
+    # Gate firing
+    # ------------------------------------------------------------------
+
+    def try_fire_gate(self, event: TriggerEvent) -> bool:
+        """Fire the active gate if the given trigger event matches.
+
+        Returns True if a gate was fired, False otherwise. Safe to call when
+        no gate is active.
+        """
+        gate = self._active_gate
         if gate is None:
             return False
 
-        pattern, _event, _step = gate
-        if method.upper() != pattern.method.upper():
+        trigger, async_event, _step = gate
+        if event.type != trigger.type:
             return False
 
-        regex = path_pattern_to_regex(pattern.path)
-        return regex.match(path) is not None
+        if trigger.type == "http":
+            if event.method is None or event.path is None:
+                return False
+            if event.method.upper() != (trigger.method or "").upper():
+                return False
+            regex = path_pattern_to_regex(trigger.path or "")
+            if regex.match(event.path) is None:
+                return False
+        elif trigger.type == "kafka":
+            if event.topic is None or event.topic != trigger.topic:
+                return False
+        # manual: matches unconditionally on type.
 
-    def fire_gate_if_matches(self, method: str, path: str) -> bool:
-        gate = self._step_gate
-        if gate is None:
-            return False
-
-        pattern, event, step = gate
-        if method.upper() != pattern.method.upper():
-            return False
-
-        regex = path_pattern_to_regex(pattern.path)
-        if regex.match(path) is None:
-            return False
-
-        self._sensor_registry.apply_updates(step.sensorUpdates)
-        event.set()
+        async_event.set()
         return True
 
+    def reject_active_gate(self) -> bool:
+        """Reject the active manual gate \u2014 aborts the preset.
 
+        Returns True if a manual gate was rejected, False otherwise.
+        """
+        gate = self._active_gate
+        if gate is None:
+            return False
+        trigger, async_event, _step = gate
+        if trigger.type != "manual":
+            return False
+        self._gate_aborted = True
+        async_event.set()
+        return True
+
+    def get_active_gate(self) -> AwaitTrigger | None:
+        gate = self._active_gate
+        return gate[0].model_copy(deep=True) if gate is not None else None
+
+    # ------------------------------------------------------------------
+    # Actuator commands (no interception)
+    # ------------------------------------------------------------------
 
     async def handle_actuator_commands(
         self, robot_name: str, payload: Any
     ) -> dict[str, Any]:
         command_list = payload if isinstance(payload, list) else [payload]
         correlation_id = f"cmd-{self._run_id}-{self._current_step + 1}"
-
-        intercepted = self._interactive_config.intercepted
-        command_types = [
-            str(cmd.get("type", "unknown")) if isinstance(cmd, dict) else "unknown"
-            for cmd in command_list
-        ]
-        should_intercept = bool(intercepted) and any(
-            cmd_type in intercepted for cmd_type in command_types
-        )
-
-        if should_intercept:
-            pending_action = self._pending_action
-            if pending_action is not None:
-                reason = (
-                    f"pending action {pending_action.id} must be resolved first"
-                )
-                await self._record_event(
-                    "ACTION_RESOLVED",
-                    message=(
-                        "Rejected interactive command while another action "
-                        "is pending"
-                    ),
-                    payload={
-                        "actionId": pending_action.id,
-                        "outcome": "failure",
-                        "reason": reason,
-                        "timedOut": False,
-                        "correlationId": correlation_id,
-                        "robot": robot_name,
-                        "commands": command_list,
-                        "commandTypes": command_types,
-                    },
-                )
-                return {
-                    "correlationId": correlation_id,
-                    "outcome": "failure",
-                    "reason": reason,
-                }
-
-            action_id = "0"
-            action = PendingAction(
-                id=action_id,
-                robot_name=robot_name,
-                commands=list(command_list),
-                correlation_id=correlation_id,
-            )
-            self._pending_action = action
-
-            await self._record_event(
-                "PENDING_ACTION",
-                message=f"Pending action {action_id} for {robot_name}",
-                payload={
-                    "actionId": action_id,
-                    "robot": robot_name,
-                    "commands": command_list,
-                    "commandTypes": command_types,
-                    "correlationId": correlation_id,
-                },
-            )
-
-            timeout = max(1, int(self._interactive_config.timeout_seconds))
-            self._sensor_registry.pause()
-            try:
-                resolved = await action.wait_for_resolution(timeout=timeout)
-            finally:
-                self._sensor_registry.resume()
-            if not resolved:
-                action.outcome = "failure"
-                action.timed_out = True
-                if self._pending_action is action:
-                    self._pending_action = None
-                await self._record_event(
-                    "ACTION_RESOLVED",
-                    message=f"Action {action_id} timed out",
-                    payload={
-                        "actionId": action_id,
-                        "outcome": "failure",
-                        "timedOut": True,
-                    },
-                )
-
-            outcome = action.outcome or "failure"
-            if outcome == "success":
-                self._actuator_registry.apply_commands(robot_name, command_list)
-                await self._record_event(
-                    "COMMAND",
-                    message=(
-                        f"Accepted {len(command_list)} command(s) for {robot_name} "
-                        "after interactive resolution"
-                    ),
-                    payload={"robot": robot_name, "commands": command_list},
-                )
-
-            result: dict[str, Any] = {
-                "correlationId": correlation_id,
-                "outcome": outcome,
-            }
-            if action.timed_out:
-                result["timedOut"] = True
-            return result
 
         self._actuator_registry.apply_commands(robot_name, command_list)
         await self._record_event(
@@ -419,44 +380,11 @@ class SimulationEngine:
         )
         return {"correlationId": correlation_id}
 
-    async def resolve_action(
-        self, action_id: str, outcome: str, reason: str | None = None
-    ) -> PendingAction:
-        if outcome not in ("success", "failure"):
-            raise ValueError(f"invalid outcome {outcome!r}")
-
-        action = self._pending_action
-        if action is None or action.id != action_id:
-            raise KeyError(action_id)
-
-        action.resolve(outcome, reason)
-        if self._pending_action is action:
-            self._pending_action = None
-
-        await self._record_event(
-            "ACTION_RESOLVED",
-            message=f"Action {action_id} resolved: {outcome}",
-            payload={
-                "actionId": action_id,
-                "outcome": outcome,
-                "reason": reason,
-                "timedOut": False,
-            },
-        )
-        return action
-
     def get_pending_actions(self) -> list[dict[str, Any]]:
         action = self._pending_action
         if action is None:
             return []
         return [action.to_public_dict()]
-
-    def get_interactive_config(self) -> InteractiveConfig:
-        return self._interactive_config.model_copy(deep=True)
-
-    def set_interactive_config(self, config: InteractiveConfig) -> InteractiveConfig:
-        self._interactive_config = config
-        return self.get_interactive_config()
 
     async def update_sensor(
         self, sensor_id: str, update: SensorUpdateRequest
@@ -494,3 +422,11 @@ class SimulationEngine:
 
     async def _record_event(self, event_type: str, **kwargs: Any) -> None:
         await self.event_store.append(event_type, **kwargs)
+
+
+def _trigger_spec(trigger: AwaitTrigger) -> dict[str, Any]:
+    if trigger.type == "http":
+        return {"method": trigger.method, "path": trigger.path}
+    if trigger.type == "kafka":
+        return {"topic": trigger.topic}
+    return {}

@@ -84,15 +84,6 @@ def _types_for(events: list[dict[str, Any]], endpoint: str) -> list[str]:
     return [e["type"] for e in events if e.get("endpoint") == endpoint]
 
 
-def _disable_interception(client: TestClient) -> None:
-    """Ensure dobot command tests are not held by the interactive intercept set."""
-    response = client.put(
-        "/api/interactive/config",
-        json={"intercepted": [], "timeoutSeconds": 1},
-    )
-    assert response.status_code == 200
-
-
 def test_color_endpoint_is_tagged_sensor_request() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
@@ -140,7 +131,6 @@ def test_state_endpoint_is_not_tagged_sensor_request() -> None:
 def test_api_events_filter_mode_excludes_rest_and_state() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
-    _disable_interception(client)
 
     # Generate a mix of event types
     client.get("/api/dobot/left/color")  # SENSOR_REQUEST
@@ -384,7 +374,6 @@ def test_events_fragment_renders_filter_toggles() -> None:
 def test_events_fragment_process_mode_marks_panel() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
-    _disable_interception(client)
 
     # Generate some events
     client.get("/api/dobot/left/color")
@@ -404,7 +393,6 @@ def test_events_fragment_process_mode_marks_panel() -> None:
 def test_events_fragment_renders_human_readable_command_summary() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
-    _disable_interception(client)
 
     client.post(
         "/api/dobot/left/commands",
@@ -428,7 +416,6 @@ def test_events_fragment_process_mode_excludes_non_process_events() -> None:
     """Process mode server-side filter should exclude REST events from render."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
-    _disable_interception(client)
 
     # Generate mixed events
     client.get("/api/dobot/left/color")  # SENSOR_REQUEST

@@ -67,3 +67,48 @@ class TestValueValidator:
     def test_coercion(self, input_val, expected):
         req = SensorUpdateRequest(value=input_val)
         assert req.value == expected
+
+
+class TestAwaitTrigger:
+    def test_http_requires_method_and_path(self):
+        from pydantic import ValidationError
+        from simulated_factory.models import AwaitTrigger
+
+        with pytest.raises(ValidationError):
+            AwaitTrigger(type="http", method="POST")
+        with pytest.raises(ValidationError):
+            AwaitTrigger(type="http", path="/x")
+        AwaitTrigger(type="http", method="POST", path="/x")
+
+    def test_kafka_requires_topic(self):
+        from pydantic import ValidationError
+        from simulated_factory.models import AwaitTrigger
+
+        with pytest.raises(ValidationError):
+            AwaitTrigger(type="kafka")
+        AwaitTrigger(type="kafka", topic="orders")
+
+    def test_manual_needs_no_extra_fields(self):
+        from simulated_factory.models import AwaitTrigger
+
+        AwaitTrigger(type="manual")
+
+
+class TestPresetStepXor:
+    def test_step_rejects_both_delay_and_trigger(self):
+        from pydantic import ValidationError
+        from simulated_factory.models import AwaitTrigger, PresetStep
+
+        with pytest.raises(ValidationError):
+            PresetStep(
+                name="x",
+                delayMs=100,
+                awaitTrigger=AwaitTrigger(type="manual"),
+            )
+
+    def test_step_defaults_delay_when_neither_set(self):
+        from simulated_factory.models import PresetStep
+
+        step = PresetStep(name="x")
+        assert step.delayMs == 100
+        assert step.awaitTrigger is None
