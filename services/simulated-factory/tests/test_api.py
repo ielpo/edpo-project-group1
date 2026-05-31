@@ -112,6 +112,20 @@ def test_index_threads_process_filter_into_shell() -> None:
     assert 'hx-get="/fragments/events?filter=process"' in body
 
 
+def test_index_places_pending_panel_before_main_grid() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+
+    body = response.text
+    pending_index = body.index('id="pending-panel"')
+    grid_index = body.index('<section class="grid">')
+
+    assert pending_index < grid_index
+
+
 def test_fragment_presets_lists_known_presets() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
