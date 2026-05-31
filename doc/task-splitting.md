@@ -24,3 +24,13 @@
 | ADRs                              | Michael, Eva, Gianluca |
 | Documentation                     | Michael, Eva, Gianluca |
 | Presentation                      | Michael, Eva, Gianluca |
+
+# Assignment 2
+| Task                              | Involved Members       |
+|-----------------------------------|------------------------|
+| Building topologies               | Michael, Eva, Gianluca |
+| Topology implementation           | Eva, Gianluca          |
+| Validation against lecture content| Michael                |
+| Simulator                         | Gianluca               |
+| Documentation, ADRs               | Michael                |
+| Presentation                      | Michael, Eva, Gianluca |
