@@ -17,7 +17,7 @@ uv run uvicorn main:app --reload --host 0.0.0.0 --port 8400
 - **Engine**: `SimulationEngine` in [engine.py](engine.py) is a monolithic class owning all simulation lifecycle and behaviour:
   - Preset sequencing — run/stop/reset presets, step iteration with delays.
   - Gate awaiting — `awaitRequest` steps block until a matching HTTP request fires the gate (or timeout).
-  - Interactive action queue — intercepts dobot commands as a `PendingAction`; resolves on operator approval.
+  - Interactive action queue — intercepts actuator commands as a `PendingAction`; resolves on operator approval.
   - Sensor access — delegates to `SensorRegistry` for reads and updates.
   - Actuator commands — delegates to `ActuatorRegistry` for dobot state changes.
 - **Sensor registry**: `SensorRegistry` in [sensor_registry.py](sensor_registry.py) loads `config.yml`, instantiates sensor plugins, manages the live sensor pool with MQTT lifecycle (activate/deactivate/pause/resume).
@@ -76,7 +76,7 @@ uv run uvicorn main:app --reload --host 0.0.0.0 --port 8400
 | GET | `/api/inventory` | Return inventory cache |
 | GET | `/api/events` | Paginated event log (supports `page`, `pageSize`, `filter`, `mode`) |
 | POST | `/api/events` | Accept an external event |
-| POST | `/api/dobot/{name}/commands` | Submit dobot commands (intercepted if interactive) |
+| POST | `/api/dobot/{name}/commands` | Submit actuator commands (intercepted if interactive) |
 | GET | `/api/dobot/{name}/color` | Read dobot color sensor |
 | GET | `/api/dobot/{name}/ir` | Read dobot IR sensor |
 | GET | `/api/dobot/{name}/state` | Read full dobot state (from ActuatorRegistry) |
@@ -96,7 +96,7 @@ uv run uvicorn main:app --reload --host 0.0.0.0 --port 8400
 
 **Interactive Action System**
 
-When `InteractiveConfig.intercepted` contains command types (e.g. `move`, `suction-cup`), `handle_dobot_commands` intercepts matching commands:
+When `InteractiveConfig.intercepted` contains command types (e.g. `move`, `suction-cup`), `handle_actuator_commands` intercepts matching commands:
 1. Creates a `PendingAction` and stores it in `engine._pending_action`.
 2. Pauses MQTT sensor publishing via `_sensor_registry.pause()`.
 3. Emits a `PENDING_ACTION` event so the UI shows the intercepted command.

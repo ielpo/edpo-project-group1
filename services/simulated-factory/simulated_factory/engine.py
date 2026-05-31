@@ -305,7 +305,7 @@ class SimulationEngine:
 
 
 
-    async def handle_dobot_commands(
+    async def handle_actuator_commands(
         self, robot_name: str, payload: Any
     ) -> dict[str, Any]:
         command_list = payload if isinstance(payload, list) else [payload]

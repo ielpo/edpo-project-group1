@@ -377,9 +377,9 @@ def create_app(config_path: str) -> FastAPI:
         return {"status": "accepted"}
 
     @app.post("/api/dobot/{name}/commands", status_code=202)
-    async def dobot_commands(name: str, payload: Any = Body(...)) -> dict[str, Any]:
+    async def actuator_commands(name: str, payload: Any = Body(...)) -> dict[str, Any]:
         try:
-            result = await engine.handle_dobot_commands(name, payload)
+            result = await engine.handle_actuator_commands(name, payload)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Unknown robot {name}")
         return result

@@ -101,9 +101,9 @@ def _make_engine() -> SimulationEngine:
 
 
 @pytest.mark.asyncio
-async def test_handle_dobot_commands_auto_resolves_when_not_intercepted() -> None:
+async def test_handle_actuator_commands_auto_resolves_when_not_intercepted() -> None:
     engine = _make_engine()
-    result = await engine.handle_dobot_commands(
+    result = await engine.handle_actuator_commands(
         "left", {"type": "move", "target": {"x": 1, "y": 2, "z": 3, "r": 0}}
     )
     assert "correlationId" in result
@@ -113,14 +113,14 @@ async def test_handle_dobot_commands_auto_resolves_when_not_intercepted() -> Non
 
 
 @pytest.mark.asyncio
-async def test_handle_dobot_commands_suspends_until_resolved() -> None:
+async def test_handle_actuator_commands_suspends_until_resolved() -> None:
     engine = _make_engine()
     engine.set_interactive_config(
         InteractiveConfig(intercepted={"move"}, timeout_seconds=5)
     )
 
     task = asyncio.create_task(
-        engine.handle_dobot_commands(
+        engine.handle_actuator_commands(
             "left", {"type": "move", "target": {"x": 7, "y": 0, "z": 0, "r": 0}}
         )
     )
@@ -144,14 +144,14 @@ async def test_handle_dobot_commands_suspends_until_resolved() -> None:
 
 
 @pytest.mark.asyncio
-async def test_handle_dobot_commands_rejects_overlapping_intercepts() -> None:
+async def test_handle_actuator_commands_rejects_overlapping_intercepts() -> None:
     engine = _make_engine()
     engine.set_interactive_config(
         InteractiveConfig(intercepted={"move"}, timeout_seconds=5)
     )
 
     first_task = asyncio.create_task(
-        engine.handle_dobot_commands(
+        engine.handle_actuator_commands(
             "left", {"type": "move", "target": {"x": 3, "y": 0, "z": 0, "r": 0}}
         )
     )
@@ -165,7 +165,7 @@ async def test_handle_dobot_commands_rejects_overlapping_intercepts() -> None:
     assert len(pending) == 1
     action_id = pending[0]["id"]
 
-    second = await engine.handle_dobot_commands(
+    second = await engine.handle_actuator_commands(
         "left", {"type": "move", "target": {"x": 9, "y": 0, "z": 0, "r": 0}}
     )
     assert second["outcome"] == "failure"
@@ -185,7 +185,7 @@ async def test_handle_dobot_commands_rejects_overlapping_intercepts() -> None:
 
 
 @pytest.mark.asyncio
-async def test_handle_dobot_commands_times_out() -> None:
+async def test_handle_actuator_commands_times_out() -> None:
     engine = _make_engine()
     engine.set_interactive_config(
         InteractiveConfig(intercepted={"move"}, timeout_seconds=1)
@@ -196,7 +196,7 @@ async def test_handle_dobot_commands_times_out() -> None:
         intercepted={"move"}, timeout_seconds=1
     )
 
-    result = await engine.handle_dobot_commands(
+    result = await engine.handle_actuator_commands(
         "left", {"type": "move", "target": {"x": 9, "y": 0, "z": 0, "r": 0}}
     )
     assert result["outcome"] == "failure"

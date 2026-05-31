@@ -232,7 +232,7 @@ class TestCommandHandling:
     @pytest.mark.asyncio
     async def test_commands_applied_directly(self) -> None:
         engine, event_store = _make_engine()
-        result = await engine.handle_dobot_commands(
+        result = await engine.handle_actuator_commands(
             "left", [{"type": "move", "target": {"x": 100, "y": 50}}]
         )
         assert "correlationId" in result
@@ -247,7 +247,7 @@ class TestCommandHandling:
             InteractiveConfig(intercepted={"move"}, timeout_seconds=5)
         )
         task = asyncio.create_task(
-            engine.handle_dobot_commands(
+            engine.handle_actuator_commands(
                 "left", [{"type": "move", "target": {"x": 10}}]
             )
         )
@@ -262,7 +262,7 @@ class TestCommandHandling:
     @pytest.mark.asyncio
     async def test_conveyor_command(self) -> None:
         engine, event_store = _make_engine()
-        await engine.handle_dobot_commands(
+        await engine.handle_actuator_commands(
             "left",
             [{"type": "run-conveyor", "speed": 100.0, "direction": "FORWARD"}],
         )

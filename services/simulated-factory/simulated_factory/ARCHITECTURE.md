@@ -151,7 +151,7 @@ SimulationEngine
 | `stop()`                                                 | —                        | Request stop on the current run                               |
 | `reset()`                                                | —                        | Cancel current run, reset all state                           |
 | `fire_gate_if_matches(method, path)`                     | `bool`                   | Trigger the preset step gate if it matches                    |
-| `handle_dobot_commands(robot, payload)`                  | `dict`                   | Execute or intercept dobot commands                           |
+| `handle_actuator_commands(robot, payload)`               | `dict`                   | Execute or intercept actuator commands                        |
 | `resolve_action(id, outcome, reason)`                    | `PendingAction`          | Resolve a pending intercepted action                          |
 | `get_pending_actions()`                                  | `list`                   | Currently waiting actions                                     |
 | `get_interactive_config()` / `set_interactive_config()`  | `InteractiveConfig`      | Interactive interception config                               |
