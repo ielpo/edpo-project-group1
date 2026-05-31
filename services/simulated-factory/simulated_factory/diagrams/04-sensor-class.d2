@@ -1,7 +1,4 @@
 # Sensor plugin hierarchy and config classes.
-# Note: sensors/sensor_loader.py (load_sensor function) exists in the tree but is
-# NOT called by the running system — ResourceManager._make_plugin handles dynamic
-# loading directly via importlib. Omitted from the diagram to reflect live state.
 # Render: d2 04-sensor-class.d2 sensor-class.svg
 
 BaseSensor: {
@@ -9,28 +6,33 @@ BaseSensor: {
   # abstract
   +name: str
   -_cfg: SensorConfig
-  +read()*: Any
+  +read(step?)*: Any
   +update(value)*
   +to_dict()*: dict
+  +clone(): BaseSensor
+  +to_config(): SensorConfig
+  +apply_update(data: dict)
 }
 
 MqttSensor: {
   shape: class
   # abstract mix-in
-  +get_topic()*: str
-  +get_payload()*: str
+  +mqtt_message()*: tuple | None
+  +wire(publisher)
+  +publish()
+  +start_task()
+  +stop_task()
+  +pause_task()
+  +resume_task()
 }
 
 ColorSensor: {
   shape: class
   -_cfg: ColorSensorConfig
   +read(step?): tuple
+  +read_rgb_bytes(step?): dict
   +update(value)
   +to_dict(): dict
-  +to_sensor_config(): ColorSensorConfig
-  +clone(): ColorSensor
-  +apply_overrides(overrides)
-  +apply_update_request(update)
 }
 
 IrSensor: {
@@ -39,25 +41,19 @@ IrSensor: {
   +read(step?): bool
   +update(value)
   +to_dict(): dict
-  +to_sensor_config(): IrSensorConfig
-  +clone(): IrSensor
-  +apply_overrides(overrides)
-  +apply_update_request(update)
 }
 
 DistanceSensor: {
   shape: class
   -_cfg: DistanceSensorConfig
   -_message_id: int
+  -_publish_task: asyncio.Task?
   +read(step?): float
   +update(value)
-  +get_topic(): str
-  +get_payload(): str
+  +mqtt_message(): tuple | None
+  +start_task()
+  +stop_task()
   +to_dict(): dict
-  +to_sensor_config(): DistanceSensorConfig
-  +clone(): DistanceSensor
-  +apply_overrides(overrides)
-  +apply_update_request(update)
 }
 
 GenericSensor: {
@@ -106,9 +102,10 @@ DistanceSensorConfig: {
   +uid: str
   +location: str
   +cadence_ms: int
+  +message_id: int
 }
 
-# Inheritance (child -> parent label = "extends")
+# Inheritance
 ColorSensor      -> BaseSensor: "extends"
 IrSensor         -> BaseSensor: "extends"
 DistanceSensor   -> BaseSensor: "extends"

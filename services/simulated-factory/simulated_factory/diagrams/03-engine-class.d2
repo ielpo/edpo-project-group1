@@ -1,19 +1,29 @@
-# Engine class diagram: facade, runtime state holders, and the three domain managers.
+# Engine + registries class diagram.
 # Render: d2 03-engine-class.d2 engine-class.svg
 
 SimulationEngine: {
   shape: class
 
   +event_store: EventStore
-  +distance_publisher: DistancePublisher
-  +event_bridge: Any
-  -_runtime: SimulationRuntime
-  -_resource_mgr: ResourceManager
-  -_process_runner: ProcessRunner
-  -_control_mgr: ControlPointManager
+  -_mqtt_publisher: MqttPublisher
+  -_sensor_registry: SensorRegistry
+  -_actuator_registry: ActuatorRegistry
+  -_presets: dict
+  -_status: SimulationStatus
+  -_run_id: str
+  -_run_counter: int
+  -_current_preset: str?
+  -_current_step: int
+  -_current_step_name: str?
+  -_stop_requested: bool
+  -_run_task: asyncio.Task?
+  -_lock: asyncio.Lock
+  -_step_gate: tuple?
+  -_waiting_for_request: AwaitRequest?
+  -_pending_action: PendingAction?
+  -_interactive_config: InteractiveConfig
 
-  +get_status(): SimulationState
-  +list_presets(): list
+  +get_status(): EngineLifecycleState
   +run_preset(preset_name, speed): str
   +stop()
   +reset()
@@ -23,167 +33,74 @@ SimulationEngine: {
   +get_pending_actions(): list
   +get_interactive_config(): InteractiveConfig
   +set_interactive_config(cfg): InteractiveConfig
-  +get_sensor_configs(): list
   +update_sensor(sensor_id, update): SensorConfig
   +read_color(robot): tuple
   +read_ir(robot): bool
   +read_color_sensor_bytes(): dict
-  +get_dobot_state(robot): DobotRuntimeState
-  +get_inventory_cache(): dict
-  +start_inventory_poller()
-  +stop_inventory_poller()
   +record_external_event(payload)
-}
-
-SimulationRuntime: {
-  shape: class
-  +factory: FactoryState
-  +process: ProcessState
-  +control: ControlState
-  +resources: PhysicalResources
-  +reset()
-}
-
-FactoryState: {
-  shape: class
-  +run_id: str
-  +status: SimulationStatus
-  +current_preset: str?
-  +run_counter: int
-  +stop_requested: bool
-  +run_task: asyncio.Task?
-  +lock: asyncio.Lock
-}
-
-ProcessState: {
-  shape: class
-  +current_step: int
-  +current_step_name: str?
-  +presets: dict
-}
-
-ControlState: {
-  shape: class
-  +step_gate: tuple?
-  +waiting_for_request: AwaitRequest?
-  +interactive_config: InteractiveConfig
-  +pending: dict
-  +pending_counter: int
-}
-
-PhysicalResources: {
-  shape: class
-  +default_sensors: dict
-  +sensors: dict
-  +dobots: dict
-  +inventory_cache: dict?
-  +inventory_poll_task: asyncio.Task?
-}
-
-ProcessRunner: {
-  shape: class
-
-  -_factory: FactoryState
-  -_process: ProcessState
-  -_control: ControlState
-  -_resources: PhysicalResources
-  -_event_store: EventStore
-  -_distance_publisher: DistancePublisher
-
-  +list_presets(): list
-  +run_preset(preset_name, speed): str
   -_execute_preset(preset, speed)
-  -_await_step_gate(step, speed)
-  -_apply_step_side_effects_sync(step)
-  -_publish_distance_if_needed(step)
+  -_run_step(step, speed)
+  -_await_gate(step, speed)
   -_clear_step_gate()
+  -_matches_gate(method, path): bool
+  -_record_event(event_type, **kwargs)
 }
 
-ControlPointManager: {
+SensorRegistry: {
   shape: class
 
-  -_factory: FactoryState
-  -_process: ProcessState
-  -_control: ControlState
-  -_resources: PhysicalResources
-  -_event_store: EventStore
-
-  +fire_gate_if_matches(method, path)
-  +matches_gate(method, path): bool
-  +handle_dobot_commands(robot, payload): dict
-  +resolve_action(action_id, outcome, reason): PendingAction
-  +get_pending_actions(): list
-  +get_interactive_config(): InteractiveConfig
-  +set_interactive_config(cfg): InteractiveConfig
-  -_apply_gate_side_effects(step)
-  -_apply_commands(robot, commands)
-}
-
-ResourceManager: {
-  shape: class
-
-  -_resources: PhysicalResources
-  -_event_store: EventStore
-  -_config_path: Path
-  -_inventory_url: str
+  -_mqtt_publisher: MqttPublisher
+  -_defaults: dict
+  -_presets_raw: dict
+  -_live: dict
 
   +get_presets(): dict
   +sensors(): dict
-  +get_sensor_configs(): list
-  +update_sensor(sensor_id, update): SensorConfig
-  +read_color(robot): tuple
-  +read_ir(robot): bool
-  +read_color_sensor_bytes(): dict
-  +get_dobot_state(robot): DobotRuntimeState
-  +get_inventory_cache(): dict
-  +start_inventory_poller()
-  +stop_inventory_poller()
-  +set_current_step_getter(getter)
-  +make_plugin(sensor_id, cfg): BaseSensor
-  -_load_config()
-  -_make_plugin(sensor_id, cfg): BaseSensor
-  -_infer_sensor_type(sensor_id, cfg): str
-  -_inventory_poll_loop()
+  +reset()
+  +get_or_create(sensor_id): BaseSensor
+  +activate()
+  +deactivate()
+  +pause()
+  +resume()
+  +apply_updates(updates)
+  +configs(): list
+  +apply_sensor_update(sensor_id, update): SensorConfig
+  +make(sensor_id, config): BaseSensor
+  -_infer_sensor_type(sensor_id, config): str
+  +live: dict
 }
 
-_MutableStateProxy: {
+ActuatorRegistry: {
   shape: class
 
-  # Backward-compat shim exposed via SimulationEngine.state.
-  # All fields are proxied to SimulationRuntime.
-  -_rt: SimulationRuntime
-  +id: str
-  +status: SimulationStatus
-  +currentPreset: str?
-  +currentStep: int
-  +currentStepName: str?
-  +timestamp: datetime
-  +dobots: dict
-  +waitingForRequest: AwaitRequest?
-  +model_copy(deep): SimulationState
+  -_actuators: dict
+
+  +apply_commands(robot_name, commands)
+  +get_state(robot_name): DobotRuntimeState
+  +all_states(): dict
+  +reset()
 }
 
-# Composition: SimulationEngine owns runtime + managers
-SimulationEngine     -> SimulationRuntime:    "owns"
-SimulationEngine     -> ProcessRunner:        "owns"
-SimulationEngine     -> ControlPointManager:  "owns"
-SimulationEngine     -> ResourceManager:      "owns"
-SimulationEngine     -> _MutableStateProxy:   "returns via .state"
+RuntimeSnapshot: {
+  shape: class
 
-SimulationRuntime    -> FactoryState:         "owns"
-SimulationRuntime    -> ProcessState:         "owns"
-SimulationRuntime    -> ControlState:         "owns"
-SimulationRuntime    -> PhysicalResources:    "owns"
+  -_engine: SimulationEngine
+  -_sensor_registry: SensorRegistry
+  -_actuator_registry: ActuatorRegistry
+  -_inventory_poller: InventoryPoller
+  -_event_store: EventStore
 
-# Managers share references to runtime sub-states (not ownership)
-ProcessRunner        -> FactoryState:         "ref"
-ProcessRunner        -> ProcessState:         "ref"
-ProcessRunner        -> ControlState:         "ref"
-ProcessRunner        -> PhysicalResources:    "ref"
+  +status_view(): dict
+  +presets_view(): dict
+  +twin_view(): dict
+  +events_view(filter_mode): dict
+  +pending_view(): dict
+  +all_panels(filter_mode): dict
+}
 
-ControlPointManager  -> FactoryState:         "ref"
-ControlPointManager  -> ProcessState:         "ref"
-ControlPointManager  -> ControlState:         "ref"
-ControlPointManager  -> PhysicalResources:    "ref"
-
-ResourceManager      -> PhysicalResources:    "ref"
+# Composition
+SimulationEngine -> SensorRegistry:   "delegates sensor ops"
+SimulationEngine -> ActuatorRegistry: "delegates actuator ops"
+RuntimeSnapshot  -> SimulationEngine: "reads lifecycle"
+RuntimeSnapshot  -> SensorRegistry:   "reads configs"
+RuntimeSnapshot  -> ActuatorRegistry: "reads states"

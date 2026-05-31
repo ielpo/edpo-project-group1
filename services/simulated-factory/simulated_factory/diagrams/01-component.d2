@@ -20,18 +20,24 @@ Sim: "Simulated Factory Service" {
     sse:        "SSE Live Stream"
     fragments:  "HTMX Fragments"
     middleware: "Request Capture Middleware"
+    snapshot:   "RuntimeSnapshot"
   }
 
-  Engine: "Engine (Core Domain)" {
-    facade:        "SimulationEngine (facade)"
-    process_runner:"ProcessRunner"
-    control_mgr:   "ControlPointManager"
-    resource_mgr:  "ResourceManager"
-    runtime:       "SimulationRuntime"
+  Engine: "SimulationEngine (monolithic)" {
+    label: "SimulationEngine"
+    preset:     "Preset Execution"
+    gate:       "Gate Matching"
+    interactive:"Interactive Mode"
   }
 
-  Sensors: "Sensor Plugin System" {
+  Registries: "Registries" {
+    sensor_reg:   "SensorRegistry"
+    actuator_reg: "ActuatorRegistry"
+  }
+
+  Sensors: "Sensor Plugins" {
     base:        "BaseSensor (ABC)"
+    mqtt_mixin:  "MqttSensor (ABC)"
     color:       "ColorSensor"
     ir:          "IrSensor"
     distance:    "DistanceSensor"
@@ -39,14 +45,19 @@ Sim: "Simulated Factory Service" {
     dobot_color: "DobotColorSensor"
   }
 
+  Actuators: "Actuator Plugins" {
+    base_act:    "BaseActuator (ABC)"
+    dobot:       "DobotActuator"
+  }
+
   Adapters: "Adapters (Infrastructure)" {
-    dist_pub:  "DistancePublisher"
+    mqtt_pub:  "MqttPublisher"
     kafka_obs: "KafkaObserver"
+    inv_poll:  "InventoryPoller"
   }
 
   Events: "Event Infrastructure" {
     event_store:  "EventStore"
-    event_bridge: "EventBridge"
   }
 }
 
@@ -56,32 +67,29 @@ External.orchestrator -> Sim.API.rest:         "REST commands"
 
 # Request pipeline
 Sim.API.rest        -> Sim.API.middleware:     "wraps"
-Sim.API.middleware  -> Sim.Engine.facade:      "fire gate + dispatch"
-Sim.API.fragments   -> Sim.Engine.facade:      "read state"
+Sim.API.middleware  -> Sim.Engine:             "fire gate + dispatch"
+Sim.API.fragments   -> Sim.API.snapshot:       "read views"
+Sim.API.snapshot    -> Sim.Engine:             "get_status()"
+Sim.API.snapshot    -> Sim.Registries:         "configs / states"
 Sim.API.sse         -> Sim.Events.event_store: "subscribe()"
 
-# Facade -> domain managers
-Sim.Engine.facade -> Sim.Engine.process_runner
-Sim.Engine.facade -> Sim.Engine.control_mgr
-Sim.Engine.facade -> Sim.Engine.resource_mgr
+# Engine -> Registries
+Sim.Engine -> Sim.Registries.sensor_reg:   "read/update sensors"
+Sim.Engine -> Sim.Registries.actuator_reg: "apply commands / get state"
 
-# Domain managers share runtime state
-Sim.Engine.process_runner -> Sim.Engine.runtime: "mutates"
-Sim.Engine.control_mgr    -> Sim.Engine.runtime: "mutates"
-Sim.Engine.resource_mgr   -> Sim.Engine.runtime: "owns sensors/dobots"
+# Registry -> Plugins
+Sim.Registries.sensor_reg   -> Sim.Sensors:   "instantiate / lifecycle"
+Sim.Registries.actuator_reg -> Sim.Actuators: "apply / state"
 
-# Sensor access
-Sim.Engine.resource_mgr -> Sim.Sensors: "instantiate / read / update"
+# MQTT sensor publishing
+Sim.Sensors.distance -> Sim.Adapters.mqtt_pub: "publish via wire()"
 
 # Event emission
-Sim.Engine.process_runner -> Sim.Events.event_store: "append()"
-Sim.Engine.control_mgr    -> Sim.Events.event_store: "append()"
-Sim.Engine.resource_mgr   -> Sim.Events.event_store: "append()"
+Sim.Engine           -> Sim.Events.event_store: "append()"
+Sim.Adapters.mqtt_pub -> Sim.Events.event_store: "append MQTT events"
 
 # Outbound integrations
-Sim.Engine.process_runner -> Sim.Adapters.dist_pub:    "publish distance"
-Sim.Adapters.dist_pub     -> External.mqtt:            "MQTT publish"
-Sim.Adapters.kafka_obs    -> External.kafka:           "consume topics"
-Sim.Adapters.kafka_obs    -> Sim.Events.event_store:   "append KAFKA events"
-Sim.Events.event_bridge   -> External:                 "optional HTTP relay"
-Sim.Engine.resource_mgr   -> External.inventory:       "poll /inventory"
+Sim.Adapters.mqtt_pub  -> External.mqtt:      "MQTT publish"
+Sim.Adapters.kafka_obs -> External.kafka:     "consume topics"
+Sim.Adapters.kafka_obs -> Sim.Events.event_store: "append KAFKA events"
+Sim.Adapters.inv_poll  -> External.inventory: "poll /inventory"

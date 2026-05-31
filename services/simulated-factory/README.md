@@ -10,7 +10,6 @@ physical setup.
 - REST endpoints compatible with the simulator contract consumed by `dobot-control`
 - htmx-driven UI with server-rendered Jinja2 templates and Material Design 3 styling
 - Server-Sent Events at `/sse/status` push out-of-band HTML fragments so panels live-update without page reloads
-- WebSocket live updates at `/ws/status` (kept for backend consumers; UI uses SSE)
 - In-memory event history for REST, MQTT, and simulator state transitions
 - Color sensor and Dobot sensor endpoints, plus MQTT distance sensor publishing
 - Health endpoint at `/health`
@@ -27,8 +26,7 @@ templates/
 └─ fragments/
    ├─ status.html             status badge
    ├─ presets.html            preset cards with run buttons
-   ├─ sensors.html            sensor list (uses _sensor_card.html)
-   ├─ _sensor_card.html       single sensor card with hx-put form
+   ├─ twin.html              digital twin panel (sensors + inventory)
    ├─ events.html             chronological event list
    └─ pending.html            pending-action approve/reject cards
 ```
@@ -80,20 +78,12 @@ docker compose -f docker-compose-development.yml up --build simulated-factory do
 
 | Variable | Default | Description |
 |---|---|---|
-| `SIMULATOR_CONFIG_PATH` | `presets.yml` | Base YAML file containing presets and default sensors |
+| `SIMULATOR_CONFIG_PATH` | `config.yml` | Base YAML file containing presets and default sensors |
 | `SIMULATOR_BIND` | `0.0.0.0` | Host/interface for the HTTP server |
 | `SIMULATOR_PORT` | `8400` | HTTP port |
 | `SIMULATOR_BROKER_URL` | unset | MQTT broker URL for distance publishes, for example `tcp://mqtt:1883` |
-| `SIMULATOR_EVENT_BRIDGE` | `none` | Event bridge mode: `none`, `http`, or `kafka` |
-| `SIMULATOR_EVENT_BRIDGE_URL` | unset | Target callback URL when `SIMULATOR_EVENT_BRIDGE=http` |
-| `SIMULATOR_DISTANCE_TOPIC` | unset | Override the MQTT topic used by the distance sensor |
-
-### Event Bridge Modes
-
-- `none`: do not forward simulator events outside the process.
-- `http`: POST event payloads to `SIMULATOR_EVENT_BRIDGE_URL`.
-- `kafka`: reserve the event bridge for a Kafka-backed deployment. In this MVP the service logs
-  the intent and still records the event locally so developer workflows remain deterministic.
+| `INVENTORY_URL` | `http://localhost:8103` | Base URL for inventory polling |
+| `SIMULATED_FACTORY_KAFKA_OBSERVER` | (enabled) | Set to `false`/`0`/`off` to disable the Kafka observer |
 
 ## API Contract
 
@@ -129,7 +119,7 @@ Note: The Factory Twin UI now exposes `scripted_values` and `raw_color` as indiv
 
 ## Notes
 
-- Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `presets.yml`.
+- Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `config.yml`.
 - The Docker image defines a healthcheck against `/health`, so the endpoint can be reused for compose or Kubernetes readiness probes.
 
 ## Interactive Mode

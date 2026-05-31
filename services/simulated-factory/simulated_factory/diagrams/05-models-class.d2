@@ -9,8 +9,21 @@ SimulationStatus: {
   STOPPED
 }
 
+EngineLifecycleState: {
+  shape: class
+  # Lifecycle-only snapshot from engine.get_status()
+  +id: str
+  +status: SimulationStatus
+  +currentPreset: str?
+  +currentStep: int
+  +currentStepName: str?
+  +timestamp: datetime
+  +waitingForRequest: AwaitRequest?
+}
+
 SimulationState: {
   shape: class
+  # Full /api/status payload — composed by RuntimeSnapshot
   +id: str
   +status: SimulationStatus
   +currentPreset: str?
@@ -53,7 +66,7 @@ PresetStep: {
   +name: str
   +delayMs: int
   +note: str?
-  +publishDistance: float?
+  +triggerMqtt: bool
   +sensorUpdates: dict
   +awaitRequest: AwaitRequest?
 }

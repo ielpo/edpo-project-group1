@@ -1,7 +1,4 @@
 # Adapters and Event infrastructure classes.
-# Note: MqttPublisher exists in adapters/mqtt_publisher.py but is NOT instantiated
-# by build_dependencies() — it's standalone code not wired into the running system.
-# Included here for completeness with a note.
 # Render: d2 06-adapters-events-class.d2 adapters-events-class.svg
 
 EventStore: {
@@ -19,20 +16,20 @@ EventStore: {
 
 EventBridge: {
   shape: class
+  # Defined but NOT wired by deps.py in the current code.
   -_mode: str
   -_target_url: str?
   -_logger: Logger
   +emit(event)
 }
 
-DistancePublisher: {
+MqttPublisher: {
   shape: class
+  # Wired in deps.py — used by DistanceSensor via SensorRegistry.wire()
   -_broker_url: str?
   -_event_store: EventStore
   -_logger: Logger
-  -_message_id: int
-  +publish(sensor, distance)
-  -_build_payload(sensor, distance): dict
+  +publish_raw(topic, payload)
 }
 
 KafkaObserver: {
@@ -48,22 +45,20 @@ KafkaObserver: {
   +start()
   +stop()
   -_run()
-  -_consume_loop()
-  -_record_event(record)
 }
 
-MqttPublisher: {
+InventoryPoller: {
   shape: class
-  # (NOT wired in deps.py — defined but unused at runtime)
-  +hostname: str
-  +port: int
-  +event_store: EventStore
-  +logger: Logger
-  -_message_id: int
-  +publish(topic, payload)
+  -_url: str
+  -_logger: Logger
+  -_cache: dict?
+  -_task: asyncio.Task?
+  +get_cache(): dict
+  +start()
+  +stop()
+  -_poll_loop()
 }
 
-DistancePublisher -> EventStore: "append MQTT events"
-KafkaObserver     -> EventStore: "append KAFKA events"
-MqttPublisher     -> EventStore: "would append MQTT events (if wired)"
-EventBridge       -> EventStore: "optional external relay"
+MqttPublisher    -> EventStore: "append MQTT events"
+KafkaObserver    -> EventStore: "append KAFKA events"
+InventoryPoller  -> InventoryPoller: "caches inventory grid"

@@ -1,5 +1,5 @@
 # Dependency wiring as performed by build_dependencies() in deps.py.
-# Reflects what is actually instantiated at startup — not every class in the tree.
+# Reflects what is actually instantiated at startup.
 # Render: d2 07-dependency-wiring.d2 dependency-wiring.svg
 
 direction: down
@@ -8,16 +8,14 @@ main:    "main.py"
 api:     "api.py / create_app()"
 deps:    "deps.py / build_dependencies()"
 
-event_store:        "EventStore"
-event_bridge:       "EventBridge"
-distance_publisher: "DistancePublisher"
-engine:             "SimulationEngine"
-kafka_observer:     "KafkaObserver"
-
-resource_mgr:   "ResourceManager"
-process_runner: "ProcessRunner"
-control_mgr:    "ControlPointManager"
-runtime:        "SimulationRuntime"
+event_store:      "EventStore"
+mqtt_publisher:   "MqttPublisher"
+sensor_registry:  "SensorRegistry"
+actuator_registry:"ActuatorRegistry"
+inventory_poller: "InventoryPoller"
+engine:           "SimulationEngine"
+kafka_observer:   "KafkaObserver"
+snapshot:         "RuntimeSnapshot"
 
 config:    "config.yml"
 sensors:   "Sensor Plugins"
@@ -29,21 +27,33 @@ main -> api: "create_app(config_path)"
 api  -> deps: "build_dependencies(...)"
 
 deps -> event_store
-deps -> event_bridge
-deps -> distance_publisher
+deps -> mqtt_publisher
+deps -> sensor_registry
+deps -> actuator_registry
+deps -> inventory_poller
 deps -> engine
 deps -> kafka_observer
 
-engine -> resource_mgr
-engine -> process_runner
-engine -> control_mgr
-engine -> runtime
+# api.py additionally constructs RuntimeSnapshot
+api -> snapshot: "composes view layer"
 
-resource_mgr   -> config: "loads"
-resource_mgr   -> sensors: "instantiates via importlib"
-resource_mgr   -> inventory: "polls /inventory"
-kafka_observer -> kafka: "consumes"
-distance_publisher -> mqtt: "publishes"
+# Internal wiring
+mqtt_publisher   -> event_store: "logs publishes"
+sensor_registry  -> config: "loads YAML"
+sensor_registry  -> sensors: "instantiates via importlib"
+sensor_registry  -> mqtt_publisher: "wires into MqttSensors"
+engine           -> sensor_registry: "delegates sensor ops"
+engine           -> actuator_registry: "delegates actuator ops"
+engine           -> event_store: "appends events"
+engine           -> mqtt_publisher: "receives (unused directly)"
+snapshot         -> engine: "reads lifecycle"
+snapshot         -> sensor_registry: "reads configs"
+snapshot         -> actuator_registry: "reads states"
+snapshot         -> inventory_poller: "reads cache"
+snapshot         -> event_store: "reads events"
 
-# Note: adapters/mqtt_publisher.py exists but is NOT created here.
-# Note: sensors/sensor_loader.py exists but ResourceManager bypasses it.
+# External connections
+kafka_observer   -> kafka: "consumes"
+kafka_observer   -> event_store: "appends KAFKA events"
+inventory_poller -> inventory: "polls /inventory"
+mqtt_publisher   -> mqtt: "publishes (when broker configured)"
