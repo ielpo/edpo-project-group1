@@ -61,7 +61,21 @@ class PresetDefinition(BaseModel):
     steps: list[PresetStep] = Field(default_factory=list)
 
 
+class EngineLifecycleState(BaseModel):
+    """Lifecycle-only engine status — no dobot or sensor state."""
+
+    id: str = "run-0000"
+    status: SimulationStatus = SimulationStatus.IDLE
+    currentPreset: str | None = None
+    currentStep: int = 0
+    currentStepName: str | None = None
+    timestamp: datetime = Field(default_factory=utc_now)
+    waitingForRequest: AwaitRequest | None = None
+
+
 class SimulationState(BaseModel):
+    """Public /api/status payload — composed outside the engine."""
+
     id: str = "run-0000"
     status: SimulationStatus = SimulationStatus.IDLE
     currentPreset: str | None = None

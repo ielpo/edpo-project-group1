@@ -9,19 +9,17 @@ from fastapi.encoders import jsonable_encoder
 from simulated_factory.events import EventStore
 from simulated_factory.models import (
     AwaitRequest,
-    DobotRuntimeState,
+    EngineLifecycleState,
     InteractiveConfig,
     PendingAction,
     PresetDefinition,
     PresetStep,
     SensorConfig,
     SensorUpdateRequest,
-    SimulationState,
     SimulationStatus,
     utc_now,
 )
 from simulated_factory.actuator_registry import ActuatorRegistry
-from simulated_factory.actuators.base import BaseActuator
 from simulated_factory.sensor_registry import SensorRegistry
 from simulated_factory.utils import (
     path_pattern_to_regex,
@@ -47,18 +45,16 @@ class SimulationEngine:
     def __init__(
         self,
         *,
-        config_path: str,
         event_store: EventStore,
         mqtt_publisher: Any,
-        event_bridge: Any = None,
-        inventory_poller: Any = None,
+        sensor_registry: "SensorRegistry",
+        actuator_registry: "ActuatorRegistry",
     ):
         self.event_store = event_store
         self._mqtt_publisher = mqtt_publisher
-        self._event_bridge = event_bridge
-        self._inventory_poller = inventory_poller
 
-        self._sensor_registry = SensorRegistry(config_path, mqtt_publisher=mqtt_publisher)
+        self._sensor_registry = sensor_registry
+        self._actuator_registry = actuator_registry
         self._presets: dict[str, PresetDefinition] = self._sensor_registry.get_presets()
 
         self._status: SimulationStatus = SimulationStatus.IDLE
@@ -76,9 +72,6 @@ class SimulationEngine:
         self._pending_action: PendingAction | None = None
         self._interactive_config = InteractiveConfig()
 
-        self._actuator_registry = ActuatorRegistry()
-        self._actuators: dict[str, BaseActuator] = self._actuator_registry.actuators()
-
     @property
     def presets(self) -> dict[str, PresetDefinition]:
         return self._presets
@@ -91,34 +84,20 @@ class SimulationEngine:
     def interactive_config(self, value: InteractiveConfig) -> None:
         self._interactive_config = value
 
-    def get_status(self) -> SimulationState:
-        return SimulationState(
+    def get_status(self) -> EngineLifecycleState:
+        return EngineLifecycleState(
             id=self._run_id,
             status=self._status,
             currentPreset=self._current_preset,
             currentStep=self._current_step,
             currentStepName=self._current_step_name,
             timestamp=utc_now(),
-            dobots={
-                name: cast(DobotRuntimeState, actuator.state())
-                for name, actuator in self._actuators.items()
-            },
             waitingForRequest=(
                 self._waiting_for_request.model_copy(deep=True)
                 if self._waiting_for_request is not None
                 else None
             ),
         )
-
-    def list_presets(self) -> list[dict[str, object]]:
-        return [
-            {
-                "name": preset.name,
-                "description": preset.description,
-                "steps": [{"name": step.name} for step in preset.steps],
-            }
-            for preset in self._presets.values()
-        ]
 
     async def run_preset(self, preset_name: str, speed: float = 1.0) -> str:
         preset = self._presets.get(preset_name)
@@ -184,7 +163,7 @@ class SimulationEngine:
         self._interactive_config = InteractiveConfig()
 
         self._sensor_registry.reset()
-        self._actuators = self._actuator_registry.actuators()
+        self._actuator_registry.reset()
 
         await self._record_event(
             "STATE", message="Simulation reset", payload={"status": "reset"}
@@ -414,7 +393,7 @@ class SimulationEngine:
 
             outcome = action.outcome or "failure"
             if outcome == "success":
-                self._actuators[robot_name].apply(command_list)
+                self._actuator_registry.apply_commands(robot_name, command_list)
                 await self._record_event(
                     "COMMAND",
                     message=(
@@ -432,7 +411,7 @@ class SimulationEngine:
                 result["timedOut"] = True
             return result
 
-        self._actuators[robot_name].apply(command_list)
+        self._actuator_registry.apply_commands(robot_name, command_list)
         await self._record_event(
             "COMMAND",
             message=f"Accepted {len(command_list)} command(s) for {robot_name}",
@@ -479,9 +458,6 @@ class SimulationEngine:
         self._interactive_config = config
         return self.get_interactive_config()
 
-    def get_sensor_configs(self) -> list[SensorConfig]:
-        return self._sensor_registry.configs()
-
     async def update_sensor(
         self, sensor_id: str, update: SensorUpdateRequest
     ) -> SensorConfig:
@@ -510,14 +486,6 @@ class SimulationEngine:
     def read_color_sensor_bytes(self) -> dict[str, int]:
         plugin = cast(Any, self._sensor_registry.get_or_create("color-left"))
         return plugin.read_rgb_bytes(step=self._current_step)
-
-    def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
-        return cast(DobotRuntimeState, self._actuators[robot_name].state())
-
-    def get_inventory_cache(self) -> dict[str, Any]:
-        if self._inventory_poller is None:
-            return {"grid": None, "rows": 0, "cols": 0}
-        return self._inventory_poller.get_cache()
 
     async def record_external_event(self, payload: Any) -> None:
         await self._record_event(

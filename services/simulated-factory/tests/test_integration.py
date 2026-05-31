@@ -10,14 +10,16 @@ from pathlib import Path
 
 import pytest
 
+from simulated_factory.actuator_registry import ActuatorRegistry
 from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.engine import SimulationEngine
-from simulated_factory.events import EventBridge, EventStore
+from simulated_factory.events import EventStore
 from simulated_factory.models import (
     InteractiveConfig,
     SensorUpdateRequest,
     SimulationStatus,
 )
+from simulated_factory.sensor_registry import SensorRegistry
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 LOGGER = logging.getLogger(__name__)
@@ -25,11 +27,12 @@ LOGGER = logging.getLogger(__name__)
 
 def _make_engine() -> tuple[SimulationEngine, EventStore]:
     event_store = EventStore()
+    mqtt = MqttPublisher(None, event_store, LOGGER)
     engine = SimulationEngine(
-        config_path=str(CONFIG_PATH),
         event_store=event_store,
-        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
-        event_bridge=EventBridge("none", None, LOGGER),
+        mqtt_publisher=mqtt,
+        sensor_registry=SensorRegistry(str(CONFIG_PATH), mqtt_publisher=mqtt),
+        actuator_registry=ActuatorRegistry(),
     )
     return engine, event_store
 
@@ -180,7 +183,7 @@ class TestSensorUpdates:
 
     def test_sensor_configs_list(self) -> None:
         engine, _ = _make_engine()
-        configs = engine.get_sensor_configs()
+        configs = engine._sensor_registry.configs()
         assert len(configs) > 0
 
 
@@ -197,7 +200,7 @@ class TestCommandHandling:
             "left", [{"type": "move", "target": {"x": 100, "y": 50}}]
         )
         assert "correlationId" in result
-        state = engine.get_dobot_state("left")
+        state = engine._actuator_registry.get_state("left")
         assert state.position.x == 100.0
         assert state.position.y == 50.0
 
@@ -227,6 +230,6 @@ class TestCommandHandling:
             "left",
             [{"type": "run-conveyor", "speed": 100.0, "direction": "FORWARD"}],
         )
-        state = engine.get_dobot_state("left")
+        state = engine._actuator_registry.get_state("left")
         assert state.conveyor_speed == 100.0
         assert state.conveyor_direction == "FORWARD"

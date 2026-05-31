@@ -176,7 +176,7 @@ def test_put_sensor_returns_html_for_htmx_caller() -> None:
     # is intentionally empty for HTMX callers.
     assert response.text == ""
     # The update was applied to the engine.
-    sensor = app.state.engine._sensor_registry.live["color-left"]
+    sensor = app.state.sensor_registry.live["color-left"]
     assert sensor._cfg.value == "GREEN"
 
 
@@ -205,7 +205,7 @@ def test_put_sensor_accepts_scripted_values_array_and_csv() -> None:
         json={"mode": "scripted", "scripted_values": [5, 15, 25]},
     )
     assert resp.status_code == 200
-    sensor = app.state.engine._sensor_registry.live["distance-conveyor"]
+    sensor = app.state.sensor_registry.live["distance-conveyor"]
     assert sensor._cfg.scripted_values == [5, 15, 25]
 
     # Send a CSV string payload
@@ -214,5 +214,5 @@ def test_put_sensor_accepts_scripted_values_array_and_csv() -> None:
         json={"mode": "scripted", "scripted_values": "10,20.5,30"},
     )
     assert resp2.status_code == 200
-    sensor2 = app.state.engine._sensor_registry.live["distance-conveyor"]
+    sensor2 = app.state.sensor_registry.live["distance-conveyor"]
     assert sensor2._cfg.scripted_values == [10, 20.5, 30]

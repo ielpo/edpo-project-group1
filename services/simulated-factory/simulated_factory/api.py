@@ -25,6 +25,7 @@ from simulated_factory.models import (
     SensorUpdateRequest,
     utc_now,
 )
+from simulated_factory.runtime_snapshot import RuntimeSnapshot
 
 from simulated_factory.utils import format_sse
 
@@ -47,8 +48,18 @@ def create_app(config_path: str) -> FastAPI:
     deps = build_dependencies(config_path, logger=logger)
     event_store = deps["event_store"]
     engine = deps["engine"]
-    kafka_observer = deps["kafka_observer"]
+    sensor_registry = deps["sensor_registry"]
+    actuator_registry = deps["actuator_registry"]
     inventory_poller = deps["inventory_poller"]
+    kafka_observer = deps["kafka_observer"]
+
+    snapshot = RuntimeSnapshot(
+        engine=engine,
+        sensor_registry=sensor_registry,
+        actuator_registry=actuator_registry,
+        inventory_poller=inventory_poller,
+        event_store=event_store,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -68,6 +79,10 @@ def create_app(config_path: str) -> FastAPI:
     app.state.engine = engine
     app.state.event_store = event_store
     app.state.kafka_observer = kafka_observer
+    app.state.sensor_registry = sensor_registry
+    app.state.actuator_registry = actuator_registry
+    app.state.inventory_poller = inventory_poller
+    app.state.runtime_snapshot = snapshot
 
     @app.middleware("http")
     async def capture_requests(request: Request, call_next):
@@ -128,51 +143,30 @@ def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
     @app.get("/fragments/status", response_class=HTMLResponse)
     async def fragment_status(request: Request) -> HTMLResponse:
-        ctx = {"oob": False, "state": jsonable_encoder(engine.get_status())}
+        ctx = {"oob": False, **snapshot.all_panels()["status"]}
         return templates.TemplateResponse(request, "fragments/status.html", ctx)
 
     @app.get("/fragments/presets", response_class=HTMLResponse)
     async def fragment_presets(request: Request) -> HTMLResponse:
-        ctx = {
-            "oob": False,
-            "presets": engine.list_presets(),
-            "state": jsonable_encoder(engine.get_status()),
-        }
+        ctx = {"oob": False, **snapshot.presets_view()}
         return templates.TemplateResponse(request, "fragments/presets.html", ctx)
 
     @app.get("/fragments/twin", response_class=HTMLResponse)
     async def fragment_twin(request: Request) -> HTMLResponse:
-        ctx = {
-            "oob": False,
-            "state": jsonable_encoder(engine.get_status()),
-            "sensors": jsonable_encoder(engine.get_sensor_configs()),
-            "inventory": engine.get_inventory_cache(),
-        }
+        ctx = {"oob": False, **snapshot.twin_view()}
         return templates.TemplateResponse(request, "fragments/twin.html", ctx)
-
-    def _events_for_view(
-        limit: int = 30, filter_mode: str | None = None
-    ) -> list[dict[str, Any]]:
-        items, _ = event_store.list_events(
-            page=1, page_size=limit, filter_mode=filter_mode
-        )
-        return items
 
     @app.get("/fragments/events", response_class=HTMLResponse)
     async def fragment_events(
         request: Request, filter: str | None = None
     ) -> HTMLResponse:
         mode = filter if filter in ("full", "process") else "full"
-        ctx = {
-            "oob": False,
-            "events": _events_for_view(filter_mode=mode),
-            "filter_mode": mode,
-        }
+        ctx = {"oob": False, **snapshot.events_view(filter_mode=mode)}
         return templates.TemplateResponse(request, "fragments/events.html", ctx)
 
     @app.get("/fragments/pending", response_class=HTMLResponse)
     async def fragment_pending(request: Request) -> HTMLResponse:
-        ctx = {"oob": False, "pending": engine.get_pending_actions()}
+        ctx = {"oob": False, **snapshot.pending_view()}
         return templates.TemplateResponse(request, "fragments/pending.html", ctx)
 
     # ------------------------------------------------------------------
@@ -183,38 +177,13 @@ def create_app(config_path: str) -> FastAPI:
         filter_mode = request.query_params.get("filter")
         if filter_mode not in ("full", "process"):
             filter_mode = "full"
+        panels = snapshot.all_panels(filter_mode=filter_mode)
         parts: list[str] = []
-        renderers = [
-            ("status", {"state": jsonable_encoder(engine.get_status())}),
-            (
-                "presets",
-                {
-                    "presets": engine.list_presets(),
-                    "state": jsonable_encoder(engine.get_status()),
-                },
-            ),
-            (
-                "twin",
-                {
-                    "state": jsonable_encoder(engine.get_status()),
-                    "sensors": jsonable_encoder(engine.get_sensor_configs()),
-                    "inventory": engine.get_inventory_cache(),
-                },
-            ),
-            (
-                "events",
-                {
-                    "events": _events_for_view(filter_mode=filter_mode),
-                    "filter_mode": filter_mode,
-                },
-            ),
-            ("pending", {"pending": engine.get_pending_actions()}),
-        ]
-        for name, ctx in renderers:
+        for name in ("status", "presets", "twin", "events", "pending"):
             response = templates.TemplateResponse(
                 request,
                 f"fragments/{name}.html",
-                {"oob": True, **ctx},
+                {"oob": True, **panels[name]},
             )
             parts.append(response.body.decode("utf-8"))
         return "".join(parts)
@@ -259,11 +228,19 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.get("/api/status")
     async def get_status() -> JSONResponse:
-        return JSONResponse(jsonable_encoder(engine.get_status()))
+        return JSONResponse(snapshot.status_view())
 
     @app.get("/api/presets")
     async def list_presets() -> dict[str, Any]:
-        return {"items": engine.list_presets()}
+        presets = [
+            {
+                "name": preset.name,
+                "description": preset.description,
+                "steps": [{"name": step.name} for step in preset.steps],
+            }
+            for preset in sensor_registry.get_presets().values()
+        ]
+        return {"items": presets}
 
     @app.post("/api/presets/run", status_code=202)
     @app.post("/api/simulations/run", status_code=202)
@@ -292,11 +269,11 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.get("/api/config/sensors")
     async def list_sensor_configs() -> JSONResponse:
-        return JSONResponse(jsonable_encoder(engine.get_sensor_configs()))
+        return JSONResponse(jsonable_encoder(sensor_registry.configs()))
 
     @app.get("/api/inventory")
     async def get_inventory() -> JSONResponse:
-        return JSONResponse(engine.get_inventory_cache())
+        return JSONResponse(inventory_poller.get_cache())
 
     @app.put("/api/config/sensors/{sensor_id}", response_model=None)
     async def update_sensor(
@@ -504,7 +481,7 @@ def create_app(config_path: str) -> FastAPI:
     @app.get("/api/dobot/{name}/state")
     async def read_dobot_state(name: str) -> JSONResponse:
         try:
-            state = engine.get_dobot_state(name)
+            state = actuator_registry.get_state(name)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Unknown robot {name}")
         return JSONResponse(jsonable_encoder(state))

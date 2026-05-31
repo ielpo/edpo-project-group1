@@ -4,10 +4,12 @@ from pathlib import Path
 
 import pytest
 
+from simulated_factory.actuator_registry import ActuatorRegistry
 from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.engine import SimulationEngine
-from simulated_factory.events import EventBridge, EventStore
+from simulated_factory.events import EventStore
 from simulated_factory.models import InteractiveConfig, SensorUpdateRequest
+from simulated_factory.sensor_registry import SensorRegistry
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
@@ -17,11 +19,12 @@ LOGGER = logging.getLogger(__name__)
 @pytest.mark.asyncio
 async def test_engine_runs_happy_path_deterministically() -> None:
     event_store = EventStore()
+    mqtt = MqttPublisher(None, event_store, LOGGER)
     engine = SimulationEngine(
-        config_path=str(CONFIG_PATH),
         event_store=event_store,
-        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
-        event_bridge=EventBridge("none", None, LOGGER),
+        mqtt_publisher=mqtt,
+        sensor_registry=SensorRegistry(str(CONFIG_PATH), mqtt_publisher=mqtt),
+        actuator_registry=ActuatorRegistry(),
     )
 
     run_id = await engine.run_preset("happy-path")
@@ -56,11 +59,12 @@ async def test_engine_runs_happy_path_deterministically() -> None:
 @pytest.mark.asyncio
 async def test_sensor_override_changes_runtime_value() -> None:
     event_store = EventStore()
+    mqtt = MqttPublisher(None, event_store, LOGGER)
     engine = SimulationEngine(
-        config_path=str(CONFIG_PATH),
         event_store=event_store,
-        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
-        event_bridge=EventBridge("none", None, LOGGER),
+        mqtt_publisher=mqtt,
+        sensor_registry=SensorRegistry(str(CONFIG_PATH), mqtt_publisher=mqtt),
+        actuator_registry=ActuatorRegistry(),
     )
 
     sensor = await engine.update_sensor(
@@ -112,11 +116,12 @@ async def test_scripted_mode_with_empty_values_falls_back_to_value() -> None:
 
 def _make_engine() -> SimulationEngine:
     event_store = EventStore()
+    mqtt = MqttPublisher(None, event_store, LOGGER)
     return SimulationEngine(
-        config_path=str(CONFIG_PATH),
         event_store=event_store,
-        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
-        event_bridge=EventBridge("none", None, LOGGER),
+        mqtt_publisher=mqtt,
+        sensor_registry=SensorRegistry(str(CONFIG_PATH), mqtt_publisher=mqtt),
+        actuator_registry=ActuatorRegistry(),
     )
 
 
@@ -129,7 +134,7 @@ async def test_handle_dobot_commands_auto_resolves_when_not_intercepted() -> Non
     assert "correlationId" in result
     assert "outcome" not in result
     assert engine.get_pending_actions() == []
-    assert engine.get_dobot_state("left").position.x == 1.0
+    assert engine._actuator_registry.get_state("left").position.x == 1.0
 
 
 @pytest.mark.asyncio
@@ -160,7 +165,7 @@ async def test_handle_dobot_commands_suspends_until_resolved() -> None:
     assert result["outcome"] == "success"
     assert "timedOut" not in result
     assert engine.get_pending_actions() == []
-    assert engine.get_dobot_state("left").position.x == 7.0
+    assert engine._actuator_registry.get_state("left").position.x == 7.0
 
 
 @pytest.mark.asyncio
@@ -201,7 +206,7 @@ async def test_handle_dobot_commands_rejects_overlapping_intercepts() -> None:
     assert first["outcome"] == "success"
     assert engine.get_pending_actions() == []
     # Only the first command is applied; overlapping command is rejected.
-    assert engine.get_dobot_state("left").position.x == 3.0
+    assert engine._actuator_registry.get_state("left").position.x == 3.0
 
 
 @pytest.mark.asyncio
@@ -223,7 +228,7 @@ async def test_handle_dobot_commands_times_out() -> None:
     assert result.get("timedOut") is True
     assert engine.get_pending_actions() == []
     # State should NOT have been applied for failed actions.
-    assert engine.get_dobot_state("left").position.x == 0.0
+    assert engine._actuator_registry.get_state("left").position.x == 0.0
 
 
 @pytest.mark.asyncio
