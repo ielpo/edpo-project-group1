@@ -65,7 +65,7 @@ python -c "from simulated_factory.api import create_app; app = create_app('confi
 | POST | `/api/presets/stop` (or `/api/simulations/stop`) | Request stop |
 | POST | `/api/presets/reset` (or `/api/simulations/reset`) | Hard reset |
 | GET | `/api/config/sensors` | List sensor configs |
-| PUT | `/api/config/sensors/{sensor_id}` | Update a sensor (JSON or htmx form) |
+| PUT | `/api/config/sensors/{sensor_id}` | Update a sensor (always returns JSON) |
 | GET | `/api/inventory` | Return inventory cache |
 | GET | `/api/events` | Paginated event log (supports `page`, `pageSize`, `filter`, `mode`) |
 | POST | `/api/events` | Accept an external event |

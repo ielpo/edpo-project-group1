@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Sensor controls inline in twin panel
+### Requirement: Inline typed sensor controls in twin
 The twin panel SHALL render sensor configuration controls directly within the appropriate sensor zone. Color sensor zones SHALL render a mode selector, a color value selector with CSS swatch, a raw RGB input, and a submit button. Distance/IR sensor zones SHALL render a mode selector, a value input appropriate to the sensor type, and a submit button.
 
 Sensor forms SHALL submit via `hx-put="/api/config/sensors/{id}"` with `hx-swap="none"` and `hx-ext="json-enc"`. The operator visual refresh SHALL occur through the SSE out-of-band swap stream, not through the PUT response body.

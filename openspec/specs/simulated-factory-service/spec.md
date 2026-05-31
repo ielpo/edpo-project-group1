@@ -6,7 +6,6 @@ Version: v1
 
 Describe the externally visible simulator contract for the simulated-factory service, including HTTP, WebSocket, sensor, event history, and bridge behavior.
 ## Requirements
-
 ### Requirement: Coherent factory simulation snapshot
 The service MUST expose the current simulation state as one coherent snapshot across runtime status, gate state, pending actions, sensor configuration, and event history. Within a single request-response cycle, the snapshot MUST remain internally consistent and MUST not require callers to infer state by combining unrelated endpoints.
 
@@ -88,7 +87,9 @@ The service MUST provide `POST /api/presets/run`, `POST /api/presets/stop`, and 
 ### Requirement: Sensor configuration management
 The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate sensor modes and values. The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted. Built-in sensor behavior MUST remain compatible with the existing `fixed` and `scripted` modes, and legacy `scripted_values` input forms MUST continue to be supported.
 
-Note: The `PUT /api/config/sensors/{sensorId}` endpoint accepts either an array for `scripted_values` or a legacy CSV string; the server supports both for backward compatibility. Unknown or invalid modes MUST be rejected.
+The `PUT /api/config/sensors/{sensorId}` endpoint SHALL accept either an array for `scripted_values` or a legacy CSV string; the server supports both for backward compatibility. Unknown or invalid modes MUST be rejected.
+
+The `PUT /api/config/sensors/{sensorId}` endpoint SHALL always return a JSON response containing the updated sensor configuration, regardless of request headers. Input normalization (CSV strings to lists, string booleans to native booleans, numeric strings to numbers) SHALL be performed by model-level validators before the handler executes.
 
 Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `failRate` field are removed from the API contract.
 
@@ -103,7 +104,7 @@ Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `f
 #### Scenario: Sensor behavior is updated with fixed mode
 - **WHEN** a client updates a sensor with `mode: fixed` and a `value`
 - **THEN** the service stores the updated sensor configuration in runtime memory
-- **AND** it returns the updated configuration with `mode: fixed`
+- **AND** it returns the updated configuration as JSON with `mode: fixed`
 
 #### Scenario: Sensor behavior is updated with scripted mode
 - **WHEN** a client updates a sensor with `mode: scripted` and a non-empty `scripted_values` list
@@ -114,6 +115,21 @@ Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `f
 - **WHEN** a client updates a sensor with an unrecognized mode value
 - **THEN** the service MUST NOT apply the update silently
 - **AND** it returns an error or ignores the unknown mode field
+
+#### Scenario: PUT always returns JSON regardless of caller headers
+- **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `HX-Request: true` header
+- **THEN** the service SHALL return a JSON response with the updated sensor configuration
+- **AND** the response content-type SHALL be `application/json`
+
+#### Scenario: CSV string input is normalized to a list
+- **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `raw_color` as `"0,128,255"`
+- **THEN** the service SHALL normalize the value to `[0, 128, 255]` before processing
+- **AND** the response SHALL contain `raw_color` as a list of integers
+
+#### Scenario: String boolean value is normalized
+- **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `value` as `"true"`
+- **THEN** the service SHALL normalize the value to boolean `true` before processing
+- **AND** the response SHALL contain `value` as a native boolean
 
 ### Requirement: Event history and live status stream
 The service MUST record an in-memory chronological event history and MUST expose it through `GET /api/events` with paging and filtering. It MUST stream state diffs and key events over WebSocket `/ws/status`.

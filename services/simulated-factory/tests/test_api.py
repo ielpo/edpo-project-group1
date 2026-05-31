@@ -184,7 +184,7 @@ def test_sse_status_streams_event_stream() -> None:
     assert "text/event-stream" in source
 
 
-def test_put_sensor_returns_html_for_htmx_caller() -> None:
+def test_put_sensor_returns_json_for_htmx_caller() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
@@ -194,10 +194,10 @@ def test_put_sensor_returns_html_for_htmx_caller() -> None:
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    # Twin form uses hx-swap="none" + SSE OOB refresh, so the response body
-    # is intentionally empty for HTMX callers.
-    assert response.text == ""
+    assert response.headers["content-type"].startswith("application/json")
+    body = response.json()
+    assert body["sensorId"] == "color-left"
+    assert body["value"] == "GREEN"
     # The update was applied to the engine.
     sensor = app.state.sensor_registry.live["color-left"]
     assert sensor._cfg.value == "GREEN"

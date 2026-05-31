@@ -1,6 +1,9 @@
 # Simulator htmx Frontend
 
 Version: v1
+
+## Purpose
+Deliver a server-rendered htmx frontend for the simulated factory, streaming live state updates over SSE.
 ## Requirements
 ### Requirement: Server-rendered HTML fragment endpoints
 The service SHALL expose `GET /fragments/{panel}` endpoints for each UI panel — `status`, `presets`, `twin`, `events`, and `pending` — returning rendered HTML fragments compatible with htmx `hx-swap`.
@@ -48,21 +51,6 @@ The service SHALL serve a `base.html` page at `GET /` that loads htmx and the SS
 - **AND** all panel fragments are fetched and injected via htmx on load
 - **AND** the SSE connection is established for live updates
 
-### Requirement: Sensor form submits via htmx (inline in twin)
-(Deprecated: sensor forms are now inline in the twin panel per "Sensor form submits via htmx (inline in twin)" requirement. Legacy sensor card forms are no longer available.)
-
-#### Scenario: Operator updates a sensor value
-- **WHEN** an operator submits a sensor edit form
-- **THEN** the service processes the update and returns an updated HTML fragment
-- **AND** only the affected sensor area is replaced in the pagepanel
-
-### Requirement: Sensor form submits via htmx
-
-#### Scenario: Operator updates a sensor value
-- **WHEN** an operator submits a sensor edit form in the UI
-- **THEN** the service processes the update and returns an updated HTML fragment for that sensor card
-- **AND** only the affected card is replaced in the page, not the full sensor panel
-
 ### Requirement: Material Design 3 visual styling
 The service UI SHALL follow Material Design 3 guidelines using custom CSS with MD3 design tokens (color roles, elevation, typescale) as CSS custom properties. It SHALL use the Roboto typeface and SHALL NOT depend on any third-party component library.
 
@@ -106,4 +94,13 @@ The events panel SHALL display `SENSOR_REQUEST` events in process view with clea
 - **WHEN** a `SENSOR_REQUEST` event is recorded for color or IR endpoint access
 - **THEN** the process view includes the event in chronological order
 - **AND** the rendered entry identifies the sensor endpoint that was requested
+
+### Requirement: Sensor update relies on SSE for operator visual refresh
+The simulator HTMX frontend SHALL rely exclusively on the SSE out-of-band swap stream for reflecting sensor configuration changes in the operator UI. The sensor form SHALL use `hx-swap="none"` and SHALL NOT depend on the PUT response body for visual updates.
+
+#### Scenario: Operator submits sensor form and sees updated twin
+- **WHEN** an operator submits a sensor edit form in the twin panel
+- **THEN** the form sends `PUT /api/config/sensors/{id}` with `hx-swap="none"`
+- **AND** the SSE stream emits an updated twin panel fragment with `hx-swap-oob="true"`
+- **AND** the twin panel reflects the new sensor configuration without using the PUT response body
 

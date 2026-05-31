@@ -38,9 +38,9 @@ templates/
 - `GET /sse/status` opens a `text/event-stream` connection. On every simulator
   event the server re-renders all panels as HTML fragments wrapped with
   `hx-swap-oob="true"` so htmx swaps them into the DOM by id.
-- `PUT /api/config/sensors/{id}` returns an updated sensor card fragment when
-  called with `HX-Request: true` and JSON otherwise, so direct API consumers
-  are unaffected.
+- `PUT /api/config/sensors/{id}` always returns JSON with the updated sensor
+  configuration. The HTMX twin form uses `hx-swap="none"` and relies on the
+  SSE OOB stream for visual refresh.
 - htmx and the SSE / json-enc extensions are loaded from CDN; no Node build
   step is required. Roboto is loaded from Google Fonts.
 
