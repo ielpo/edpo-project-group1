@@ -81,6 +81,7 @@ class SimulationEngine:
         self._interactive_config = InteractiveConfig()
 
         self._sensors: dict[str, BaseSensor] = self._sensor_registry.for_preset(None)
+        self._wire_sensors(self._sensors)
         self._dobots: dict[str, DobotRuntimeState] = {
             "left": DobotRuntimeState(),
             "right": DobotRuntimeState(),
@@ -150,6 +151,7 @@ class SimulationEngine:
             self._stop_requested = False
             self._interactive_config = InteractiveConfig()
             self._sensors = self._sensor_registry.for_preset(preset)
+            self._wire_sensors(self._sensors)
 
             await self._record_event(
                 "STATE",
@@ -157,6 +159,7 @@ class SimulationEngine:
                 payload={"runId": self._run_id, "preset": preset_name},
             )
 
+            await self._start_sensor_tasks()
             self._run_task = asyncio.create_task(self._execute_preset(preset, speed))
             return self._run_id
 
@@ -180,6 +183,7 @@ class SimulationEngine:
             except asyncio.CancelledError:
                 pass
 
+        await self._stop_sensor_tasks()
         self._status = SimulationStatus.IDLE
         self._run_id = "run-0000"
         self._current_preset = None
@@ -195,6 +199,7 @@ class SimulationEngine:
         self._interactive_config = InteractiveConfig()
 
         self._sensors = self._sensor_registry.for_preset(None)
+        self._wire_sensors(self._sensors)
         self._dobots = {
             "left": DobotRuntimeState(),
             "right": DobotRuntimeState(),
@@ -252,6 +257,7 @@ class SimulationEngine:
         finally:
             self._stop_requested = False
             self._clear_step_gate()
+            await self._stop_sensor_tasks()
             self._interactive_config = InteractiveConfig(
                 intercepted=set(_DEFAULT_INTERCEPTED)
             )
@@ -262,7 +268,6 @@ class SimulationEngine:
             return
 
         self._apply_sensor_updates(step)
-        await self._publish_mqtt(step)
 
         delay = step.delayMs / 1000.0
         if speed > 0:
@@ -280,13 +285,10 @@ class SimulationEngine:
         if speed > 0:
             timeout /= speed
 
-        fired = False
         try:
             await asyncio.wait_for(event.wait(), timeout=timeout)
-            fired = True
         except asyncio.TimeoutError:
             self._apply_sensor_updates(step)
-            await self._publish_mqtt(step)
             await self._record_event(
                 "STATE",
                 message=f"Step {step.name} gate timed out",
@@ -303,9 +305,6 @@ class SimulationEngine:
             if gate is not None and gate[1] is event:
                 self._step_gate = None
             self._waiting_for_request = None
-
-        if fired:
-            await self._publish_mqtt(step)
 
     def _clear_step_gate(self) -> None:
         gate = self._step_gate
@@ -347,21 +346,36 @@ class SimulationEngine:
     def _apply_sensor_updates(self, step: PresetStep) -> None:
         for sensor_id, value in step.sensorUpdates.items():
             if sensor_id not in self._sensors:
-                self._sensors[sensor_id] = self._sensor_registry.make(sensor_id, {})
+                sensor = self._sensor_registry.make(sensor_id, {})
+                if isinstance(sensor, MqttSensor):
+                    sensor.wire(self._mqtt_publisher)
+                self._sensors[sensor_id] = sensor
             self._sensors[sensor_id].update(value)
 
-    async def _publish_mqtt(self, step: PresetStep) -> None:
-        if not step.triggerMqtt:
-            return
+    def _wire_sensors(self, sensors: dict[str, BaseSensor]) -> None:
+        for sensor in sensors.values():
+            if isinstance(sensor, MqttSensor):
+                sensor.wire(self._mqtt_publisher)
 
-        for plugin in self._sensors.values():
-            if not isinstance(plugin, MqttSensor):
-                continue
-            message = plugin.mqtt_message()
-            if message is None:
-                continue
-            topic, payload = message
-            await self._mqtt_publisher.publish_raw(topic, payload)
+    async def _start_sensor_tasks(self) -> None:
+        for sensor in self._sensors.values():
+            if isinstance(sensor, MqttSensor):
+                await sensor.start_task()
+
+    async def _stop_sensor_tasks(self) -> None:
+        for sensor in self._sensors.values():
+            if isinstance(sensor, MqttSensor):
+                await sensor.stop_task()
+
+    def _pause_sensor_tasks(self) -> None:
+        for sensor in self._sensors.values():
+            if isinstance(sensor, MqttSensor):
+                sensor.pause_task()
+
+    def _resume_sensor_tasks(self) -> None:
+        for sensor in self._sensors.values():
+            if isinstance(sensor, MqttSensor):
+                sensor.resume_task()
 
     async def handle_dobot_commands(
         self, robot_name: str, payload: Any
@@ -402,7 +416,11 @@ class SimulationEngine:
             )
 
             timeout = max(1, int(self._interactive_config.timeout_seconds))
-            resolved = await action.wait_for_resolution(timeout=timeout)
+            self._pause_sensor_tasks()
+            try:
+                resolved = await action.wait_for_resolution(timeout=timeout)
+            finally:
+                self._resume_sensor_tasks()
             if not resolved:
                 action.outcome = "failure"
                 action.timed_out = True
@@ -532,7 +550,10 @@ class SimulationEngine:
         self, sensor_id: str, update: SensorUpdateRequest
     ) -> SensorConfig:
         if sensor_id not in self._sensors:
-            self._sensors[sensor_id] = self._sensor_registry.make(sensor_id, {})
+            sensor = self._sensor_registry.make(sensor_id, {})
+            if isinstance(sensor, MqttSensor):
+                sensor.wire(self._mqtt_publisher)
+            self._sensors[sensor_id] = sensor
 
         plugin = self._sensors[sensor_id]
         plugin.apply_update(update.model_dump(exclude_none=True))
@@ -551,7 +572,10 @@ class SimulationEngine:
     def _sensor_for(self, robot_name: str, prefix: str) -> BaseSensor:
         sensor_id = f"{prefix}-{robot_name}"
         if sensor_id not in self._sensors:
-            self._sensors[sensor_id] = self._sensor_registry.make(sensor_id, {})
+            sensor = self._sensor_registry.make(sensor_id, {})
+            if isinstance(sensor, MqttSensor):
+                sensor.wire(self._mqtt_publisher)
+            self._sensors[sensor_id] = sensor
         return self._sensors[sensor_id]
 
     def read_color(self, robot_name: str) -> tuple[str, list[int]]:

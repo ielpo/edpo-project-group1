@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, cast
 import json
 
@@ -62,6 +63,31 @@ class DistanceSensor(BaseSensor, MqttSensor):
         }
         self._message_id += 1
         return self._cfg.mqtt_topic, json.dumps(message)
+
+    async def start_task(self) -> None:
+        interval = self._cfg.cadence_ms / 1000.0
+        self._publish_task: asyncio.Task[None] = asyncio.create_task(
+            self._publish_loop(interval)
+        )
+
+    async def stop_task(self) -> None:
+        task = getattr(self, "_publish_task", None)
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            self._publish_task = None
+
+    async def _publish_loop(self, interval: float) -> None:
+        try:
+            while True:
+                if getattr(self, "_active", True):
+                    await self.publish()
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            raise
 
     def to_dict(self) -> dict[str, Any]:
         return {

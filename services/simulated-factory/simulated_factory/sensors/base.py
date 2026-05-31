@@ -54,3 +54,27 @@ class MqttSensor(ABC):
     @abstractmethod
     def mqtt_message(self) -> tuple[str, str] | None:
         """Return (topic, payload) if the sensor has data to publish."""
+
+    def wire(self, publisher: Any) -> None:
+        self._publisher = publisher
+        self._active = True
+
+    def pause_task(self) -> None:
+        self._active = False
+
+    def resume_task(self) -> None:
+        self._active = True
+
+    async def publish(self) -> None:
+        if (publisher := getattr(self, "_publisher", None)) is None:
+            return
+        if (msg := self.mqtt_message()) is None:
+            return
+        topic, payload = msg
+        await publisher.publish_raw(topic, payload)
+
+    async def start_task(self) -> None:
+        """Start background publishing. Override in subclasses as needed."""
+
+    async def stop_task(self) -> None:
+        """Stop background publishing. Override if start_task spawns a task."""
