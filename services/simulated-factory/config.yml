@@ -61,10 +61,6 @@ presets:
 
   wrong-color:
     description: The flow continues, but the color sensor deterministically returns blue.
-    sensor_overrides:
-      color-left:
-        value: BLUE
-        raw_color: [0, 0, 1]
     steps:
       - name: order-received
         delayMs: 75
@@ -72,6 +68,7 @@ presets:
         triggerMqtt: true
         sensorUpdates:
           distance-left: 30.0
+          color-left: BLUE
       - name: pickup
         delayMs: 10000
         note: Item reaches the pick-up area.
@@ -99,11 +96,6 @@ presets:
 
   pickup-failure:
     description: The IR sensor never detects an item, reproducing a failed pickup.
-    sensor_overrides:
-      ir-left:
-        value: false
-      distance-conveyor:
-        scripted_values: [30.0, 30.0, 30.0, 30.0]
     steps:
       - name: order-received
         delayMs: 75
@@ -111,6 +103,7 @@ presets:
         triggerMqtt: true
         sensorUpdates:
           distance-left: 30.0
+          ir-left: false
       - name: pickup-timeout
         delayMs: 10000
         note: No item reaches the IR sensor, so pickup fails.

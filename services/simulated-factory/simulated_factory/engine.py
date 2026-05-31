@@ -79,7 +79,7 @@ class SimulationEngine:
         self._pending_action: PendingAction | None = None
         self._interactive_config = InteractiveConfig()
 
-        self._sensors: dict[str, BaseSensor] = self._sensor_registry.for_preset(None)
+        self._sensors: dict[str, BaseSensor] = self._sensor_registry.sensors()
         self._wire_sensors(self._sensors)
         self._dobots: dict[str, DobotRuntimeState] = {
             "left": DobotRuntimeState(),
@@ -149,7 +149,7 @@ class SimulationEngine:
             self._current_step_name = None
             self._stop_requested = False
             self._interactive_config = InteractiveConfig()
-            self._sensors = self._sensor_registry.for_preset(preset)
+            self._sensors = self._sensor_registry.sensors()
             self._wire_sensors(self._sensors)
 
             await self._record_event(
@@ -196,7 +196,7 @@ class SimulationEngine:
         self._pending_action = None
         self._interactive_config = InteractiveConfig()
 
-        self._sensors = self._sensor_registry.for_preset(None)
+        self._sensors = self._sensor_registry.sensors()
         self._wire_sensors(self._sensors)
         self._dobots = {
             "left": DobotRuntimeState(),

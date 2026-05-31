@@ -31,26 +31,15 @@ class SensorRegistry:
             name: PresetDefinition(
                 name=name,
                 description=config.get("description", ""),
-                sensor_overrides=config.get("sensor_overrides", {}),
                 steps=config.get("steps", []),
             )
             for name, config in self._presets_raw.items()
         }
 
-    def for_preset(self, preset: PresetDefinition | None) -> dict[str, BaseSensor]:
-        sensors = {
+    def sensors(self) -> dict[str, BaseSensor]:
+        return {
             sensor_id: plugin.clone() for sensor_id, plugin in self._defaults.items()
         }
-
-        if preset is None:
-            return sensors
-
-        for sensor_id, override in preset.sensor_overrides.items():
-            if sensor_id not in sensors:
-                sensors[sensor_id] = self.make(sensor_id, {})
-            sensors[sensor_id].apply_update(override)
-
-        return sensors
 
     def make(self, sensor_id: str, config: dict[str, Any] | SensorConfig) -> BaseSensor:
         sensor_type = self._infer_sensor_type(sensor_id, config)

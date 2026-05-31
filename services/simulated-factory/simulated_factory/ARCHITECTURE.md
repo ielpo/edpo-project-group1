@@ -210,7 +210,7 @@ Internal: `_execute_preset`, `_await_step_gate`, `_apply_step_side_effects_sync`
 | Public method                                            | Notes                                                            |
 |----------------------------------------------------------|------------------------------------------------------------------|
 | `get_presets()`                                          | Parsed `PresetDefinition`s from config                           |
-| `sensor_map_for_preset(preset)`                          | Build sensor dict with overrides applied                         |
+| `sensors()`                                              | Return a fresh clone of all default sensors                      |
 | `get_sensor_configs()`                                   | Sorted list of current sensor configs                            |
 | `update_sensor(id, update)`                              | Apply update + emit STATE event                                  |
 | `read_color(robot)` / `read_ir(robot)`                   | Sensor reads (auto-creates plugin if missing)                    |
@@ -241,8 +241,7 @@ Internal: `_execute_preset`, `_await_step_gate`, `_apply_step_side_effects_sync`
    plain `SensorConfig`).
 4. Instantiate `<Type>Sensor(sensor_id, cfg)`.
 
-Sensors are also cloned per preset so per-preset overrides do not mutate the
-default plugins.
+Sensors are cloned from defaults on each preset start so step-level updates do not mutate the default plugins.
 
 > Note: `sensors/sensor_loader.py` exposes a standalone `load_sensor()` helper
 > that is **not used** by the running system. Treat it as legacy unless the
@@ -299,7 +298,7 @@ uses these when available and falls back to attribute manipulation otherwise.
 
 | Model               | Kind     | Purpose                                                                |
 |---------------------|----------|------------------------------------------------------------------------|
-| `PresetDefinition`  | pydantic | `name, description, sensor_overrides, steps[]`                         |
+| `PresetDefinition`  | pydantic | `name, description, steps[]`                                           |
 | `PresetStep`        | pydantic | `name, delayMs, note?, publishDistance?, sensorUpdates, awaitRequest?` |
 
 ### Control / events

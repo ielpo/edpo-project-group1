@@ -58,7 +58,6 @@ class PresetStep(BaseModel):
 class PresetDefinition(BaseModel):
     name: str
     description: str = ""
-    sensor_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
     steps: list[PresetStep] = Field(default_factory=list)
 
 

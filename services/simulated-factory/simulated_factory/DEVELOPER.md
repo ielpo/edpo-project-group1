@@ -21,7 +21,7 @@ python -c "from simulated_factory.api import create_app; app = create_app('confi
   - Dobot state — tracks position, speed, suction, and conveyor state per robot; supports command interception.
   - Interactive action queue — intercepts dobot commands as a single active `PendingAction`; resolves it on operator approval.
   - Inventory polling — background task fetching inventory from an external URL every 3 s.
-- **Sensor registry**: `SensorRegistry` in [sensor_registry.py](sensor_registry.py) loads `config.yml`, instantiates sensor plugins for defaults and per-preset overrides, and performs type inference from sensor ID prefixes.
+- **Sensor registry**: `SensorRegistry` in [sensor_registry.py](sensor_registry.py) loads `config.yml`, instantiates sensor plugins for defaults, and performs type inference from sensor ID prefixes.
 - **Event store**: `EventStore` in [events.py](events.py) is the central in-memory store for simulator events and used by the SSE endpoint in the API. `EventBridge` (also in `events.py`) optionally forwards events to an external HTTP endpoint.
 - **Adapters**: Kafka and MQTT adapters live in [adapters/](adapters/) and integrate external process activity (Kafka) and publishing (MQTT).
 
@@ -29,7 +29,7 @@ python -c "from simulated_factory.api import create_app; app = create_app('confi
 - **`api.py`**: FastAPI app factory and HTTP/SSE/HTML endpoints. Installs middleware that records requests to the `EventStore` and delegates simulator actions to the `SimulationEngine`.
 - **`deps.py`**: Dependency factory. Constructs and wires `EventStore`, `EventBridge`, `MqttPublisher`, `SimulationEngine`, and `KafkaObserver`. Returns keys: `event_store`, `event_bridge`, `mqtt_publisher`, `engine`, `kafka_observer`.
 - **`engine.py`**: `SimulationEngine` — monolithic engine class. Owns preset execution, gate management, sensor reads, dobot state, interactive action interception, and inventory polling.
-- **`sensor_registry.py`**: `SensorRegistry` — loads `config.yml`, clones default sensors per preset (applying `sensor_overrides`), and dynamically instantiates sensor plugins by type inference or explicit `type` field.
+- **`sensor_registry.py`**: `SensorRegistry` — loads `config.yml`, clones default sensors on each preset start, and dynamically instantiates sensor plugins by type inference or explicit `type` field.
 - **`events.py`**: `EventStore` — in-memory event log (bounded deque) with subscriber queues for SSE and `list_events` with pagination and filter modes (`full`/`process`). `EventBridge` — optional HTTP forwarding of events to an external target.
 - **`models.py`**: Pydantic models and dataclasses used across the package: `SimulationState`, `PresetDefinition`/`PresetStep`, `AwaitRequest`, `DobotRuntimeState`, `Position`, `SensorConfig`, `PendingAction`, `InteractiveConfig`, and request/response models.
 - **`utils.py`**: Small helpers: `path_pattern_to_regex`, color helpers (`raw_color_from_name`, `rgb_bytes_from_raw`), Kafka payload decoding (`decode_kafka_value`, `decode_kafka_key`), `format_sse`, and `parse_broker_target`.
@@ -101,7 +101,7 @@ Between preset runs, `intercepted` defaults to all known command types (`_DEFAUL
 
 **Configuration and environment**
 - `config.yml` (path passed to `create_app`) contains `defaults.sensors` and `presets` used by the engine.
-- `PresetDefinition` supports `sensor_overrides` (applied on `run_preset`) and `steps` (list of `PresetStep`).
+- `PresetDefinition` contains `steps` (list of `PresetStep`). Initial sensor state for a preset is set via `sensorUpdates` in the first step.
 - Environment variables used in runtime wiring (see `deps.py`):
   - `SIMULATOR_EVENT_BRIDGE`, `SIMULATOR_EVENT_BRIDGE_URL` — event bridge mode/target
   - `SIMULATOR_BROKER_URL` — MQTT broker URL for `MqttPublisher`
