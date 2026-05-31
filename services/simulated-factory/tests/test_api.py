@@ -93,7 +93,7 @@ def test_index_renders_htmx_shell() -> None:
     # htmx loaded
     assert "htmx.org" in body
     # SSE extension wired up
-    assert 'sse-connect="/sse/status"' in body
+    assert 'sse-connect="/sse/status?filter=full"' in body
     assert 'sse-swap="update"' in body
     # panel placeholders use hx-get with hx-trigger="load"
     assert 'hx-get="/fragments/presets"' in body

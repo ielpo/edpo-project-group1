@@ -2,13 +2,8 @@
    - full: every recorded event including REST/STATE/MQTT noise
    - process: only Camunda-process-relevant types (KAFKA, COMMAND,
      PENDING_ACTION, ACTION_RESOLVED, SENSOR_REQUEST)
-   Filtering is applied at render time; full history is always retained
-   in the EventStore for debugging.
-
-   Process-event types are also marked with the `event-process` CSS class so
-   that client-side toggling can switch modes without a server roundtrip and
-   survive SSE-driven panel refreshes. #}
-{% set process_types = ['KAFKA', 'COMMAND', 'PENDING_ACTION', 'ACTION_RESOLVED', 'SENSOR_REQUEST'] %}
+   Filtering is applied server-side at render time; full history is always
+   retained in the EventStore for debugging. #}
 {% set mode = filter_mode|default('full') %}
 <div id="event-panel" class="card events-panel" data-filter-mode="{{ mode }}"{% if oob %} hx-swap-oob="true"{% endif %}>
   <h2>Event History</h2>
@@ -18,19 +13,22 @@
     and operator-resolvable actions.
   </div>
   <div class="event-toggles" role="group" aria-label="Event filter mode">
-    <button type="button"
-            class="chip event-toggle{% if mode == 'full' %} chip-assist active{% endif %}"
-            data-filter-mode="full"
-            onclick="window.simulatedFactorySetEventFilter && window.simulatedFactorySetEventFilter('full')">Full log</button>
-    <button type="button"
-            class="chip event-toggle{% if mode == 'process' %} chip-assist active{% endif %}"
-            data-filter-mode="process"
-            onclick="window.simulatedFactorySetEventFilter && window.simulatedFactorySetEventFilter('process')">Process view</button>
+    <a href="?filter=full"
+       class="chip event-toggle{% if mode == 'full' %} chip-assist active{% endif %}"
+       hx-get="/fragments/events?filter=full"
+       hx-target="#event-panel"
+       hx-swap="outerHTML"
+       style="text-decoration:none">Full log</a>
+    <a href="?filter=process"
+       class="chip event-toggle{% if mode == 'process' %} chip-assist active{% endif %}"
+       hx-get="/fragments/events?filter=process"
+       hx-target="#event-panel"
+       hx-swap="outerHTML"
+       style="text-decoration:none">Process view</a>
   </div>
   <div class="event-list">
     {% for event in events %}
-      {% set is_process = event.type in process_types %}
-      <article class="item-card event event-type-{{ event.type }}{% if is_process %} event-process{% endif %}"
+      <article class="item-card event event-type-{{ event.type }}"
                data-event-type="{{ event.type }}">
         <header>
           <h3>

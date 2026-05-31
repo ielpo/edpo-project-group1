@@ -528,12 +528,6 @@
       color: var(--md-sys-color-primary);
       margin-top: 4px;
     }
-    /* Process-mode hides non-process events client-side. Server still
-       holds the complete history; this is purely a display filter. */
-    .events-panel[data-filter-mode="process"] .event:not(.event-process) {
-      display: none;
-    }
-
     pre.code {
       margin: 8px 0 0;
       padding: 12px;
@@ -554,7 +548,7 @@
     }
   </style>
 </head>
-<body hx-ext="sse,json-enc" sse-connect="/sse/status">
+<body hx-ext="sse,json-enc" sse-connect="/sse/status?filter={{ filter_mode|default('full') }}">
   <div id="sse-sink" sse-swap="update" hidden></div>
   <div class="shell">
     <header class="nav-bar">
@@ -582,56 +576,44 @@
       <div class="supporting">Loading…</div>
     </section>
 
-    <section id="event-panel" class="card" hx-get="/fragments/events" hx-trigger="load" hx-swap="outerHTML">
+    <section id="event-panel" class="card" hx-get="/fragments/events?filter={{ filter_mode|default('full') }}" hx-trigger="load" hx-swap="outerHTML">
       <h2>Event History</h2>
       <div class="supporting">Loading…</div>
     </section>
   </div>
   <script>
-    // Event filter mode is stored client-side so toggling does not require a
-    // server roundtrip and survives SSE-driven panel re-renders. The server
-    // still applies the same allowlist for direct API/fragment requests.
+    // Thin client hook: when the event panel is swapped in-place after a
+    // filter toggle, update the page URL and reconnect the existing
+    // page-wide SSE stream so live updates use the new filter mode.
     (function () {
-      var STORAGE_KEY = 'simulated-factory-event-filter';
+      function onEventPanelSwapped(evt) {
+        var panel = document.getElementById('event-panel');
+        if (!panel) return;
+        // Only act when the swap target is the event panel itself
+        var target = evt.detail.target || evt.detail.elt;
+        if (target && target.id !== 'event-panel') return;
 
-      function readMode() {
-        try {
-          var v = window.localStorage.getItem(STORAGE_KEY);
-          return v === 'process' ? 'process' : 'full';
-        } catch (e) {
-          return 'full';
+        var mode = panel.getAttribute('data-filter-mode') || 'full';
+        var params = new URLSearchParams(window.location.search);
+        var currentMode = params.get('filter') || 'full';
+        if (mode === currentMode) return;
+
+        // Update URL without pushing history
+        params.set('filter', mode);
+        var newUrl = window.location.pathname + '?' + params.toString();
+        history.replaceState(null, '', newUrl);
+
+        // Reconnect SSE with the new filter
+        var body = document.body;
+        var newSse = '/sse/status?filter=' + encodeURIComponent(mode);
+        body.setAttribute('sse-connect', newSse);
+        // htmx SSE extension picks up the attribute change on re-process
+        if (window.htmx) {
+          htmx.process(body);
         }
       }
 
-      function applyMode(mode) {
-        var panel = document.getElementById('event-panel');
-        if (!panel) return;
-        panel.setAttribute('data-filter-mode', mode);
-        var toggles = panel.querySelectorAll('.event-toggle');
-        toggles.forEach(function (btn) {
-          var isActive = btn.getAttribute('data-filter-mode') === mode;
-          btn.classList.toggle('active', isActive);
-          btn.classList.toggle('chip-assist', isActive);
-        });
-      }
-
-      window.simulatedFactorySetEventFilter = function (mode) {
-        var normalized = mode === 'process' ? 'process' : 'full';
-        try {
-          window.localStorage.setItem(STORAGE_KEY, normalized);
-        } catch (e) { /* ignore */ }
-        applyMode(normalized);
-      };
-
-      function reapplyPersistedMode() {
-        applyMode(readMode());
-      }
-
-      // Re-apply the persisted mode after initial load, normal swaps, and
-      // SSE out-of-band swaps that replace the event panel while presets run.
-      document.body.addEventListener('htmx:afterSwap', reapplyPersistedMode);
-      document.body.addEventListener('htmx:oobAfterSwap', reapplyPersistedMode);
-      document.body.addEventListener('htmx:load', reapplyPersistedMode);
+      document.body.addEventListener('htmx:afterSwap', onEventPanelSwapped);
     })();
   </script>
 </body>

@@ -135,9 +135,17 @@ def create_app(config_path: str) -> FastAPI:
 
         return response
 
+    def _event_filter_mode(request: Request) -> str:
+        """Normalize the event-filter query parameter for the current request."""
+        mode = request.query_params.get("filter")
+        return mode if mode in ("full", "process") else "full"
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
-        return templates.TemplateResponse(request, "base.html", {})
+        filter_mode = _event_filter_mode(request)
+        return templates.TemplateResponse(
+            request, "base.html", {"filter_mode": filter_mode}
+        )
 
     # ------------------------------------------------------------------
     # HTML fragment endpoints (htmx)
@@ -158,10 +166,8 @@ def create_app(config_path: str) -> FastAPI:
         return templates.TemplateResponse(request, "fragments/twin.html", ctx)
 
     @app.get("/fragments/events", response_class=HTMLResponse)
-    async def fragment_events(
-        request: Request, filter: str | None = None
-    ) -> HTMLResponse:
-        mode = filter if filter in ("full", "process") else "full"
+    async def fragment_events(request: Request) -> HTMLResponse:
+        mode = _event_filter_mode(request)
         ctx = {"oob": False, **snapshot.events_view(filter_mode=mode)}
         return templates.TemplateResponse(request, "fragments/events.html", ctx)
 
@@ -214,9 +220,7 @@ def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
     def _render_all_oob(request: Request) -> str:
         """Render every panel as an out-of-band swap fragment."""
-        filter_mode = request.query_params.get("filter")
-        if filter_mode not in ("full", "process"):
-            filter_mode = "full"
+        filter_mode = _event_filter_mode(request)
         panels = snapshot.all_panels(filter_mode=filter_mode)
         parts: list[str] = []
         for name in ("status", "presets", "twin", "events", "pending"):

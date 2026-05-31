@@ -374,9 +374,11 @@ def test_events_fragment_renders_filter_toggles() -> None:
     assert response.status_code == 200
     body = response.text
     assert 'data-filter-mode="full"' in body
-    assert 'data-filter-mode="process"' in body
     assert "Full log" in body
     assert "Process view" in body
+    # Toggle links point to server-filtered endpoints
+    assert 'hx-get="/fragments/events?filter=full"' in body
+    assert 'hx-get="/fragments/events?filter=process"' in body
 
 
 def test_events_fragment_process_mode_marks_panel() -> None:
@@ -422,30 +424,67 @@ def test_events_fragment_renders_human_readable_command_summary() -> None:
     assert "<details" in body and "Raw payload" in body
 
 
-def test_events_fragment_marks_process_event_class() -> None:
+def test_events_fragment_process_mode_excludes_non_process_events() -> None:
+    """Process mode server-side filter should exclude REST events from render."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
     _disable_interception(client)
 
-    client.post(
-        "/api/dobot/left/commands",
-        json={"type": "move", "target": {"x": 1, "y": 2, "z": 3, "r": 0}},
-    )
-    body = client.get("/fragments/events").text
-    # Articles are tagged so client-side toggle can hide non-process entries
-    assert "event-process" in body
-    assert "event-type-COMMAND" in body
+    # Generate mixed events
+    client.get("/api/dobot/left/color")  # SENSOR_REQUEST
+    client.get("/api/status")  # REST
+
+    body = client.get("/fragments/events?filter=process").text
+    # SENSOR_REQUEST should be present
+    assert "/api/dobot/left/color" in body
+    # REST events should be excluded by server-side filtering
+    assert "event-type-REST" not in body
 
 
-def test_base_template_reapplies_event_filter_after_oob_swaps() -> None:
+def test_base_template_contains_client_hook_for_sse_reconnect() -> None:
+    """The base template should include the thin client hook that updates
+    the URL and reconnects the SSE stream when the event panel is swapped."""
     base_template = (
         Path(__file__).resolve().parents[1] / "templates" / "base.html"
     ).read_text(encoding="utf-8")
 
-    handler_marker = "function reapplyPersistedMode() {"
-    assert handler_marker in base_template
-    handler_body = base_template.split(handler_marker, 1)[1].split("      }", 1)[0]
-    assert "applyMode(readMode());" in handler_body
+    assert "history.replaceState" in base_template
+    assert "sse-connect" in base_template
+    assert "htmx:afterSwap" in base_template
+    assert "htmx.process(body)" in base_template
 
-    marker = "document.body.addEventListener('htmx:oobAfterSwap', reapplyPersistedMode);"
-    assert marker in base_template
+
+def test_page_shell_threads_filter_mode_into_event_panel_url() -> None:
+    """GET / should thread the filter mode into the event panel hx-get."""
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/?filter=process")
+    assert response.status_code == 200
+    body = response.text
+    assert '/fragments/events?filter=process' in body
+    assert '/sse/status?filter=process' in body
+
+
+def test_page_shell_defaults_filter_to_full() -> None:
+    """GET / without filter param should default to full mode."""
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+    body = response.text
+    assert '/fragments/events?filter=full' in body
+    assert '/sse/status?filter=full' in body
+
+
+def test_page_shell_normalizes_invalid_filter() -> None:
+    """GET / with invalid filter should fall back to full."""
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/?filter=bogus")
+    assert response.status_code == 200
+    body = response.text
+    assert '/fragments/events?filter=full' in body
+    assert '/sse/status?filter=full' in body
