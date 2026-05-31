@@ -19,7 +19,7 @@ python -c "from simulated_factory.api import create_app; app = create_app('confi
   - Gate awaiting — `awaitRequest` steps block until a matching HTTP request fires the gate (or timeout).
   - Sensor management — delegates to `SensorRegistry` for instantiation, holds the active `_sensors` dict.
   - Dobot state — tracks position, speed, suction, and conveyor state per robot; supports command interception.
-  - Interactive action queue — intercepts dobot commands as `PendingAction` items; resolves them on operator approval.
+  - Interactive action queue — intercepts dobot commands as a single active `PendingAction`; resolves it on operator approval.
   - Inventory polling — background task fetching inventory from an external URL every 3 s.
 - **Sensor registry**: `SensorRegistry` in [sensor_registry.py](sensor_registry.py) loads `config.yml`, instantiates sensor plugins for defaults and per-preset overrides, and performs type inference from sensor ID prefixes.
 - **Event store**: `EventStore` in [events.py](events.py) is the central in-memory store for simulator events and used by the SSE endpoint in the API. `EventBridge` (also in `events.py`) optionally forwards events to an external HTTP endpoint.
@@ -90,10 +90,12 @@ python -c "from simulated_factory.api import create_app; app = create_app('confi
 **Interactive Action System**
 
 When `InteractiveConfig.intercepted` contains command types (e.g. `move`, `suction-cup`), `handle_dobot_commands` intercepts matching commands:
-1. Creates a `PendingAction` and stores it in `engine._pending`.
+1. Creates a `PendingAction` and stores it in `engine._pending_action`.
 2. Emits a `PENDING_ACTION` event so the UI shows the intercepted command.
 3. Waits up to `timeout_seconds` for the operator to call `POST /api/interactive/{action_id}/resolve`.
 4. On `outcome=success`: applies commands to `DobotRuntimeState`; on `failure` or timeout: discards them.
+
+Only one pending action may exist at a time. If another intercepted command arrives while one is pending, the new command is rejected immediately instead of being queued.
 
 Between preset runs, `intercepted` defaults to all known command types (`_DEFAULT_INTERCEPTED`) so the UI always regains manual control.
 

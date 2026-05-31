@@ -76,8 +76,7 @@ class SimulationEngine:
 
         self._step_gate: tuple[AwaitRequest, asyncio.Event, PresetStep] | None = None
         self._waiting_for_request: AwaitRequest | None = None
-        self._pending: dict[str, PendingAction] = {}
-        self._pending_counter: int = 0
+        self._pending_action: PendingAction | None = None
         self._interactive_config = InteractiveConfig()
 
         self._sensors: dict[str, BaseSensor] = self._sensor_registry.for_preset(None)
@@ -194,8 +193,7 @@ class SimulationEngine:
 
         self._step_gate = None
         self._waiting_for_request = None
-        self._pending.clear()
-        self._pending_counter = 0
+        self._pending_action = None
         self._interactive_config = InteractiveConfig()
 
         self._sensors = self._sensor_registry.for_preset(None)
@@ -393,15 +391,42 @@ class SimulationEngine:
         )
 
         if should_intercept:
-            self._pending_counter += 1
-            action_id = f"act-{self._pending_counter:04d}"
+            pending_action = self._pending_action
+            if pending_action is not None:
+                reason = (
+                    f"pending action {pending_action.id} must be resolved first"
+                )
+                await self._record_event(
+                    "ACTION_RESOLVED",
+                    message=(
+                        "Rejected interactive command while another action "
+                        "is pending"
+                    ),
+                    payload={
+                        "actionId": pending_action.id,
+                        "outcome": "failure",
+                        "reason": reason,
+                        "timedOut": False,
+                        "correlationId": correlation_id,
+                        "robot": robot_name,
+                        "commands": command_list,
+                        "commandTypes": command_types,
+                    },
+                )
+                return {
+                    "correlationId": correlation_id,
+                    "outcome": "failure",
+                    "reason": reason,
+                }
+
+            action_id = "0"
             action = PendingAction(
                 id=action_id,
                 robot_name=robot_name,
                 commands=list(command_list),
                 correlation_id=correlation_id,
             )
-            self._pending[action_id] = action
+            self._pending_action = action
 
             await self._record_event(
                 "PENDING_ACTION",
@@ -424,7 +449,8 @@ class SimulationEngine:
             if not resolved:
                 action.outcome = "failure"
                 action.timed_out = True
-                self._pending.pop(action_id, None)
+                if self._pending_action is action:
+                    self._pending_action = None
                 await self._record_event(
                     "ACTION_RESOLVED",
                     message=f"Action {action_id} timed out",
@@ -511,12 +537,13 @@ class SimulationEngine:
         if outcome not in ("success", "failure"):
             raise ValueError(f"invalid outcome {outcome!r}")
 
-        action = self._pending.get(action_id)
-        if action is None:
+        action = self._pending_action
+        if action is None or action.id != action_id:
             raise KeyError(action_id)
 
         action.resolve(outcome, reason)
-        self._pending.pop(action_id, None)
+        if self._pending_action is action:
+            self._pending_action = None
 
         await self._record_event(
             "ACTION_RESOLVED",
@@ -531,7 +558,10 @@ class SimulationEngine:
         return action
 
     def get_pending_actions(self) -> list[dict[str, Any]]:
-        return [action.to_public_dict() for action in self._pending.values()]
+        action = self._pending_action
+        if action is None:
+            return []
+        return [action.to_public_dict()]
 
     def get_interactive_config(self) -> InteractiveConfig:
         return self._interactive_config.model_copy(deep=True)

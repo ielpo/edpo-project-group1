@@ -164,6 +164,47 @@ async def test_handle_dobot_commands_suspends_until_resolved() -> None:
 
 
 @pytest.mark.asyncio
+async def test_handle_dobot_commands_rejects_overlapping_intercepts() -> None:
+    engine = _make_engine()
+    engine.set_interactive_config(
+        InteractiveConfig(intercepted={"move"}, timeout_seconds=5)
+    )
+
+    first_task = asyncio.create_task(
+        engine.handle_dobot_commands(
+            "left", {"type": "move", "target": {"x": 3, "y": 0, "z": 0, "r": 0}}
+        )
+    )
+
+    for _ in range(50):
+        await asyncio.sleep(0.01)
+        if engine.get_pending_actions():
+            break
+
+    pending = engine.get_pending_actions()
+    assert len(pending) == 1
+    action_id = pending[0]["id"]
+
+    second = await engine.handle_dobot_commands(
+        "left", {"type": "move", "target": {"x": 9, "y": 0, "z": 0, "r": 0}}
+    )
+    assert second["outcome"] == "failure"
+    assert "pending action" in second["reason"]
+
+    still_pending = engine.get_pending_actions()
+    assert len(still_pending) == 1
+    assert still_pending[0]["id"] == action_id
+
+    await engine.resolve_action(action_id, "success")
+    first = await asyncio.wait_for(first_task, timeout=1.0)
+
+    assert first["outcome"] == "success"
+    assert engine.get_pending_actions() == []
+    # Only the first command is applied; overlapping command is rejected.
+    assert engine._dobots["left"].position.x == 3.0
+
+
+@pytest.mark.asyncio
 async def test_handle_dobot_commands_times_out() -> None:
     engine = _make_engine()
     engine.set_interactive_config(
