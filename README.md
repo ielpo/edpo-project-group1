@@ -50,7 +50,7 @@ docker compose -f docker-compose-development.yml down
 For development, seeing published events can be useful. The broker is a service in the compose stack, therefore the consumers need to run as docker containers
 
 ```bash
-docker compose exec -T kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic sensor.block-detected.v1
+docker compose exec -T kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic inventory.blocks.v1
 ```
 
 # Deployment

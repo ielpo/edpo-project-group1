@@ -30,8 +30,8 @@ DISTANCE_BLOCK     = 10.0   # cm
 DISTANCE_FREE      = 30.0   # cm
 DISTANCE_READINGS  = 10     # number of readings in the burst
 
-SESSION_GAP_S  = 2.0        # must match TopologyConfig inactivity gap
-SESSION_WAIT_S = 3.5        # wait after burst: session gap + processing buffer
+BLOCK_INACTIVITY_GAP_S = 3.0               # matches BlockColorTopology wall-clock inactivity gap
+DETECTION_WAIT_S = BLOCK_INACTIVITY_GAP_S + 0.5
 
 COLOR_READINGS    = 5      # number of colour readings published per block
 DEFAULT_PAUSE_S = 5.0       # pause between blocks in a sequence
@@ -118,10 +118,10 @@ def simulate_block(color: str, state: SimulationState) -> None:
 
     print(f"  [1/3] Distance burst published ({DISTANCE_READINGS} readings, distance={DISTANCE_BLOCK})")
 
-    # Step 2 — wait for session window to close and Kafka Streams to process
-    print(f"  Waiting {SESSION_WAIT_S}s for session window to close...")
-    time.sleep(SESSION_WAIT_S)
-    print(f"  [2/3] Session closed — Kafka Streams has generated a cubeId")
+    # Step 2 — wait for the wall-clock inactivity gap to elapse and Kafka Streams to process it
+    print(f"  Waiting {DETECTION_WAIT_S}s for wall-clock inactivity detection...")
+    time.sleep(DETECTION_WAIT_S)
+    print(f"  [2/3] Inactivity detected — Kafka Streams has generated a cubeId")
 
     # Step 3 — publish colour readings (no key, no cubeId — Kafka Streams joins by time)
     state.set_color(color)

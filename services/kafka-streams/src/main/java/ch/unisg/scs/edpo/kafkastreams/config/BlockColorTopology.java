@@ -23,32 +23,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-// Kafka Streams topology for block detection and color classification.
+// Kafka Streams topology for left-sensor block detection, color enrichment, and inventory materialization.
 //
-// Topology (matches kafka-streaming-topology.drawio):
+// Left sensor / inventory flow:
+//  [sensor.distance.raw.v1]
+//    → filter(distance < 25.0)
+//    → selectKey("distance-sensor")
+//    → publish [sensor.block-present.v1]                 internal signal for MoveBlockTopology
+//    → wall-clock inactivity processor                   3 s gap, 200 ms punctuation
+//    → publish [sensor.block-detected.v1]                internal/diagnostic join-side stream
 //
-//  [sensor.distance.raw.v1]     ← conveyor sensor publishes continuously; no key
-//    → filter          (distance < 25.0 = block present)
-//    → selectKey       ("distance-sensor")
-//    → groupByKey + Session Window (2 s inactivity gap)
-//    → count + Suppress (emit once when session closes)   ← "Compress into one event"
-//    → map             (generate cubeId UUID)
-//    → KStream<cubeId, BlockDetectedEvent>
-//          │
-//          ├─ to [sensor.block-detected.v1]               ← new-block-events
-//          │
-//          └─ selectKey ("color-sensor")
-//                 │
-//  [sensor.color.raw.v1]        ← color sensor streams raw RGB; no key
-//    → mapValues       (classify RGB → BlockColor)
-//    → filter          (discard non-RGBY)
-//    → selectKey       ("color-sensor")
-//                 │
-//                 └─ stream-stream Sliding Window Join (10 s)
-//                        │
-//                        └─ selectKey (cubeId) + groupByKey + reduce(first)
-//                               │
-//                               └─ KTable "inventory-store" → toStream → [inventory.blocks.v1]
+// Color enrichment flow:
+//  [sensor.color.raw.v1]
+//    → classify RGB → BlockColor
+//    → filter(valid RED/GREEN/BLUE/YELLOW only)
+//    → selectKey("sliding-window-join")
+//    → publish [color.classified.v1]                     internal/diagnostic stream
+//
+// Join and materialization:
+//  detected blocks + classified colors
+//    → sliding window join (10 s)
+//    → selectKey(cubeId)
+//    → reduce(first joined color wins)
+//    → KTable "inventory-store"
+//    → publish [inventory.blocks.v1]
 @Configuration
 public class BlockColorTopology {
 
@@ -68,6 +66,9 @@ public class BlockColorTopology {
     @Value("${kafka.topics.block-present}")
     private String blockPresentTopic;
 
+        @Value("${kafka.topics.color-classified}")
+        private String colorClassifiedTopic;
+
     @Value("${kafka.topics.inventory-blocks}")
     private String inventoryBlocksTopic;
 
@@ -75,7 +76,7 @@ public class BlockColorTopology {
     public KStream<String, BlockColorEvent> buildBlockColorTopology(StreamsBuilder builder, ObjectMapper objectMapper) {
 
         /// Distance branch
-        // Translation (Map) + Filter: keep only readings where a block is present.
+        // Filter: keep only readings where a block is present.
         KStream<String, DistanceEvent> distanceStream = builder.stream(
                 distanceTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper))
@@ -112,6 +113,7 @@ public class BlockColorTopology {
                         new JsonSerde<>(BlockDetectedEvent.class, objectMapper)
                 ));
 
+        // Keep the detected-block stream visible for diagnostics; the topic key is the internal join key.
         blockDetectedStream
                 .selectKey((key, value) -> "sliding-window-join")
                 .to(blockDetectedTopic,
@@ -120,7 +122,6 @@ public class BlockColorTopology {
         /// Color branch
         // Translation (Map) + Filter: classify raw RGB and discard invalid readings.
         // Filter before rekeying to reduce repartitioning cost.
-
         KStream<String, ColorEvent> colorRawStream = builder.stream(
                 colorRawTopic,
                 Consumed.with(Serdes.String(), new JsonSerde<>(ColorEvent.class, objectMapper))
@@ -137,15 +138,15 @@ public class BlockColorTopology {
                         new JsonSerde<>(BlockColor.class, objectMapper)
                 ));
 
+        // Keep the classified-color stream visible for diagnostics alongside the join input.
         classifiedColorStream.to(
-                "color.classified.v1",
+                colorClassifiedTopic,
                 Produced.with(Serdes.String(), new JsonSerde<>(BlockColor.class, objectMapper))
         );
 
         /// Sliding Window Join
         // Both streams have key "sliding-window-join". Events within 10 s of each other are joined.
         // cubeId comes from the BlockDetectedEvent.
-
         KStream<String, BlockColorEvent> joinedStream = blockDetectedForJoin
                 .join(
                         classifiedColorForJoin,
@@ -213,7 +214,7 @@ public class BlockColorTopology {
 
         @Override
         public void process(Record<String, DistanceEvent> record) {
-            activityStore.put(record.key(), System.currentTimeMillis());
+                        activityStore.put(record.key(), context.currentSystemTimeMs());
         }
 
         @Override
