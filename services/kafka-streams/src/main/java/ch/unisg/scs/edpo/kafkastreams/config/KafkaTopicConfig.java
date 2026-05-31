@@ -24,6 +24,9 @@ public class KafkaTopicConfig {
     @Value("${kafka.topics.block-detected}")
     private String blockDetectedTopic;
 
+    @Value("${kafka.topics.color-classified}")
+    private String colorClassifiedTopic;
+
     @Value("${kafka.topics.inventory-blocks}")
     private String inventoryBlocksTopic;
 
@@ -56,6 +59,11 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic blockDetectedTopic() {
         return TopicBuilder.name(blockDetectedTopic).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic colorClassifiedTopic() {
+        return TopicBuilder.name(colorClassifiedTopic).partitions(1).replicas(1).build();
     }
 
     @Bean
