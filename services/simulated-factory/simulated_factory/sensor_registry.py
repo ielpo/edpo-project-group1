@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 
 from simulated_factory.models import PresetDefinition, SensorConfig
-from simulated_factory.sensors.base import BaseSensor
+from simulated_factory.sensors.base import BaseSensor, MqttSensor
 
 _TYPE_INFERENCE_RULES: list[tuple[str, str]] = [
     ("color-", "color"),
@@ -17,7 +17,9 @@ _TYPE_INFERENCE_RULES: list[tuple[str, str]] = [
 
 
 class SensorRegistry:
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, mqtt_publisher: Any = None):
+        self._mqtt_publisher = mqtt_publisher
+
         payload = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
         defaults = payload.get("defaults", {}).get("sensors", {})
 
@@ -25,6 +27,8 @@ class SensorRegistry:
             sensor_id: self.make(sensor_id, cfg) for sensor_id, cfg in defaults.items()
         }
         self._presets_raw: dict[str, dict[str, Any]] = payload.get("presets", {})
+        self._live: dict[str, BaseSensor] = {}
+        self.reset()
 
     def get_presets(self) -> dict[str, PresetDefinition]:
         return {
@@ -40,6 +44,77 @@ class SensorRegistry:
         return {
             sensor_id: plugin.clone() for sensor_id, plugin in self._defaults.items()
         }
+
+    # ------------------------------------------------------------------
+    # Live pool lifecycle
+    # ------------------------------------------------------------------
+
+    def reset(self) -> None:
+        """Rebuild the live pool from defaults (clone + wire)."""
+        self._live = {}
+        for sensor_id, plugin in self._defaults.items():
+            sensor = plugin.clone()
+            if isinstance(sensor, MqttSensor) and self._mqtt_publisher is not None:
+                sensor.wire(self._mqtt_publisher)
+            self._live[sensor_id] = sensor
+
+    def get_or_create(self, sensor_id: str) -> BaseSensor:
+        """Return existing live sensor or create, wire, and register a new one."""
+        if sensor_id in self._live:
+            return self._live[sensor_id]
+        sensor = self.make(sensor_id, {})
+        if isinstance(sensor, MqttSensor) and self._mqtt_publisher is not None:
+            sensor.wire(self._mqtt_publisher)
+        self._live[sensor_id] = sensor
+        return sensor
+
+    async def activate(self) -> None:
+        """Start background tasks for all MQTT sensors in the live pool."""
+        for sensor in self._live.values():
+            if isinstance(sensor, MqttSensor):
+                await sensor.start_task()
+
+    async def deactivate(self) -> None:
+        """Stop background tasks for all MQTT sensors in the live pool."""
+        for sensor in self._live.values():
+            if isinstance(sensor, MqttSensor):
+                await sensor.stop_task()
+
+    def pause(self) -> None:
+        """Pause publishing for all MQTT sensors."""
+        for sensor in self._live.values():
+            if isinstance(sensor, MqttSensor):
+                sensor.pause_task()
+
+    def resume(self) -> None:
+        """Resume publishing for all MQTT sensors."""
+        for sensor in self._live.values():
+            if isinstance(sensor, MqttSensor):
+                sensor.resume_task()
+
+    def apply_updates(self, updates: dict[str, Any]) -> None:
+        """Apply sensor value changes from a preset step."""
+        for sensor_id, value in updates.items():
+            sensor = self.get_or_create(sensor_id)
+            sensor.update(value)
+
+    def configs(self) -> list[SensorConfig]:
+        """Return configs for all live sensors."""
+        return [
+            self._live[sensor_id].to_config()
+            for sensor_id in sorted(self._live.keys())
+        ]
+
+    def apply_sensor_update(self, sensor_id: str, update: dict[str, Any]) -> SensorConfig:
+        """Apply an individual sensor update (from API) and return updated config."""
+        sensor = self.get_or_create(sensor_id)
+        sensor.apply_update(update)
+        return sensor.to_config()
+
+    @property
+    def live(self) -> dict[str, BaseSensor]:
+        """Read-only access to the live sensor pool."""
+        return self._live
 
     def make(self, sensor_id: str, config: dict[str, Any] | SensorConfig) -> BaseSensor:
         sensor_type = self._infer_sensor_type(sensor_id, config)

@@ -16,29 +16,28 @@ def _make_registry() -> SensorRegistry:
 
 def test_registry_loads_default_sensors() -> None:
     registry = _make_registry()
-    sensors = registry.for_preset(None)
+    sensors = registry.sensors()
 
     assert "color-left" in sensors
     assert "ir-left" in sensors
     assert "distance-left" in sensors
 
 
-def test_registry_for_preset_clones_and_applies_overrides() -> None:
+def test_registry_live_pool_clones_defaults() -> None:
     registry = _make_registry()
-    defaults = registry.for_preset(None)
-    wrong_color = registry.get_presets()["wrong-color"]
-    overridden = registry.for_preset(wrong_color)
+    defaults = registry.sensors()
+    live = registry.live
 
     default_color, _ = defaults["color-left"].read()
-    override_color, _ = overridden["color-left"].read()
+    live_color, _ = live["color-left"].read()
     assert default_color == "RED"
-    assert override_color == "BLUE"
+    assert live_color == "RED"
 
-    overridden["color-left"].update("GREEN")
+    live["color-left"].update("GREEN")
     untouched_default, _ = defaults["color-left"].read()
-    mutated_override, _ = overridden["color-left"].read()
+    mutated_live, _ = live["color-left"].read()
     assert untouched_default == "RED"
-    assert mutated_override == "GREEN"
+    assert mutated_live == "GREEN"
 
 
 def test_registry_make_known_type() -> None:

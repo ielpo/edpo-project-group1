@@ -84,7 +84,7 @@ async def test_scripted_mode_returns_step_indexed_value() -> None:
         ),
     )
 
-    sensor = engine._sensors["color-left"]
+    sensor = engine._sensor_registry.live["color-left"]
 
     color, _ = sensor.read(step=1)
     assert color == "BLUE"
@@ -105,7 +105,7 @@ async def test_scripted_mode_with_empty_values_falls_back_to_value() -> None:
         SensorUpdateRequest(mode="scripted", value="RED", scripted_values=[]),
     )
 
-    sensor = engine._sensors["color-left"]
+    sensor = engine._sensor_registry.live["color-left"]
     color, _ = sensor.read(step=1)
     assert color == "RED"
 
@@ -292,7 +292,7 @@ async def test_gated_step_holds_until_fire_gate_matches() -> None:
             break
     assert engine._step_gate is not None
     assert engine.get_status().waitingForRequest is not None
-    assert engine._sensors["color-left"]._cfg.value == "RED"  # not applied yet
+    assert engine._sensor_registry.live["color-left"]._cfg.value == "RED"  # not applied yet
 
     # Non-matching request does not fire.
     assert engine.fire_gate_if_matches("GET", "/api/dobot/left/color") is False
@@ -300,7 +300,7 @@ async def test_gated_step_holds_until_fire_gate_matches() -> None:
 
     # Matching request fires; side-effects applied synchronously.
     assert engine.fire_gate_if_matches("POST", "/api/dobot/left/commands") is True
-    assert engine._sensors["color-left"]._cfg.value == "GREEN"
+    assert engine._sensor_registry.live["color-left"]._cfg.value == "GREEN"
 
     await asyncio.wait_for(engine._run_task, timeout=1.0)
     assert engine.get_status().waitingForRequest is None
@@ -328,7 +328,7 @@ async def test_gated_step_times_out_emits_event() -> None:
     await asyncio.wait_for(engine._run_task, timeout=2.0)
 
     # Side-effects applied on timeout.
-    assert engine._sensors["color-left"]._cfg.value == "BLUE"
+    assert engine._sensor_registry.live["color-left"]._cfg.value == "BLUE"
 
     events, _ = engine.event_store.list_events(page=1, page_size=50)
     assert any(ev.get("payload", {}).get("gateTimedOut") is True for ev in events), (
