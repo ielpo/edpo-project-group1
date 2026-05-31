@@ -42,6 +42,23 @@ templates/
 - htmx and the SSE / json-enc extensions are loaded from CDN; no Node build
   step is required. Roboto is loaded from Google Fonts.
 
+### Sensor Slider Controls
+
+Color and distance sensors use HTML range sliders with server-driven preview:
+
+- **Color sensors** expose three RGB sliders (0-255) and a named-color dropdown.
+  Moving a slider fires `hx-get="/fragments/sensors/{id}/preview"` which returns
+  a re-rendered sensor card (with an "unsaved" badge) without persisting state.
+- **Distance sensors** expose a single float slider (0.0-30.0) with the same
+  preview mechanism.
+- **Apply** is the only commit action. Clicking Apply sends a `PUT` with the
+  current slider values (as `r`, `g`, `b` fields for color, `value` for distance).
+  The `json-enc` extension serializes the form as JSON.
+- After Apply, the SSE OOB stream re-renders the twin panel with committed state,
+  clearing any "unsaved" marker.
+- Named colors (RED, GREEN, BLUE, YELLOW) are derived from exact canonical RGB
+  matches. Non-canonical RGB triples display as "custom" with an inline swatch.
+
 ## Development
 
 Install dependencies:

@@ -3,7 +3,7 @@ defaults:
     color-left:
       type: color
       value: RED
-      raw_color: [1, 0, 0]
+      raw_color: [255, 0, 0]
     ir-left:
       type: ir
       value: true

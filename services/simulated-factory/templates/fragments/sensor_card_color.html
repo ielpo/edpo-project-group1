@@ -1,0 +1,79 @@
+{# Single color sensor card.
+   Context vars:
+   - sensor:    dict (encoded SensorConfig)
+   - locked:    bool
+   - preview:   bool — when True, show unsaved-state marker
+   - color_swatches: dict
+#}
+{% set color_swatches = color_swatches | default({"RED": "#d32f2f", "GREEN": "#388e3c", "BLUE": "#1976d2", "YELLOW": "#fbc02d"}) %}
+<article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
+  <div class="twin-sensor__title">
+    {{ sensor.sensorId }}
+    {% if sensor.value in color_swatches %}
+      <span class="color-swatch" style="background: {{ color_swatches[sensor.value] }};" title="{{ sensor.value }}"></span>
+    {% elif sensor.raw_color %}
+      <span class="color-swatch" style="background: rgb({{ sensor.raw_color[0] }}, {{ sensor.raw_color[1] }}, {{ sensor.raw_color[2] }});" title="custom"></span>
+    {% endif %}
+    {% if preview %}<span class="chip chip-warning">unsaved</span>{% endif %}
+  </div>
+  <form
+    class="sensor-form"
+    hx-put="/api/config/sensors/{{ sensor.sensorId }}"
+    hx-swap="none"
+    hx-ext="json-enc"
+  >
+    <fieldset{% if locked %} disabled{% endif %}>
+      <div class="field">
+        <label>Color</label>
+        <select name="value"
+          hx-get="/fragments/sensors/{{ sensor.sensorId }}/preview"
+          hx-trigger="change"
+          hx-target="#twin-sensor-{{ sensor.sensorId }}"
+          hx-swap="outerHTML"
+          hx-include="closest form"
+        >
+          <option value=""{% if sensor.value in [None, ""] %} selected{% endif %}>(none)</option>
+          {% for c in ["RED", "GREEN", "BLUE", "YELLOW"] %}
+            <option value="{{ c }}"{% if sensor.value == c %} selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>R</label>
+        <input name="r" type="range" min="0" max="255" value="{{ sensor.raw_color[0] if sensor.raw_color else 0 }}"
+          hx-get="/fragments/sensors/{{ sensor.sensorId }}/preview"
+          hx-trigger="change"
+          hx-target="#twin-sensor-{{ sensor.sensorId }}"
+          hx-swap="outerHTML"
+          hx-include="closest form"
+        >
+        <output>{{ sensor.raw_color[0] if sensor.raw_color else 0 }}</output>
+      </div>
+      <div class="field">
+        <label>G</label>
+        <input name="g" type="range" min="0" max="255" value="{{ sensor.raw_color[1] if sensor.raw_color else 0 }}"
+          hx-get="/fragments/sensors/{{ sensor.sensorId }}/preview"
+          hx-trigger="change"
+          hx-target="#twin-sensor-{{ sensor.sensorId }}"
+          hx-swap="outerHTML"
+          hx-include="closest form"
+        >
+        <output>{{ sensor.raw_color[1] if sensor.raw_color else 0 }}</output>
+      </div>
+      <div class="field">
+        <label>B</label>
+        <input name="b" type="range" min="0" max="255" value="{{ sensor.raw_color[2] if sensor.raw_color else 0 }}"
+          hx-get="/fragments/sensors/{{ sensor.sensorId }}/preview"
+          hx-trigger="change"
+          hx-target="#twin-sensor-{{ sensor.sensorId }}"
+          hx-swap="outerHTML"
+          hx-include="closest form"
+        >
+        <output>{{ sensor.raw_color[2] if sensor.raw_color else 0 }}</output>
+      </div>
+      <div class="submit-cell">
+        <button type="submit" class="btn btn-filled">Apply</button>
+      </div>
+    </fieldset>
+  </form>
+</article>

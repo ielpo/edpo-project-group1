@@ -120,43 +120,8 @@
         {% if locked %}<span class="chip chip-assist">locked</span>{% endif %}
       </header>
       {% for sensor in color_sensors %}
-        <article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
-          <div class="twin-sensor__title">
-            {{ sensor.sensorId }}
-            {% if sensor.value in color_swatches %}
-              <span class="color-swatch" style="background: {{ color_swatches[sensor.value] }};" title="{{ sensor.value }}"></span>
-            {% endif %}
-          </div>
-          <form
-            class="sensor-form"
-            hx-put="/api/config/sensors/{{ sensor.sensorId }}"
-            hx-swap="none"
-            hx-ext="json-enc"
-          >
-            <fieldset{% if locked %} disabled{% endif %}>
-              <div class="field">
-                <label>Color</label>
-                <select name="value">
-                  <option value=""{% if sensor.value in [None, ""] %} selected{% endif %}>(none)</option>
-                  {% for c in ["RED", "GREEN", "BLUE", "YELLOW"] %}
-                    <option value="{{ c }}"{% if sensor.value == c %} selected{% endif %}>{{ c }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="field">
-                <label>Raw RGB</label>
-                <div class="raw-color-inputs">
-                  <input name="raw_color[]" value="{{ sensor.raw_color[0] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
-                  <input name="raw_color[]" value="{{ sensor.raw_color[1] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
-                  <input name="raw_color[]" value="{{ sensor.raw_color[2] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
-                </div>
-              </div>
-              <div class="submit-cell">
-                <button type="submit" class="btn btn-filled">Apply</button>
-              </div>
-            </fieldset>
-          </form>
-        </article>
+        {% set preview = false %}
+        {% include "fragments/sensor_card_color.html" %}
       {% else %}
         <div class="twin-zone__sub">No color sensors configured.</div>
       {% endfor %}
@@ -172,6 +137,7 @@
       </header>
       {% for sensor in distance_sensors %}
         {% set is_ir = sensor.sensorId.startswith("ir-") %}
+        {% if is_ir %}
         <article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
           <div class="twin-sensor__title">
             {{ sensor.sensorId }}
@@ -184,26 +150,23 @@
             hx-ext="json-enc"
           >
             <fieldset{% if locked %} disabled{% endif %}>
-              {% if is_ir %}
-                <div class="field">
-                  <label>Value</label>
-                  <select name="value">
-                    <option value="true"{% if sensor.value is sameas true %} selected{% endif %}>true</option>
-                    <option value="false"{% if sensor.value is sameas false %} selected{% endif %}>false</option>
-                  </select>
-                </div>
-              {% else %}
-                <div class="field">
-                  <label>Value</label>
-                  <input type="number" step="any" name="value" value="{{ sensor.value if sensor.value is not none else '' }}">
-                </div>
-              {% endif %}
+              <div class="field">
+                <label>Value</label>
+                <select name="value">
+                  <option value="true"{% if sensor.value is sameas true %} selected{% endif %}>true</option>
+                  <option value="false"{% if sensor.value is sameas false %} selected{% endif %}>false</option>
+                </select>
+              </div>
               <div class="submit-cell">
                 <button type="submit" class="btn btn-filled">Apply</button>
               </div>
             </fieldset>
           </form>
         </article>
+        {% else %}
+          {% set preview = false %}
+          {% include "fragments/sensor_card_distance.html" %}
+        {% endif %}
       {% else %}
         <div class="twin-zone__sub">No distance/IR sensors configured.</div>
       {% endfor %}

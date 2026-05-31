@@ -15,11 +15,11 @@ from simulated_factory.sensors.ir import IrSensor
 
 def test_color_sensor_reads_current_value() -> None:
     sensor = ColorSensor(
-        "color-left", {"value": "RED", "raw_color": [1, 0, 0]}
+        "color-left", {"value": "RED", "raw_color": [255, 0, 0]}
     )
     color, raw = sensor.read()
     assert color == "RED"
-    assert raw == [1, 0, 0]
+    assert raw == [255, 0, 0]
 
 
 def test_color_sensor_default_fallback() -> None:
@@ -45,9 +45,9 @@ def test_color_sensor_to_dict() -> None:
 
 def test_color_sensor_apply_update() -> None:
     sensor = ColorSensor("color-left", {"value": "RED"})
-    sensor.apply_update({"value": "GREEN", "raw_color": [0, 1, 0]})
+    sensor.apply_update({"value": "GREEN", "raw_color": [0, 255, 0]})
     assert sensor._cfg.value == "GREEN"
-    assert sensor._cfg.raw_color == [0, 1, 0]
+    assert sensor._cfg.raw_color == [0, 255, 0]
 
 
 def test_color_sensor_clone_is_independent() -> None:
@@ -177,12 +177,12 @@ def test_distance_sensor_clone_is_independent() -> None:
 
 def test_apply_update_updates_value_and_raw_color() -> None:
     sensor = ColorSensor(
-        "color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]}
+        "color-left", {"mode": "fixed", "value": "RED", "raw_color": [255, 0, 0]}
     )
-    sensor.apply_update({"value": "BLUE", "raw_color": [0, 0, 1]})
+    sensor.apply_update({"value": "BLUE", "raw_color": [0, 0, 255]})
     color, raw = sensor.read()
     assert color == "BLUE"
-    assert raw == [0, 0, 1]
+    assert raw == [0, 0, 255]
 
 
 def test_apply_update_ignores_type_key() -> None:

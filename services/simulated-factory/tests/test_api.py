@@ -97,7 +97,19 @@ def test_index_renders_htmx_shell() -> None:
     assert 'sse-swap="update"' in body
     # panel placeholders use hx-get with hx-trigger="load"
     assert 'hx-get="/fragments/presets"' in body
+    assert 'hx-get="/fragments/events?filter=full"' in body
     assert 'hx-trigger="load"' in body
+
+
+def test_index_threads_process_filter_into_shell() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/?filter=process")
+    assert response.status_code == 200
+    body = response.text
+    assert 'sse-connect="/sse/status?filter=process"' in body
+    assert 'hx-get="/fragments/events?filter=process"' in body
 
 
 def test_fragment_presets_lists_known_presets() -> None:
@@ -190,7 +202,7 @@ def test_put_sensor_returns_json_for_htmx_caller() -> None:
 
     response = client.put(
         "/api/config/sensors/color-left",
-        json={"value": "GREEN", "raw_color": "0,1,0"},
+        json={"value": "GREEN", "raw_color": "0,255,0"},
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
@@ -209,7 +221,7 @@ def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
 
     response = client.put(
         "/api/config/sensors/color-left",
-        json={"value": "BLUE", "raw_color": [0, 0, 1]},
+        json={"value": "BLUE", "raw_color": [0, 0, 255]},
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
@@ -224,7 +236,7 @@ def test_put_sensor_ignores_removed_fields() -> None:
 
     resp = client.put(
         "/api/config/sensors/color-left",
-        json={"mode": "fixed", "value": "GREEN", "raw_color": [0, 1, 0]},
+        json={"mode": "fixed", "value": "GREEN", "raw_color": [0, 255, 0]},
     )
     assert resp.status_code == 200
     body = resp.json()

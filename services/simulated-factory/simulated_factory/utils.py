@@ -10,19 +10,48 @@ def path_pattern_to_regex(pattern: str) -> re.Pattern[str]:
     return re.compile(f"^{regex}$")
 
 
+# Canonical named-color -> RGB byte mappings (0-255).
+CANONICAL_RGB: dict[str, List[int]] = {
+    "RED": [255, 0, 0],
+    "GREEN": [0, 255, 0],
+    "BLUE": [0, 0, 255],
+    "YELLOW": [255, 255, 0],
+}
+
+# Reverse lookup: tuple(rgb) -> name
+_RGB_TO_NAME: dict[tuple[int, ...], str] = {
+    tuple(v): k for k, v in CANONICAL_RGB.items()
+}
+
+DISTANCE_MIN: float = 0.0
+DISTANCE_MAX: float = 30.0
+
+
 def raw_color_from_name(color: str) -> List[int]:
-    palette = {
-        "RED": [1, 0, 0],
-        "GREEN": [0, 1, 0],
-        "BLUE": [0, 0, 1],
-        "YELLOW": [1, 1, 0],
-    }
-    return palette.get(color.upper(), [0, 0, 0])
+    return list(CANONICAL_RGB.get(color.upper(), [0, 0, 0]))
+
+
+def name_from_raw_color(raw_color: List[int]) -> str | None:
+    """Return the canonical color name if raw_color exactly matches a preset, else None."""
+    return _RGB_TO_NAME.get(tuple(raw_color[:3]))
 
 
 def rgb_bytes_from_raw(raw_color: List[int]) -> Tuple[int, int, int]:
     padded = (raw_color + [0, 0, 0])[:3]
-    return tuple(255 if value else 0 for value in padded)
+    return tuple(max(0, min(255, v)) for v in padded)
+
+
+def validate_distance_range(value: float) -> float:
+    """Validate that a distance value is within the supported slider range.
+
+    Raises ValueError if value is outside the inclusive 0.0-30.0 range.
+    """
+    if value < DISTANCE_MIN or value > DISTANCE_MAX:
+        raise ValueError(
+            f"Distance value {value} is outside the supported range "
+            f"[{DISTANCE_MIN}, {DISTANCE_MAX}]"
+        )
+    return value
 
 
 def decode_kafka_value(value: bytes | None) -> Any:

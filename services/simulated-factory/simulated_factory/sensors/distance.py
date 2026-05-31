@@ -4,6 +4,7 @@ import json
 
 from simulated_factory.sensors.base import BaseSensor, MqttSensor
 from simulated_factory.models import SensorConfig
+from simulated_factory.utils import validate_distance_range
 
 
 class DistanceSensorConfig(SensorConfig):
@@ -41,7 +42,13 @@ class DistanceSensor(BaseSensor, MqttSensor):
         return self._cfg.value if self._cfg.value is not None else 30.0
 
     def update(self, value: Any) -> None:
-        self._cfg.value = float(value)
+        self._cfg.value = validate_distance_range(float(value))
+
+    def apply_update(self, data: dict[str, Any]) -> None:
+        if "value" in data:
+            data = dict(data)
+            data["value"] = validate_distance_range(float(data["value"]))
+        super().apply_update(data)
 
     def mqtt_message(self) -> tuple[str, str] | None:
         if self._cfg.value is None:

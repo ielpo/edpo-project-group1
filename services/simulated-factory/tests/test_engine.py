@@ -69,11 +69,11 @@ async def test_sensor_override_changes_runtime_value() -> None:
 
     sensor = await engine.update_sensor(
         "color-left",
-        SensorUpdateRequest(value="BLUE", raw_color=[0, 0, 1]),
+        SensorUpdateRequest(value="BLUE", raw_color=[0, 0, 255]),
     )
 
     assert sensor.value == "BLUE"
-    assert engine.read_color("left") == ("BLUE", [0, 0, 1])
+    assert engine.read_color("left") == ("BLUE", [0, 0, 255])
 
 
 @pytest.mark.asyncio

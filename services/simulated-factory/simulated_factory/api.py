@@ -170,6 +170,45 @@ def create_app(config_path: str) -> FastAPI:
         ctx = {"oob": False, **snapshot.pending_view()}
         return templates.TemplateResponse(request, "fragments/pending.html", ctx)
 
+    @app.get("/fragments/sensors/{sensor_id}/preview", response_class=HTMLResponse)
+    async def fragment_sensor_preview(sensor_id: str, request: Request) -> HTMLResponse:
+        sensor = sensor_registry.live.get(sensor_id)
+        if sensor is None:
+            raise HTTPException(status_code=404, detail="sensor not found")
+
+        clone = sensor.clone()
+        params = dict(request.query_params)
+
+        # Apply draft values to the clone without persisting
+        from simulated_factory.sensors.color import ColorSensor
+        from simulated_factory.sensors.distance import DistanceSensor
+
+        if isinstance(clone, ColorSensor):
+            r = int(params.get("r", 0))
+            g = int(params.get("g", 0))
+            b = int(params.get("b", 0))
+            draft_raw = [r, g, b]
+            clone.apply_update({"raw_color": draft_raw})
+            # If a named color was explicitly selected, override derivation
+            if params.get("value"):
+                clone._cfg.value = params["value"].upper()
+            template_name = "fragments/sensor_card_color.html"
+        elif isinstance(clone, DistanceSensor):
+            if "value" in params and params["value"] != "":
+                from simulated_factory.utils import validate_distance_range
+                try:
+                    clone.apply_update({"value": float(params["value"])})
+                except ValueError:
+                    raise HTTPException(status_code=422, detail="distance out of range")
+            template_name = "fragments/sensor_card_distance.html"
+        else:
+            raise HTTPException(status_code=400, detail="preview not supported for this sensor type")
+
+        from fastapi.encoders import jsonable_encoder as _enc
+        locked = engine.get_status().status == SimulationStatus.RUNNING
+        ctx = {"sensor": _enc(clone.to_config()), "locked": locked, "preview": True}
+        return templates.TemplateResponse(request, template_name, ctx)
+
     # ------------------------------------------------------------------
     # Server-Sent Events live stream
     # ------------------------------------------------------------------

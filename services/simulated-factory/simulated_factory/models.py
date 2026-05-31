@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def utc_now() -> datetime:
@@ -112,6 +112,9 @@ class RunPresetRequest(BaseModel):
 class SensorUpdateRequest(BaseModel):
     value: Any = None
     raw_color: list[int] | None = None
+    r: int | None = None
+    g: int | None = None
+    b: int | None = None
 
     @field_validator("raw_color", mode="before")
     @classmethod
@@ -169,6 +172,15 @@ class SensorUpdateRequest(BaseModel):
             return int(s)
         except ValueError:
             return s
+
+    @model_validator(mode="after")
+    def assemble_rgb(self) -> "SensorUpdateRequest":
+        """Build raw_color from individual r/g/b slider fields when present."""
+        if self.raw_color is None and any(
+            v is not None for v in (self.r, self.g, self.b)
+        ):
+            self.raw_color = [self.r or 0, self.g or 0, self.b or 0]
+        return self
 
 
 class InteractiveConfig(BaseModel):

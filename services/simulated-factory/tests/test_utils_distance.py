@@ -52,10 +52,10 @@ def test_path_pattern_to_regex_matches() -> None:
 
 
 def test_raw_color_and_rgb_helpers() -> None:
-    assert raw_color_from_name("RED") == [1, 0, 0]
+    assert raw_color_from_name("RED") == [255, 0, 0]
     assert raw_color_from_name("unknown") == [0, 0, 0]
-    assert rgb_bytes_from_raw([1, 0, 0]) == (255, 0, 0)
-    assert rgb_bytes_from_raw([1]) == (255, 0, 0)
+    assert rgb_bytes_from_raw([255, 0, 0]) == (255, 0, 0)
+    assert rgb_bytes_from_raw([128]) == (128, 0, 0)
 
 
 @pytest.mark.asyncio

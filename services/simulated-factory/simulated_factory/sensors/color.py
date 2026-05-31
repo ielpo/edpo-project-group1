@@ -10,7 +10,7 @@ from pydantic import Field
 
 from simulated_factory.models import SensorConfig
 from simulated_factory.sensors.base import BaseSensor, MqttSensor
-from simulated_factory.utils import raw_color_from_name, rgb_bytes_from_raw
+from simulated_factory.utils import name_from_raw_color, raw_color_from_name, rgb_bytes_from_raw
 
 
 class ColorSensorConfig(SensorConfig):
@@ -44,8 +44,8 @@ class ColorSensor(BaseSensor, MqttSensor):
 
     def read(self) -> tuple[str, list[int]]:
         cfg = self._cfg
-        color = str(cfg.value or "YELLOW").upper()
-        raw = cfg.raw_color if cfg.raw_color else raw_color_from_name(color)
+        raw = cfg.raw_color if cfg.raw_color else raw_color_from_name(cfg.value or "YELLOW")
+        color = cfg.value or name_from_raw_color(raw) or "YELLOW"
         return color, raw
 
     def read_rgb_bytes(self) -> dict[str, int]:
@@ -57,6 +57,11 @@ class ColorSensor(BaseSensor, MqttSensor):
     def update(self, value: Any) -> None:
         self._cfg.value = str(value).upper()
         self._cfg.raw_color = raw_color_from_name(str(value))
+
+    def apply_update(self, data: dict[str, Any]) -> None:
+        super().apply_update(data)
+        if "raw_color" in data:
+            self._cfg.value = name_from_raw_color(self._cfg.raw_color)
 
     def mqtt_message(self) -> tuple[str, str] | None:
         color, raw_color = self.read()

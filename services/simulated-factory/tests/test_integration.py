@@ -167,11 +167,11 @@ class TestSensorUpdates:
     async def test_update_sensor_persists(self) -> None:
         engine, event_store = _make_engine()
         await engine.update_sensor(
-            "color-left", SensorUpdateRequest(value="GREEN", raw_color=[0, 1, 0])
+            "color-left", SensorUpdateRequest(value="GREEN", raw_color=[0, 255, 0])
         )
         color, raw = engine.read_color("left")
         assert color == "GREEN"
-        assert raw == [0, 1, 0]
+        assert raw == [0, 255, 0]
 
     @pytest.mark.asyncio
     async def test_sensor_update_emits_event(self) -> None:
