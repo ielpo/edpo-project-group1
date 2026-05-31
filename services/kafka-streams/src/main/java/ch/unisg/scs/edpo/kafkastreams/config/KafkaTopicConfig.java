@@ -33,9 +33,6 @@ public class KafkaTopicConfig {
     @Value("${kafka.topics.conveyor-commands}")
     private String conveyorCommandsTopic;
 
-    @Value("${kafka.topics.robot-arm-commands}")
-    private String robotArmCommandsTopic;
-
     @Bean
     public NewTopic sensorDistanceRawTopic() {
         return TopicBuilder.name(distanceRawTopic).partitions(1).replicas(1).build();
@@ -74,10 +71,5 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic conveyorCommandsTopic() {
         return TopicBuilder.name(conveyorCommandsTopic).partitions(1).replicas(1).build();
-    }
-
-    @Bean
-    public NewTopic robotArmCommandsTopic() {
-        return TopicBuilder.name(robotArmCommandsTopic).partitions(1).replicas(1).build();
     }
 }
