@@ -9,6 +9,7 @@ class DobotColorSensorConfig(SensorConfig):
     color: str
     raw_color: list[int]
 
+
 class DobotColorSensor(BaseSensor):
     """Dobot sensor for color detection."""
 

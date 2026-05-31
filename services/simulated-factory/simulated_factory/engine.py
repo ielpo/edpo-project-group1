@@ -25,7 +25,11 @@ from simulated_factory.models import (
 )
 from simulated_factory.sensor_registry import SensorRegistry
 from simulated_factory.sensors.base import BaseSensor, MqttSensor
-from simulated_factory.utils import path_pattern_to_regex, raw_color_from_name, rgb_bytes_from_raw
+from simulated_factory.utils import (
+    path_pattern_to_regex,
+    raw_color_from_name,
+    rgb_bytes_from_raw,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,9 +200,13 @@ class SimulationEngine:
             "right": DobotRuntimeState(),
         }
 
-        await self._record_event("STATE", message="Simulation reset", payload={"status": "reset"})
+        await self._record_event(
+            "STATE", message="Simulation reset", payload={"status": "reset"}
+        )
 
-    async def _execute_preset(self, preset: PresetDefinition, speed: float = 1.0) -> None:
+    async def _execute_preset(
+        self, preset: PresetDefinition, speed: float = 1.0
+    ) -> None:
         try:
             for index, step in enumerate(preset.steps, start=1):
                 if self._stop_requested:
@@ -355,7 +363,9 @@ class SimulationEngine:
             topic, payload = message
             await self._mqtt_publisher.publish_raw(topic, payload)
 
-    async def handle_dobot_commands(self, robot_name: str, payload: Any) -> dict[str, Any]:
+    async def handle_dobot_commands(
+        self, robot_name: str, payload: Any
+    ) -> dict[str, Any]:
         command_list = payload if isinstance(payload, list) else [payload]
         correlation_id = f"cmd-{self._run_id}-{self._current_step + 1}"
 
@@ -462,13 +472,19 @@ class SimulationEngine:
                     dobot_state.suction_enabled = bool(command.get("enabled", False))
                 case "run-conveyor":
                     dobot_state.conveyor_speed = float(command.get("speed", 0.0))
-                    dobot_state.conveyor_direction = str(command.get("direction", "STOP"))
+                    dobot_state.conveyor_direction = str(
+                        command.get("direction", "STOP")
+                    )
                 case "move-conveyor":
                     dobot_state.conveyor_speed = float(command.get("speed", 0.0))
                     dobot_state.conveyor_distance = float(command.get("distance", 0.0))
-                    dobot_state.conveyor_direction = str(command.get("direction", "STOP"))
+                    dobot_state.conveyor_direction = str(
+                        command.get("direction", "STOP")
+                    )
                 case _:
-                    logger.info("Ignoring unsupported simulator command type %s", command_type)
+                    logger.info(
+                        "Ignoring unsupported simulator command type %s", command_type
+                    )
             dobot_state.last_command = command_type
 
     async def resolve_action(
@@ -512,7 +528,9 @@ class SimulationEngine:
             for sensor_id in sorted(self._sensors.keys())
         ]
 
-    async def update_sensor(self, sensor_id: str, update: SensorUpdateRequest) -> SensorConfig:
+    async def update_sensor(
+        self, sensor_id: str, update: SensorUpdateRequest
+    ) -> SensorConfig:
         if sensor_id not in self._sensors:
             self._sensors[sensor_id] = self._sensor_registry.make(sensor_id, {})
 
@@ -550,7 +568,9 @@ class SimulationEngine:
         return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
 
     def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
-        return self._dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(deep=True)
+        return self._dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(
+            deep=True
+        )
 
     def get_inventory_cache(self) -> dict[str, Any]:
         if self._inventory_cache is None:
@@ -589,7 +609,9 @@ class SimulationEngine:
             raise
 
     async def record_external_event(self, payload: Any) -> None:
-        await self._record_event("EVENT", message="External event accepted", payload=payload)
+        await self._record_event(
+            "EVENT", message="External event accepted", payload=payload
+        )
 
     async def _record_event(self, event_type: str, **kwargs: Any) -> None:
         await self.event_store.append(event_type, **kwargs)

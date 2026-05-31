@@ -4,6 +4,7 @@ from typing import Any
 
 from simulated_factory.models import SensorConfig
 
+
 class BaseSensor(ABC):
     """Abstract base class all sensor plugins must implement.
 
@@ -23,11 +24,11 @@ class BaseSensor(ABC):
 
     @abstractmethod
     def read(self, step: int = 0) -> Any:
-        """Return the current sensor value. """
+        """Return the current sensor value."""
 
     @abstractmethod
     def update(self, value: Any) -> None:
-        """Set the sensor value. """
+        """Set the sensor value."""
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:
@@ -47,6 +48,7 @@ class BaseSensor(ABC):
         for key, value in filtered.items():
             if hasattr(self._cfg, key):
                 setattr(self._cfg, key, value)
+
 
 class MqttSensor(ABC):
     @abstractmethod

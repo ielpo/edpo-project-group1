@@ -40,6 +40,7 @@ class SensorConfig(BaseModel):
     type: str = ""
     sensorId: str = ""
 
+
 class AwaitRequest(BaseModel):
     method: str
     path: str
@@ -93,6 +94,7 @@ class EventEntry(BaseModel):
 class RunPresetRequest(BaseModel):
     preset: str
     speed: float = 1.0
+
 
 class SensorUpdateRequest(BaseModel):
     mode: str | None = None

@@ -173,9 +173,7 @@ class TestSensorUpdates:
     @pytest.mark.asyncio
     async def test_sensor_update_emits_event(self) -> None:
         engine, event_store = _make_engine()
-        await engine.update_sensor(
-            "ir-left", SensorUpdateRequest(value=False)
-        )
+        await engine.update_sensor("ir-left", SensorUpdateRequest(value=False))
         events, _ = event_store.list_events(page=1, page_size=10)
         state_events = [e for e in events if e["type"] == "STATE"]
         assert any("ir-left" in str(e.get("payload", {})) for e in state_events)

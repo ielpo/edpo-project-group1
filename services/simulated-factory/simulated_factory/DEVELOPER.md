@@ -136,6 +136,3 @@ Key tests: `test_engine.py` (preset execution, gating), `test_events_store.py` (
 - [ ] Audit `sensors/` — add unit tests for any new plugin; prefer `color.py` over `dobot_color.py` for new color sensors.
 - [ ] Run `pytest` and address failing tests; focus on engine/preset behavior, EventStore replay, and interactive action lifecycle.
 - [ ] Add or update `config.yml` presets to verify end-to-end flows (sensor updates, `triggerMqtt` publishes, and gates).
-
----
-Generated from a code inspection of the package modules; keep this file next to the code for quick onboarding.

@@ -11,8 +11,6 @@ from fastapi import (
     FastAPI,
     HTTPException,
     Request,
-    WebSocket,
-    WebSocketDisconnect,
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse

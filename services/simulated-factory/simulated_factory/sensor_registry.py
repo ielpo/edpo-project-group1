@@ -22,8 +22,7 @@ class SensorRegistry:
         defaults = payload.get("defaults", {}).get("sensors", {})
 
         self._defaults: dict[str, BaseSensor] = {
-            sensor_id: self.make(sensor_id, cfg)
-            for sensor_id, cfg in defaults.items()
+            sensor_id: self.make(sensor_id, cfg) for sensor_id, cfg in defaults.items()
         }
         self._presets_raw: dict[str, dict[str, Any]] = payload.get("presets", {})
 
@@ -40,8 +39,7 @@ class SensorRegistry:
 
     def for_preset(self, preset: PresetDefinition | None) -> dict[str, BaseSensor]:
         sensors = {
-            sensor_id: plugin.clone()
-            for sensor_id, plugin in self._defaults.items()
+            sensor_id: plugin.clone() for sensor_id, plugin in self._defaults.items()
         }
 
         if preset is None:
@@ -58,7 +56,9 @@ class SensorRegistry:
         sensor_type = self._infer_sensor_type(sensor_id, config)
         module_name = f"simulated_factory.sensors.{sensor_type.replace('-', '_')}"
         class_name = (
-            "".join(word.capitalize() for word in sensor_type.replace("-", "_").split("_"))
+            "".join(
+                word.capitalize() for word in sensor_type.replace("-", "_").split("_")
+            )
             + "Sensor"
         )
 
