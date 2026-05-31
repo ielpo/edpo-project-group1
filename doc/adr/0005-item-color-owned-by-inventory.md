@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-The color of an order item can be specified on order. Multiple services need consistent access to this value during processing, e.g. during manufacturing. We had to decide whether color should be sent in the order message or resolved from a shared source.
+When a customer places an order, they specify a desired item color. Multiple services need consistent access to this value during processing, e.g. during manufacturing. We had to decide whether color should be sent in the order message or resolved from a shared source.
 
 ## Decision
 
