@@ -49,3 +49,4 @@ __pycache__/
 
 # Database files
 *.db
+.vscode/
