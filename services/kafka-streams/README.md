@@ -5,7 +5,7 @@ Kafka Streams service for restocking block detection, color enrichment, command 
 The service contains two topology slices:
 
 1. Left sensor block detection and color enrichment.
-2. Left sensor conveyor-stop triggering.
+2. Left sensor conveyor-move triggering.
 
 All custom payloads use the local `JsonSerde<T>` implementation backed by Jackson 3.
 
