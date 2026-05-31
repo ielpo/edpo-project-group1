@@ -1,0 +1,17 @@
+# Simulation lifecycle state machine driven by SimulationEngine + ProcessRunner.
+# Render: d2 08-lifecycle.d2 lifecycle.svg
+
+direction: right
+
+start: {shape: circle; label: ""; style.fill: black}
+
+IDLE
+RUNNING
+STOPPED
+
+start    -> IDLE
+IDLE     -> RUNNING: "run_preset()"
+RUNNING  -> IDLE:    "preset completed"
+RUNNING  -> STOPPED: "stop() or task cancel"
+STOPPED  -> IDLE:    "reset()"
+IDLE     -> IDLE:    "reset()"

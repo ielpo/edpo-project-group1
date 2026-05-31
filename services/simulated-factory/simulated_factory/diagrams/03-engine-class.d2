@@ -1,0 +1,106 @@
+# Engine + registries class diagram.
+# Render: d2 03-engine-class.d2 engine-class.svg
+
+SimulationEngine: {
+  shape: class
+
+  +event_store: EventStore
+  -_mqtt_publisher: MqttPublisher
+  -_sensor_registry: SensorRegistry
+  -_actuator_registry: ActuatorRegistry
+  -_presets: dict
+  -_status: SimulationStatus
+  -_run_id: str
+  -_run_counter: int
+  -_current_preset: str?
+  -_current_step: int
+  -_current_step_name: str?
+  -_stop_requested: bool
+  -_run_task: asyncio.Task?
+  -_lock: asyncio.Lock
+  -_step_gate: tuple?
+  -_waiting_for_request: AwaitRequest?
+  -_pending_action: PendingAction?
+  -_interactive_config: InteractiveConfig
+
+  +get_status(): EngineLifecycleState
+  +run_preset(preset_name, speed): str
+  +stop()
+  +reset()
+  +fire_gate_if_matches(method, path): bool
+  +handle_actuator_commands(robot, payload): dict
+  +resolve_action(action_id, outcome, reason): PendingAction
+  +get_pending_actions(): list
+  +get_interactive_config(): InteractiveConfig
+  +set_interactive_config(cfg): InteractiveConfig
+  +update_sensor(sensor_id, update): SensorConfig
+  +read_color(robot): tuple
+  +read_ir(robot): bool
+  +read_color_sensor_bytes(): dict
+  +record_external_event(payload)
+  -_execute_preset(preset, speed)
+  -_run_step(step, speed)
+  -_await_gate(step, speed)
+  -_clear_step_gate()
+  -_matches_gate(method, path): bool
+  -_record_event(event_type, **kwargs)
+}
+
+SensorRegistry: {
+  shape: class
+
+  -_mqtt_publisher: MqttPublisher
+  -_defaults: dict
+  -_presets_raw: dict
+  -_live: dict
+
+  +get_presets(): dict
+  +sensors(): dict
+  +reset()
+  +get_or_create(sensor_id): BaseSensor
+  +activate()
+  +deactivate()
+  +pause()
+  +resume()
+  +apply_updates(updates)
+  +configs(): list
+  +apply_sensor_update(sensor_id, update): SensorConfig
+  +make(sensor_id, config): BaseSensor
+  -_infer_sensor_type(sensor_id, config): str
+  +live: dict
+}
+
+ActuatorRegistry: {
+  shape: class
+
+  -_actuators: dict
+
+  +apply_commands(robot_name, commands)
+  +get_state(robot_name): DobotRuntimeState
+  +all_states(): dict
+  +reset()
+}
+
+RuntimeSnapshot: {
+  shape: class
+
+  -_engine: SimulationEngine
+  -_sensor_registry: SensorRegistry
+  -_actuator_registry: ActuatorRegistry
+  -_inventory_poller: InventoryPoller
+  -_event_store: EventStore
+
+  +status_view(): dict
+  +presets_view(): dict
+  +twin_view(): dict
+  +events_view(active_types): dict
+  +pending_view(): dict
+  +all_panels(active_types): dict
+}
+
+# Composition
+SimulationEngine -> SensorRegistry:   "delegates sensor ops"
+SimulationEngine -> ActuatorRegistry: "delegates actuator ops"
+RuntimeSnapshot  -> SimulationEngine: "reads lifecycle"
+RuntimeSnapshot  -> SensorRegistry:   "reads configs"
+RuntimeSnapshot  -> ActuatorRegistry: "reads states"

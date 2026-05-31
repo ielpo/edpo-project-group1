@@ -1,0 +1,39 @@
+<div id="pending-panel" class="card"{% if oob %} hx-swap-oob="true"{% endif %}{% if not pending %} hidden{% endif %}>
+  <h2>Active Gate</h2>
+  <div class="supporting">The simulation is holding until a trigger fires.</div>
+  {% for action in pending %}
+  <article class="item-card">
+    <header>
+      <h3>{{ action.stepName }}</h3>
+      <time>{{ action.startedAt }}</time>
+    </header>
+    <p>
+      <strong>Trigger:</strong> {{ action.triggerType }}
+      {% if action.triggerType == 'http' %}
+        — waiting for <code>{{ action.triggerSpec.method }} {{ action.triggerSpec.path }}</code>
+      {% elif action.triggerType == 'kafka' %}
+        — waiting for message on <code>{{ action.triggerSpec.topic }}</code>
+      {% else %}
+        — waiting for operator
+      {% endif %}
+    </p>
+    <p class="supporting">Timeout: {{ action.timeoutMs }} ms</p>
+    {% if action.triggerType == 'manual' %}
+    <div class="btn-row">
+      <button
+        class="btn btn-filled"
+        hx-post="/api/gate/fire"
+        hx-swap="none"
+      >Approve</button>
+      <button
+        class="btn btn-error"
+        hx-post="/api/gate/reject"
+        hx-swap="none"
+      >Reject</button>
+    </div>
+    {% endif %}
+  </article>
+  {% else %}
+  <div class="supporting">No active gate.</div>
+  {% endfor %}
+</div>

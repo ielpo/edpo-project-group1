@@ -1,0 +1,41 @@
+# Preset execution: end-to-end flow from a client POST through step gating.
+# Render: d2 09-preset-sequence.d2 preset-sequence.svg
+
+shape: sequence_diagram
+
+Client
+API:        "API (FastAPI)"
+Engine:     "SimulationEngine"
+SensorReg:  "SensorRegistry"
+EventStore
+MQTT:       "MqttPublisher"
+
+Client -> API: "POST /api/presets/run"
+API -> Engine: "run_preset(name, speed)"
+Engine -> SensorReg: "reset() + activate()"
+Engine -> EventStore: "append(STATE, \"Started preset\")"
+Engine -> Engine: "asyncio.create_task(_execute_preset)"
+
+loop: "for each PresetStep" {
+  gated_step: "step.awaitRequest is set" {
+    Engine -> Engine: "set _step_gate = (AwaitRequest, Event, step)"
+    Engine -> Engine: "await event.wait() with timeout"
+
+    # Triggering request arrives mid-wait
+    Client -> API: "e.g. GET /api/dobot/{name}/color"
+    API -> Engine: "fire_gate_if_matches(method, path)"
+    Engine -> SensorReg: "apply_updates(step.sensorUpdates)"
+    Engine -> Engine: "event.set() unblocks _await_gate"
+  }
+
+  normal_step: "no awaitRequest" {
+    Engine -> SensorReg: "apply_updates(step.sensorUpdates)"
+    Engine -> Engine: "sleep(delayMs / speed)"
+  }
+
+  Engine -> EventStore: "append(STATE, step info)"
+}
+
+Engine -> EventStore: "append(STATE, \"Preset completed\")"
+Engine -> SensorReg: "deactivate()"
+Engine -> Engine: "status -> IDLE"

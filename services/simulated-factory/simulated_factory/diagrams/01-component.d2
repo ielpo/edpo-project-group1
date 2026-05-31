@@ -1,0 +1,95 @@
+# Component diagram: live runtime architecture of the Simulated Factory.
+# Render: d2 01-component.d2 component.svg
+
+direction: right
+
+External: {
+  label: "External Systems"
+  style.stroke-dash: 3
+
+  kafka:       "Kafka Broker"
+  mqtt:        "MQTT Broker"
+  inventory:   "Inventory Service"
+  dashboard:   "Dashboard / HTMX UI"
+  orchestrator:"Dobot Control / Orchestrator"
+}
+
+Sim: "Simulated Factory Service" {
+  API: "API Layer (FastAPI)" {
+    rest:       "REST Endpoints"
+    sse:        "SSE Live Stream"
+    fragments:  "HTMX Fragments"
+    middleware: "Request Capture Middleware"
+    snapshot:   "RuntimeSnapshot"
+  }
+
+  Engine: "SimulationEngine (monolithic)" {
+    label: "SimulationEngine"
+    preset:     "Preset Execution"
+    gate:       "Gate Matching"
+    interactive:"Interactive Mode"
+  }
+
+  Registries: "Registries" {
+    sensor_reg:   "SensorRegistry"
+    actuator_reg: "ActuatorRegistry"
+  }
+
+  Sensors: "Sensor Plugins" {
+    base:        "BaseSensor (ABC)"
+    mqtt_mixin:  "MqttSensor (ABC)"
+    color:       "ColorSensor"
+    ir:          "IrSensor"
+    distance:    "DistanceSensor"
+    generic:     "GenericSensor"
+    dobot_color: "DobotColorSensor"
+  }
+
+  Actuators: "Actuator Plugins" {
+    base_act:    "BaseActuator (ABC)"
+    dobot:       "DobotActuator"
+  }
+
+  Adapters: "Adapters (Infrastructure)" {
+    mqtt_pub:  "MqttPublisher"
+    kafka_obs: "KafkaObserver"
+    inv_poll:  "InventoryPoller"
+  }
+
+  Events: "Event Infrastructure" {
+    event_store:  "EventStore"
+  }
+}
+
+# Inbound traffic
+External.dashboard    -> Sim.API:              "HTTP / SSE"
+External.orchestrator -> Sim.API.rest:         "REST commands"
+
+# Request pipeline
+Sim.API.rest        -> Sim.API.middleware:     "wraps"
+Sim.API.middleware  -> Sim.Engine:             "fire gate + dispatch"
+Sim.API.fragments   -> Sim.API.snapshot:       "read views"
+Sim.API.snapshot    -> Sim.Engine:             "get_status()"
+Sim.API.snapshot    -> Sim.Registries:         "configs / states"
+Sim.API.sse         -> Sim.Events.event_store: "subscribe()"
+
+# Engine -> Registries
+Sim.Engine -> Sim.Registries.sensor_reg:   "read/update sensors"
+Sim.Engine -> Sim.Registries.actuator_reg: "apply commands / get state"
+
+# Registry -> Plugins
+Sim.Registries.sensor_reg   -> Sim.Sensors:   "instantiate / lifecycle"
+Sim.Registries.actuator_reg -> Sim.Actuators: "apply / state"
+
+# MQTT sensor publishing
+Sim.Sensors.distance -> Sim.Adapters.mqtt_pub: "publish via wire()"
+
+# Event emission
+Sim.Engine           -> Sim.Events.event_store: "append()"
+Sim.Adapters.mqtt_pub -> Sim.Events.event_store: "append MQTT events"
+
+# Outbound integrations
+Sim.Adapters.mqtt_pub  -> External.mqtt:      "MQTT publish"
+Sim.Adapters.kafka_obs -> External.kafka:     "consume topics"
+Sim.Adapters.kafka_obs -> Sim.Events.event_store: "append KAFKA events"
+Sim.Adapters.inv_poll  -> External.inventory: "poll /inventory"

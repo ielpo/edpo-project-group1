@@ -1,0 +1,37 @@
+{# Single distance sensor card.
+   Context vars:
+   - sensor:    dict (encoded SensorConfig)
+   - locked:    bool
+   - preview:   bool — when True, show unsaved-state marker
+#}
+<article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
+  <div class="twin-sensor__title">
+    {{ sensor.sensorId }}
+    <span class="twin-sensor__value">value: <code>{{ sensor.value|tojson }}</code></span>
+    {% if preview %}<span class="chip chip-warning">unsaved</span>{% endif %}
+  </div>
+  <form
+    class="sensor-form"
+    hx-put="/api/config/sensors/{{ sensor.sensorId }}"
+    hx-swap="none"
+    hx-ext="json-enc"
+  >
+    <fieldset{% if locked %} disabled{% endif %}>
+      <div class="field">
+        <label>Value</label>
+        <input type="range" name="value" min="0" max="30" step="0.1"
+          value="{{ sensor.value if sensor.value is not none else 30.0 }}"
+          hx-get="/fragments/sensors/{{ sensor.sensorId }}/preview"
+          hx-trigger="change"
+          hx-target="#twin-sensor-{{ sensor.sensorId }}"
+          hx-swap="outerHTML"
+          hx-include="closest form"
+        >
+        <output>{{ "%.1f"|format(sensor.value if sensor.value is not none else 30.0) }}</output>
+      </div>
+      <div class="submit-cell">
+        <button type="submit" class="btn btn-filled">Apply</button>
+      </div>
+    </fieldset>
+  </form>
+</article>

@@ -17,6 +17,22 @@ services:
     ports:
       - "1883:1883"
 
+  simulated-factory:
+    build: services/simulated-factory
+    ports:
+      - "8400:8400"
+    environment:
+      SIMULATOR_EVENT_BRIDGE: kafka
+      SIMULATOR_BROKER_URL: tcp://mqtt:1883
+      INVENTORY_URL: http://inventory:8103
+      SIMULATOR_CONFIG_PATH: /data/presets.yml
+    depends_on:
+      - mqtt
+      - kafka
+      - inventory
+    volumes:
+      - ./services/simulated-factory/presets.yml:/data/presets.yml:ro
+
   inventory:
     build: services/inventory
     ports:
@@ -26,6 +42,10 @@ services:
     build: services/dobot-control
     ports:
       - "8200:8200"
+    environment:
+      SIMULATOR_URL: http://simulated-factory:8400
+    depends_on:
+      - simulated-factory
 
   color-sensor:
     build: services/color-sensor-fake

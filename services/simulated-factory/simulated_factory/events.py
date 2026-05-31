@@ -1,0 +1,198 @@
+import asyncio
+import uuid
+from collections import deque
+from typing import Any, Deque, Set
+
+from fastapi.encoders import jsonable_encoder
+
+from simulated_factory.models import EventEntry
+
+
+# Event types considered "process-relevant" for the operator-focused view.
+# Kept centralized so renderers, filters, and tests share one source of truth.
+PROCESS_EVENT_TYPES: frozenset[str] = frozenset(
+    {"KAFKA", "COMMAND", "PENDING_ACTION", "ACTION_RESOLVED", "SENSOR_REQUEST"}
+)
+
+# All known event types. Source of truth for chip rendering and validation.
+ALL_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "KAFKA",
+        "COMMAND",
+        "PENDING_ACTION",
+        "ACTION_RESOLVED",
+        "SENSOR_REQUEST",
+        "REST",
+        "STATE",
+        "MQTT",
+        "EVENT",
+    }
+)
+
+# Ordered list and human-friendly chip labels. Order is preserved for UI rendering.
+TYPE_LABELS: tuple[tuple[str, str], ...] = (
+    ("KAFKA", "Kafka"),
+    ("COMMAND", "Command"),
+    ("PENDING_ACTION", "Pending"),
+    ("ACTION_RESOLVED", "Resolved"),
+    ("SENSOR_REQUEST", "Sensor"),
+    ("REST", "REST"),
+    ("STATE", "State"),
+    ("MQTT", "MQTT"),
+    ("EVENT", "Event"),
+)
+
+# Size for the per-subscriber asyncio.Queue used to stream events to UI clients.
+EVENT_SUBSCRIBER_QUEUE_SIZE = 100
+
+
+def parse_filter_types(param: str | None) -> frozenset[str]:
+    """Parse the `?filter=` query parameter into a set of active event types.
+
+    - ``None`` (param absent) → defaults to :data:`PROCESS_EVENT_TYPES`.
+    - Empty string → empty set (explicit "show nothing").
+    - Otherwise → comma-separated, case-insensitive type names. Unknown
+      values are silently ignored.
+    """
+    if param is None:
+        return PROCESS_EVENT_TYPES
+    if param == "":
+        return frozenset()
+    tokens = [t.strip().upper() for t in param.split(",") if t.strip()]
+    return frozenset(t for t in tokens if t in ALL_EVENT_TYPES)
+
+
+def build_filter_param(active_types: frozenset[str]) -> str:
+    """Render an active-types set as the lowercase, comma-separated query value.
+
+    Ordering follows :data:`TYPE_LABELS` so URLs are stable and human-readable.
+    """
+    ordered = [t for t, _ in TYPE_LABELS if t in active_types]
+    return ",".join(t.lower() for t in ordered)
+
+
+class EventStore:
+    """In-memory event store with lightweight subscriber queues for SSE/SSE-like streams.
+
+    The class preserves existing public methods (`append`, `subscribe`,
+    `unsubscribe`, `list_events`) while adding small helpers for tests and
+    management (`size`, `clear`)."""
+
+    def __init__(
+        self, max_entries: int = 500, subscriber_queue_size: int | None = None
+    ):
+        self._events: Deque[EventEntry] = deque(maxlen=max_entries)
+        self._subscribers: Set[asyncio.Queue] = set()
+        self._subscriber_queue_size: int = (
+            subscriber_queue_size
+            if subscriber_queue_size is not None
+            else EVENT_SUBSCRIBER_QUEUE_SIZE
+        )
+
+    async def append(
+        self,
+        event_type: str,
+        *,
+        source: str | None = None,
+        message: str | None = None,
+        topic: str | None = None,
+        endpoint: str | None = None,
+        method: str | None = None,
+        status_code: int | None = None,
+        payload: Any = None,
+    ) -> None:
+        entry = EventEntry(
+            id=f"evt-{uuid.uuid4().hex[:8]}",
+            type=event_type,
+            source=source,
+            message=message,
+            topic=topic,
+            endpoint=endpoint,
+            method=method,
+            statusCode=status_code,
+            payload=payload,
+        )
+        self._events.append(entry)
+        encoded = jsonable_encoder(entry)
+        for subscriber in list(self._subscribers):
+            try:
+                subscriber.put_nowait(encoded)
+            except asyncio.QueueFull:
+                continue
+
+    def subscribe(self) -> asyncio.Queue:
+        queue: asyncio.Queue = asyncio.Queue(maxsize=self._subscriber_queue_size)
+        self._subscribers.add(queue)
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue) -> None:
+        self._subscribers.discard(queue)
+
+    def list_events(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        filter_text: str | None = None,
+        active_types: frozenset[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        items = [jsonable_encoder(item) for item in self._events]
+        items.reverse()
+
+        if active_types is not None:
+            items = [item for item in items if item.get("type") in active_types]
+
+        if filter_text:
+            needle = filter_text.lower()
+            filtered: list[dict[str, Any]] = []
+            for item in items:
+                haystack = " ".join(
+                    str(item.get(field, ""))
+                    for field in ("type", "topic", "endpoint", "method", "message")
+                ).lower()
+                if needle in haystack:
+                    filtered.append(item)
+            items = filtered
+
+        start = max(page - 1, 0) * page_size
+        end = start + page_size
+        next_page = page + 1 if end < len(items) else None
+        return items[start:end], next_page
+
+    def size(self) -> int:
+        """Return the number of stored events."""
+        return len(self._events)
+
+    def clear(self) -> None:
+        """Clear stored events. Does not touch subscriber queues."""
+        self._events.clear()
+
+
+class EventBridge:
+    """Forwards events to an external system (HTTP callback, Kafka, or none).
+
+    Used in tests and production to optionally relay events to an external
+    observer endpoint.
+    """
+
+    def __init__(
+        self,
+        mode: str,
+        target_url: str | None,
+        logger: Any,
+    ):
+        self._mode = mode.lower() if mode else "none"
+        self._target_url = target_url
+        self._logger = logger
+
+    async def emit(self, event: dict) -> None:
+        if self._mode == "none":
+            return
+        if self._mode == "http" and self._target_url:
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    await client.post(self._target_url, json=event)
+            except Exception as exc:
+                self._logger.warning("EventBridge HTTP emit failed: %s", exc)
+        # kafka and other modes are no-ops for now

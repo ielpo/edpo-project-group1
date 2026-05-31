@@ -1,0 +1,114 @@
+"""Tests for SensorUpdateRequest field validators."""
+
+import pytest
+
+from simulated_factory.models import SensorUpdateRequest
+
+
+class TestRawColorValidator:
+    """Tests for coerce_raw_color."""
+
+    @pytest.mark.parametrize(
+        "input_val,expected",
+        [
+            # CSV string → list[int]
+            ("0,128,255", [0, 128, 255]),
+            ("10, 20, 30", [10, 20, 30]),
+            # Already a list of ints
+            ([1, 2, 3], [1, 2, 3]),
+            # List of strings
+            (["0", "128", "255"], [0, 128, 255]),
+            # List with float strings
+            (["1.5", "2.9"], [1, 2]),
+            # List with float values
+            ([1.0, 2.5, 3.9], [1, 2, 3]),
+            # Empty / None
+            (None, None),
+            ("", None),
+            ([], None),
+            # List with empty strings filtered out
+            (["10", "", "20"], [10, 20]),
+        ],
+    )
+    def test_coercion(self, input_val, expected):
+        req = SensorUpdateRequest(raw_color=input_val)
+        assert req.raw_color == expected
+
+
+class TestValueValidator:
+    """Tests for coerce_value."""
+
+    @pytest.mark.parametrize(
+        "input_val,expected",
+        [
+            # Boolean strings
+            ("true", True),
+            ("True", True),
+            ("TRUE", True),
+            ("false", False),
+            ("False", False),
+            # Numeric strings
+            ("42", 42),
+            ("3.14", 3.14),
+            # Empty string → None
+            ("", None),
+            ("  ", None),
+            # Already typed values pass through
+            (True, True),
+            (False, False),
+            (42, 42),
+            (3.14, 3.14),
+            (None, None),
+            # Non-numeric string stays as string
+            ("RED", "RED"),
+            ("BLUE", "BLUE"),
+        ],
+    )
+    def test_coercion(self, input_val, expected):
+        req = SensorUpdateRequest(value=input_val)
+        assert req.value == expected
+
+
+class TestAwaitTrigger:
+    def test_http_requires_method_and_path(self):
+        from pydantic import ValidationError
+        from simulated_factory.models import AwaitTrigger
+
+        with pytest.raises(ValidationError):
+            AwaitTrigger(type="http", method="POST")
+        with pytest.raises(ValidationError):
+            AwaitTrigger(type="http", path="/x")
+        AwaitTrigger(type="http", method="POST", path="/x")
+
+    def test_kafka_requires_topic(self):
+        from pydantic import ValidationError
+        from simulated_factory.models import AwaitTrigger
+
+        with pytest.raises(ValidationError):
+            AwaitTrigger(type="kafka")
+        AwaitTrigger(type="kafka", topic="orders")
+
+    def test_manual_needs_no_extra_fields(self):
+        from simulated_factory.models import AwaitTrigger
+
+        AwaitTrigger(type="manual")
+
+
+class TestPresetStepXor:
+    def test_step_rejects_both_delay_and_trigger(self):
+        from pydantic import ValidationError
+        from simulated_factory.models import AwaitTrigger, PresetStep
+
+        with pytest.raises(ValidationError):
+            PresetStep(
+                name="x",
+                delayMs=100,
+                awaitTrigger=AwaitTrigger(type="manual"),
+            )
+
+    def test_step_defaults_delay_when_neither_set(self):
+        from simulated_factory.models import PresetStep
+
+        step = PresetStep(name="x")
+        assert step.delayMs == 100
+        assert step.awaitTrigger is None

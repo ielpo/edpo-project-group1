@@ -7,6 +7,7 @@ readme = "README.md"
 
 dependencies = [
    "flask",
+   "httpx",
    "pydantic",
    "pydobotplus",
    "pyyaml",

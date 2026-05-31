@@ -1,0 +1,92 @@
+{# Events panel fragment. Cumulative per-type filter chips plus preset shortcuts
+   (All, Process, None). Each chip carries a pre-computed `hx-get` URL that
+   toggles the chip's type into/out of the active set. Filtering is applied
+   server-side; full history is always retained in the EventStore. #}
+<div id="event-panel"
+     class="card events-panel"
+     data-active-types="{{ filter_param }}"
+     {% if oob %}hx-swap-oob="true"{% endif %}>
+  <h2>Event History</h2>
+  <div class="supporting">
+    Toggle individual event types to compose a custom view, or use a preset
+    shortcut. Filtering happens server-side; full history is retained.
+  </div>
+  <div class="event-toggles" role="group" aria-label="Event filter presets">
+    {% for chip in preset_chips %}
+      <a href="?filter={{ chip.filter_param }}"
+         class="chip event-toggle{% if chip.active %} chip-assist active{% endif %}"
+         hx-get="/fragments/events?filter={{ chip.filter_param }}"
+         hx-target="#event-panel"
+         hx-swap="outerHTML"
+         style="text-decoration:none">{{ chip.label }}</a>
+    {% endfor %}
+  </div>
+  <div class="event-toggles" role="group" aria-label="Event type filters">
+    {% for chip in type_chips %}
+      <a href="?filter={{ chip.filter_param }}"
+         class="chip event-toggle event-toggle--type{% if chip.active %} chip-assist active{% endif %}"
+         data-event-type="{{ chip.type }}"
+         hx-get="/fragments/events?filter={{ chip.filter_param }}"
+         hx-target="#event-panel"
+         hx-swap="outerHTML"
+         style="text-decoration:none">{{ chip.label }}</a>
+    {% endfor %}
+  </div>
+  <div class="event-list">
+    {% for event in events %}
+      <article class="item-card event event-type-{{ event.type }}"
+               data-event-type="{{ event.type }}">
+        <header>
+          <h3>
+            <span class="chip chip-assist event-tag">{{ event.type }}</span>
+            {% if event.type == 'KAFKA' and event.topic %}
+              <span class="event-topic">{{ event.topic }}</span>
+            {% elif event.type == 'SENSOR_REQUEST' and event.endpoint %}
+              <span class="event-topic">{{ event.endpoint }}</span>
+            {% elif event.type == 'COMMAND' and event.payload and event.payload.robot %}
+              <span class="event-topic">robot: {{ event.payload.robot }}</span>
+            {% endif %}
+          </h3>
+          <time>{{ event.ts }}</time>
+        </header>
+        <p>{{ event.message or 'No message' }}</p>
+
+        {% if event.type == 'COMMAND' and event.payload and event.payload.commands %}
+          <ul class="event-actions">
+            {% for cmd in event.payload.commands %}
+              {% set ctype = cmd.type if cmd.type is defined else 'unknown' %}
+              <li>
+                <span class="chip">{{ ctype }}</span>
+                {% if ctype == 'move' and cmd.target %}
+                  → x={{ cmd.target.x }}, y={{ cmd.target.y }}, z={{ cmd.target.z }}, r={{ cmd.target.r|default(0) }}
+                  {% if cmd.mode %}<span class="supporting">({{ cmd.mode }})</span>{% endif %}
+                {% elif ctype == 'move-relative' and cmd.offset %}
+                  → Δx={{ cmd.offset.x|default(0) }}, Δy={{ cmd.offset.y|default(0) }}, Δz={{ cmd.offset.z|default(0) }}
+                {% elif ctype == 'suction-cup' %}
+                  → {% if cmd.enabled %}ON{% else %}OFF{% endif %}
+                {% elif ctype == 'set-speed' %}
+                  → speed={{ cmd.speed }}{% if cmd.acceleration is defined %}, accel={{ cmd.acceleration }}{% endif %}
+                {% elif ctype == 'run-conveyor' %}
+                  → speed={{ cmd.speed|default(0) }}, direction={{ cmd.direction|default('STOP') }}
+                {% elif ctype == 'move-conveyor' %}
+                  → distance={{ cmd.distance|default(0) }}, speed={{ cmd.speed|default(0) }}, direction={{ cmd.direction|default('STOP') }}
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% elif event.method or event.endpoint or event.topic %}
+          <p><span class="chip">{{ event.method or '' }} {{ event.endpoint or event.topic or '' }}</span></p>
+        {% endif %}
+
+        {% if event.payload is not none %}
+          <details class="event-raw">
+            <summary>Raw payload</summary>
+            <pre class="code">{{ event.payload|tojson(indent=2) }}</pre>
+          </details>
+        {% endif %}
+      </article>
+    {% else %}
+    <div class="supporting">No events match the current filter</div>
+    {% endfor %}
+  </div>
+</div>

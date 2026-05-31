@@ -1,0 +1,15 @@
+# Engine state structure — direct attributes of SimulationEngine.
+# Render: d2 02-runtime-state.d2 runtime-state.svg
+
+direction: right
+
+SimulationEngine: "SimulationEngine State" {
+  lifecycle: "Lifecycle State\n(_status, _run_id, _run_counter,\n_current_preset, _current_step,\n_current_step_name, _stop_requested,\n_run_task, _lock)"
+  gate: "Gate / Interactive State\n(_step_gate, _waiting_for_request,\n_pending_action, _interactive_config)"
+  registries: "Registries\n(_sensor_registry, _actuator_registry)"
+  infra: "Infrastructure\n(event_store, _mqtt_publisher)"
+}
+
+SimulationEngine.lifecycle   -> SimulationEngine.gate:        "run lifecycle gates steps"
+SimulationEngine.gate        -> SimulationEngine.registries:  "fire gate applies sensor updates"
+SimulationEngine.registries  -> SimulationEngine.lifecycle:   "sensor reads observe step index"

@@ -1,0 +1,224 @@
+defaults:
+  sensors:
+    color-left:
+      type: color
+      value: RED
+      raw_color: [255, 0, 0]
+    ir-left:
+      type: ir
+      value: true
+    distance-left:
+      type: distance
+      value: 30.0
+      mqtt_topic: Tinkerforge/Conveyor/distance_IR_short_TFu
+      uid: TFu
+      location: Conveyor
+      message_type: distance_IR_short
+    distance-right:
+      type: distance
+      value: 30.0
+      mqtt_topic: Tinkerforge/Conveyor/distance_IR_short_2a7C
+      uid: 2a7C
+      location: Conveyor
+      message_type: distance_IR_short
+
+presets:
+  happy-path:
+    description: Deterministic successful order flow with matching color and IR detection.
+    steps:
+      - name: order-received
+        delayMs: 75
+        note: Order accepted and conveyor is idle.
+        sensorUpdates:
+          distance-left: 30.0
+      - name: pickup
+        note: Item reaches the pick-up area.
+        sensorUpdates:
+          distance-left: 12.5
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 10000
+      - name: color-check
+        note: Color sensor reports the configured block color.
+        awaitTrigger:
+          type: http
+          method: GET
+          path: /api/dobot/{name}/color
+          timeoutMs: 10000
+      - name: place
+        note: Robot places the item and conveyor clears again.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 10000
+
+  happy-path-manual:
+    description: Deterministic successful order flow with manual gates between steps.
+    steps:
+      - name: order-received
+        note: Order accepted and conveyor is idle. Operator continues manually.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: manual
+          timeoutMs: 60000
+      - name: pickup
+        note: Item reaches the pick-up area.
+        sensorUpdates:
+          distance-left: 12.5
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 60000
+      - name: color-check
+        note: Color sensor reports the configured block color.
+        awaitTrigger:
+          type: http
+          method: GET
+          path: /api/dobot/{name}/color
+          timeoutMs: 60000
+      - name: place
+        note: Robot places the item and conveyor clears again.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 60000
+
+  wrong-color:
+    description: The flow continues, but the color sensor deterministically returns blue.
+    steps:
+      - name: order-received
+        delayMs: 75
+        note: Order accepted and conveyor is idle.
+        sensorUpdates:
+          distance-left: 30.0
+          color-left: BLUE
+      - name: pickup
+        note: Item reaches the pick-up area.
+        sensorUpdates:
+          distance-left: 11.8
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 10000
+      - name: color-check
+        note: Sensor reports the wrong color to trigger a deterministic failure.
+        awaitTrigger:
+          type: http
+          method: GET
+          path: /api/dobot/{name}/color
+          timeoutMs: 10000
+      - name: reject
+        note: Conveyor clears the item after the mismatch.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 10000
+
+  wrong-color-manual:
+    description: Wrong-color flow with manual gates so an operator can react between steps.
+    steps:
+      - name: order-received
+        note: Order accepted and conveyor is idle. Operator continues manually.
+        sensorUpdates:
+          distance-left: 30.0
+          color-left: BLUE
+        awaitTrigger:
+          type: manual
+          timeoutMs: 60000
+      - name: pickup
+        note: Item reaches the pick-up area.
+        sensorUpdates:
+          distance-left: 11.8
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 60000
+      - name: color-check
+        note: Sensor reports the wrong color to trigger a deterministic failure.
+        awaitTrigger:
+          type: http
+          method: GET
+          path: /api/dobot/{name}/color
+          timeoutMs: 60000
+      - name: reject
+        note: Conveyor clears the item after the mismatch.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 60000
+
+  pickup-failure:
+    description: The IR sensor never detects an item, reproducing a failed pickup.
+    steps:
+      - name: order-received
+        delayMs: 75
+        note: Order accepted and system waits for pickup.
+        sensorUpdates:
+          distance-left: 30.0
+          ir-left: false
+      - name: pickup-timeout
+        note: No item reaches the IR sensor, so pickup fails.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 10000
+
+  pickup-failure-manual:
+    description: Failed pickup flow with manual gates for operator observation and intervention.
+    steps:
+      - name: order-received
+        note: Order accepted and system waits for pickup. Operator continues manually.
+        sensorUpdates:
+          distance-left: 30.0
+          ir-left: false
+        awaitTrigger:
+          type: manual
+          timeoutMs: 60000
+      - name: pickup-timeout
+        note: No item reaches the IR sensor, so pickup fails.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 60000
+      - name: abort
+        note: Simulation ends in a deterministic failure state.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 60000
+      - name: abort
+        note: Simulation ends in a deterministic failure state.
+        sensorUpdates:
+          distance-left: 30.0
+        awaitTrigger:
+          type: http
+          method: POST
+          path: /api/dobot/{name}/commands
+          timeoutMs: 10000

@@ -1,0 +1,34 @@
+Repo file count:
+391
+
+File extension counts:
+
+Top large files by lines:
+  49145 total
+   9176 doc/exercises/exercise-1-2.pdf
+   7373 doc/exercises/exercise-3-4.pdf
+   3427 doc/exercises/exercise-5.pdf
+   1316 doc/images/order.png
+    989 services/color-sensor-fake/Cargo.lock
+    753 doc/images/factory.png
+    750 doc/adr/adrs.pdf
+    674 LICENSE
+    664 services/simulated-factory/uv.lock
+    636 services/simulated-factory/templates/base.html
+    620 services/simulated-factory/simulated_factory/engine.py
+    593 services/dashboard/src/main/resources/static/index.html
+    566 services/simulated-factory/simulated_factory/api.py
+    439 services/simulated-factory/tests/test_process_event_log.py
+    426 services/color-sensor/main.py
+    414 services/inventory/uv.lock
+    393 doc/exercises/exercise-1-2.typ
+    386 openspec/changes/archive/2026-04-22-add-simulated-factory-service/design.md
+    380 services/dobot-control/uv.lock
+
+TODO/FIXME occurrences:
+services/factory/src/main/java/ch/unisg/scs/edpo/factory/adapters/in/PublishManufacturingCompleteDelegate.java:28:            // TODO: update such that Dashboard service can show status
+services/factory/src/main/java/ch/unisg/scs/edpo/factory/adapters/in/PublishManufacturingErrorDelegate.java:29:            // TODO: update such that Dashboard service can show status
+services/factory/src/main/java/ch/unisg/scs/edpo/factory/adapters/in/PublishManufacturingStartDelegate.java:29:            // TODO: update such that Dashboard service can show status
+services/factory/src/main/java/ch/unisg/scs/edpo/factory/adapters/in/PublishManufacturingTimeoutDelegate.java:29:            // TODO: update such that Dashboard service can show status
+
+Duplicate 8-line Python blocks under services/ (may take a bit):

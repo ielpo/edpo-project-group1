@@ -1,0 +1,177 @@
+# Simulated Factory Service
+
+Local development service that emulates selected factory hardware, exposes a browser UI,
+and records a chronological event history for debugging end-to-end flows without the
+physical setup.
+
+## Features
+
+- Deterministic presets such as `happy-path`, `wrong-color`, and `pickup-failure`
+- REST endpoints compatible with the simulator contract consumed by `dobot-control`
+- htmx-driven UI with server-rendered Jinja2 templates and Material Design 3 styling
+- Server-Sent Events at `/sse/status` push out-of-band HTML fragments so panels live-update without page reloads
+- In-memory event history for REST, MQTT, and simulator state transitions
+- Color sensor and Dobot sensor endpoints, plus MQTT distance sensor publishing
+- Health endpoint at `/health`
+- **Plugin architecture for sensors** — each sensor type is an isolated Python module, registered in `config.yml` with a `type` field. Custom sensors can be added without modifying the engine. See [PLUGIN_DEVELOPMENT.md](PLUGIN_DEVELOPMENT.md).
+
+## UI Architecture
+
+The browser UI is composed of small server-rendered fragments instead of a JS
+state machine:
+
+```
+templates/
+├─ base.html                  page shell (Roboto, htmx, MD3 tokens)
+└─ fragments/
+   ├─ status.html             status badge
+   ├─ presets.html            preset cards with run buttons
+   ├─ twin.html              digital twin panel (sensors + inventory)
+   ├─ events.html             chronological event list with cumulative per-type filter chips
+   └─ pending.html            pending-action approve/reject cards
+```
+
+- `GET /` renders `base.html`. Each panel uses `hx-get="/fragments/{name}"`
+  with `hx-trigger="load"` for the initial paint.
+- `GET /sse/status` opens a `text/event-stream` connection. On every simulator
+  event the server re-renders all panels as HTML fragments wrapped with
+  `hx-swap-oob="true"` so htmx swaps them into the DOM by id.
+- `PUT /api/config/sensors/{id}` always returns JSON with the updated sensor
+  configuration. The HTMX twin form uses `hx-swap="none"` and relies on the
+  SSE OOB stream for visual refresh.
+- htmx and the SSE / json-enc extensions are loaded from CDN; no Node build
+  step is required. Roboto is loaded from Google Fonts.
+
+### Sensor Slider Controls
+
+Color and distance sensors use HTML range sliders with server-driven preview:
+
+- **Color sensors** expose three RGB sliders (0-255) and a named-color dropdown.
+  Moving a slider fires `hx-get="/fragments/sensors/{id}/preview"` which returns
+  a re-rendered sensor card (with an "unsaved" badge) without persisting state.
+- **Distance sensors** expose a single float slider (0.0-30.0) with the same
+  preview mechanism.
+- **Apply** is the only commit action. Clicking Apply sends a `PUT` with the
+  current slider values (as `r`, `g`, `b` fields for color, `value` for distance).
+  The `json-enc` extension serializes the form as JSON.
+- After Apply, the SSE OOB stream re-renders the twin panel with committed state,
+  clearing any "unsaved" marker.
+- Named colors (RED, GREEN, BLUE, YELLOW) are derived from exact canonical RGB
+  matches. Non-canonical RGB triples display as "custom" with an inline swatch.
+
+## Development
+
+Install dependencies:
+
+```bash
+cd services/simulated-factory
+uv sync --group dev
+```
+
+Run the service locally:
+
+```bash
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8400
+```
+
+Open the UI at `http://localhost:8400/`.
+
+
+Run the tests:
+
+```bash
+uv run pytest tests/
+```
+
+## Docker Compose
+
+The development compose file includes the simulator and wires `dobot-control` to it:
+
+```bash
+docker compose -f docker-compose-development.yml up --build simulated-factory dobot-control mqtt
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `SIMULATOR_CONFIG_PATH` | `config.yml` | Base YAML file containing presets and default sensors |
+| `SIMULATOR_BIND` | `0.0.0.0` | Host/interface for the HTTP server |
+| `SIMULATOR_PORT` | `8400` | HTTP port |
+| `SIMULATOR_BROKER_URL` | unset | MQTT broker URL for distance publishes, for example `tcp://mqtt:1883` |
+| `INVENTORY_URL` | `http://localhost:8103` | Base URL for inventory polling |
+| `SIMULATED_FACTORY_KAFKA_OBSERVER` | (enabled) | Set to `false`/`0`/`off` to disable the Kafka observer |
+
+## API Contract
+
+The versioned simulator contract is documented in [api.md](./api.md). `DobotFake` in
+`services/dobot-control` forwards commands to `/api/dobot/{name}/commands` and uses
+`/api/dobot/{name}/color` and `/api/dobot/{name}/ir` for deterministic sensor reads.
+
+## Running Presets
+
+Start the happy path:
+
+```bash
+curl -X POST http://localhost:8400/api/presets/run \
+  -H 'Content-Type: application/json' \
+  -d '{"preset": "happy-path"}'
+```
+
+Inspect state:
+
+```bash
+curl http://localhost:8400/api/status
+```
+
+Force a failure by updating the color sensor:
+
+```bash
+curl -X PUT http://localhost:8400/api/config/sensors/color-left \
+  -H 'Content-Type: application/json' \
+  -d '{"value": "BLUE", "raw_color": [0, 0, 1]}'
+```
+
+Note: Sensor updates are accepted only while no preset is running.
+While a preset is active, the API returns `409 Conflict` and sensor
+controls in the UI are disabled. Sensors retain the last preset-applied
+value when the run ends.
+
+## Notes
+
+- Runtime edits are in-memory only. Restart the service to return to the persisted defaults in `config.yml`.
+- The Docker image defines a healthcheck against `/health`, so the endpoint can be reused for compose or Kubernetes readiness probes.
+
+## Gate Mechanism
+
+Preset steps can declare an `awaitTrigger` that suspends execution until a matching
+event arrives. Three trigger types are supported:
+
+| Type | Fires when | Config fields |
+|---|---|---|
+| `http` | An HTTP request matching `method` + `path` hits the simulator | `method`, `path` |
+| `kafka` | A record arrives on the configured `topic` | `topic` |
+| `manual` | Operator clicks **Approve** in the UI or calls the gate API | — |
+
+Each gate has a `timeoutMs` (default 30 000 ms). If the timeout elapses without a
+trigger, the preset run aborts.
+
+### Gate API
+
+```
+POST /api/gate/fire    — fires the active manual gate (returns 404 if none)
+POST /api/gate/reject  — rejects the active gate and aborts the preset
+```
+
+### Example preset step
+
+```yaml
+- name: wait-for-order
+  awaitTrigger:
+    type: kafka
+    topic: orders
+    timeoutMs: 60000
+```
+
+`delayMs` and `awaitTrigger` are mutually exclusive on a step; if neither is set
+the step defaults to a 100 ms delay.

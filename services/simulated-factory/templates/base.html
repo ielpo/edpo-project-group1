@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulated Factory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+  <script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
+  <style>
+    /* ---------- MD3 design tokens ---------- */
+    :root {
+      /* Color roles (light scheme) */
+      --md-sys-color-primary: #6883ba;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #d5e0f5;
+      --md-sys-color-on-primary-container: #0f233f;
+      --md-sys-color-secondary: #68a691;
+      --md-sys-color-on-secondary: #ffffff;
+      --md-sys-color-secondary-container: #c3e4d9;
+      --md-sys-color-on-secondary-container: #0b2a1f;
+      --md-sys-color-tertiary: #b83a3f;
+      --md-sys-color-on-tertiary: #ffffff;
+      --md-sys-color-tertiary-container: #f5c9cb;
+      --md-sys-color-on-tertiary-container: #3d0a0c;
+      --md-sys-color-error: #b83a3f;
+      --md-sys-color-on-error: #ffffff;
+      --md-sys-color-error-container: #f5c9cb;
+      --md-sys-color-on-error-container: #3d0a0c;
+      --md-sys-color-background: #f4f1f2;
+      --md-sys-color-on-background: #2b303a;
+      --md-sys-color-surface: #f4f1f2;
+      --md-sys-color-on-surface: #2b303a;
+      --md-sys-color-surface-variant: #e9e3e6;
+      --md-sys-color-on-surface-variant: #4a4547;
+      --md-sys-color-outline: #6b676a;
+      --md-sys-color-outline-variant: #c8c2c5;
+      --md-sys-color-surface-tint: var(--md-sys-color-primary);
+
+      /* Elevation overlays — surface tint opacity per MD3 spec */
+      --md-sys-elevation-0: 0;
+      --md-sys-elevation-1: 0.05;
+      --md-sys-elevation-2: 0.08;
+      --md-sys-elevation-3: 0.11;
+      --md-sys-elevation-4: 0.12;
+      --md-sys-elevation-5: 0.14;
+      --md-sys-elevation-shadow-1: 0 1px 2px rgba(0,0,0,0.30), 0 1px 3px 1px rgba(0,0,0,0.15);
+      --md-sys-elevation-shadow-2: 0 1px 2px rgba(0,0,0,0.30), 0 2px 6px 2px rgba(0,0,0,0.15);
+      --md-sys-elevation-shadow-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.30);
+      --md-sys-elevation-shadow-4: 0 6px 10px 4px rgba(0,0,0,0.15), 0 2px 3px rgba(0,0,0,0.30);
+      --md-sys-elevation-shadow-5: 0 8px 12px 6px rgba(0,0,0,0.15), 0 4px 4px rgba(0,0,0,0.30);
+
+      /* Typescale (size / line-height / weight / tracking) */
+      --md-sys-typescale-display-large: 400 57px/64px 'Roboto', sans-serif;
+      --md-sys-typescale-display-medium: 400 45px/52px 'Roboto', sans-serif;
+      --md-sys-typescale-display-small: 400 36px/44px 'Roboto', sans-serif;
+      --md-sys-typescale-headline-large: 400 32px/40px 'Roboto', sans-serif;
+      --md-sys-typescale-headline-medium: 400 28px/36px 'Roboto', sans-serif;
+      --md-sys-typescale-headline-small: 400 24px/32px 'Roboto', sans-serif;
+      --md-sys-typescale-title-large: 500 22px/28px 'Roboto', sans-serif;
+      --md-sys-typescale-title-medium: 500 16px/24px 'Roboto', sans-serif;
+      --md-sys-typescale-title-small: 500 14px/20px 'Roboto', sans-serif;
+      --md-sys-typescale-body-large: 400 16px/24px 'Roboto', sans-serif;
+      --md-sys-typescale-body-medium: 400 14px/20px 'Roboto', sans-serif;
+      --md-sys-typescale-body-small: 400 12px/16px 'Roboto', sans-serif;
+      --md-sys-typescale-label-large: 500 14px/20px 'Roboto', sans-serif;
+      --md-sys-typescale-label-medium: 500 12px/16px 'Roboto', sans-serif;
+      --md-sys-typescale-label-small: 500 11px/16px 'Roboto', sans-serif;
+
+      /* Shape tokens */
+      --md-sys-shape-corner-none: 0;
+      --md-sys-shape-corner-extra-small: 4px;
+      --md-sys-shape-corner-small: 8px;
+      --md-sys-shape-corner-medium: 12px;
+      --md-sys-shape-corner-large: 16px;
+      --md-sys-shape-corner-extra-large: 28px;
+      --md-sys-shape-corner-full: 9999px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+      font: var(--md-sys-typescale-body-medium);
+      padding: 24px;
+    }
+
+    /* Navigation bar stub */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      height: 64px;
+      background: var(--md-sys-color-surface);
+      border-radius: var(--md-sys-shape-corner-large);
+      box-shadow: var(--md-sys-elevation-shadow-2);
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .nav-bar::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: var(--md-sys-color-surface-tint);
+      opacity: var(--md-sys-elevation-2);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .nav-bar > * { position: relative; z-index: 1; }
+    .nav-bar h1 {
+      font: var(--md-sys-typescale-title-large);
+      margin: 0;
+      color: var(--md-sys-color-on-surface);
+    }
+    .nav-bar .spacer { flex: 1; }
+
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* MD3 Card (filled / elevation-1) */
+    .card {
+      position: relative;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      border-radius: var(--md-sys-shape-corner-medium);
+      box-shadow: var(--md-sys-elevation-shadow-1);
+      padding: 16px 20px;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: var(--md-sys-color-surface-tint);
+      opacity: var(--md-sys-elevation-1);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .card > * { position: relative; z-index: 1; }
+    .card h2 {
+      font: var(--md-sys-typescale-title-large);
+      margin: 0 0 4px;
+      color: var(--md-sys-color-on-surface);
+    }
+    .card .supporting {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 12px;
+    }
+
+    /* Inner item card (lower hierarchy) */
+    .item-card {
+      position: relative;
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface-variant);
+      border-radius: var(--md-sys-shape-corner-medium);
+      padding: 12px 14px;
+      margin: 8px 0;
+    }
+    .item-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .item-card h3 {
+      font: var(--md-sys-typescale-title-medium);
+      margin: 0;
+      color: var(--md-sys-color-on-surface);
+    }
+    .item-card time {
+      font: var(--md-sys-typescale-label-medium);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .item-card p {
+      margin: 4px 0;
+      font: var(--md-sys-typescale-body-medium);
+    }
+
+    /* Buttons */
+    .btn {
+      font: var(--md-sys-typescale-label-large);
+      border-radius: var(--md-sys-shape-corner-full);
+      border: none;
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: box-shadow 150ms ease, opacity 150ms ease;
+    }
+    .btn-filled {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+    .btn-filled:hover { box-shadow: var(--md-sys-elevation-shadow-1); opacity: 0.92; }
+    .btn-text {
+      background: transparent;
+      color: var(--md-sys-color-primary);
+      padding: 10px 12px;
+    }
+    .btn-text:hover { background: rgba(104, 131, 186, 0.08); }
+    .btn-error {
+      background: var(--md-sys-color-error);
+      color: var(--md-sys-color-on-error);
+    }
+    .btn-error:hover { box-shadow: var(--md-sys-elevation-shadow-1); opacity: 0.92; }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    /* Outlined text field */
+    .field {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .field label {
+      font: var(--md-sys-typescale-label-medium);
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 4px;
+    }
+    .field input, .field select {
+      font: var(--md-sys-typescale-body-large);
+      padding: 12px 14px;
+      border-radius: var(--md-sys-shape-corner-extra-small);
+      border: 1px solid var(--md-sys-color-outline);
+      background: transparent;
+      color: var(--md-sys-color-on-surface);
+      width: 100%;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--md-sys-color-primary);
+      box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+    }
+
+    /* Chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: var(--md-sys-typescale-label-large);
+      padding: 6px 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      border: 1px solid var(--md-sys-color-outline);
+      color: var(--md-sys-color-on-surface-variant);
+      background: transparent;
+    }
+    .chip-assist {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      border-color: transparent;
+    }
+    .chip-error {
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      border-color: transparent;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--md-sys-color-outline-variant);
+      margin: 12px 0;
+      border: none;
+    }
+
+    /* ---------- Step pipeline ---------- */
+    .step-pipeline {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin: 12px 0 8px;
+    }
+    .step-node {
+      font: var(--md-sys-typescale-label-small);
+      padding: 4px 10px;
+      border-radius: var(--md-sys-shape-corner-full);
+      border: 1.5px solid var(--md-sys-color-outline-variant);
+      white-space: nowrap;
+      color: var(--md-sys-color-on-surface-variant);
+      background: transparent;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .step-node.step--done {
+      background: var(--md-sys-color-secondary-container);
+      border-color: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+    }
+    .step-node.step--active {
+      background: var(--md-sys-color-primary-container);
+      border-color: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary-container);
+      font-weight: 500;
+    }
+    .step-connector {
+      width: 16px;
+      height: 1.5px;
+      background: var(--md-sys-color-outline-variant);
+      flex-shrink: 0;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      font: var(--md-sys-typescale-label-large);
+    }
+    .status-badge.running { background: #c2e7c0; color: #102a10; }
+    .status-badge.stopped { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+
+    /* Sensor form layout */
+    .sensor-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+      align-items: end;
+    }
+    .sensor-form .submit-cell { align-self: end; }
+
+    /* ---------- Factory Twin ---------- */
+    .twin-floor {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-areas:
+        "inventory conveyor robot"
+        "color     distance assembly";
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .twin-zone--inventory { grid-area: inventory; }
+    .twin-zone--conveyor  { grid-area: conveyor; }
+    .twin-zone--robot     { grid-area: robot; }
+    .twin-zone--color     { grid-area: color; }
+    .twin-zone--distance  { grid-area: distance; }
+    .twin-zone--assembly  { grid-area: assembly; }
+    .twin-zone {
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-on-surface-variant);
+      border-radius: var(--md-sys-shape-corner-medium);
+      padding: 12px 14px;
+      min-height: 96px;
+    }
+    .twin-zone__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .twin-zone__header h3 {
+      font: var(--md-sys-typescale-title-medium);
+      margin: 0;
+      color: var(--md-sys-color-on-surface);
+    }
+    .twin-zone__sub {
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .twin-zone__unavailable {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-error);
+      padding: 16px 0;
+      text-align: center;
+    }
+    .twin-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: var(--md-sys-shape-corner-full);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      font: var(--md-sys-typescale-label-small);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .twin-kv {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px 12px;
+      margin: 0;
+      font: var(--md-sys-typescale-body-small);
+    }
+    .twin-kv dt {
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    .twin-kv dd {
+      margin: 0;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      color: var(--md-sys-color-on-surface);
+    }
+    .inv-grid {
+      display: grid;
+      gap: 4px;
+    }
+    .inv-cell {
+      aspect-ratio: 1;
+      border-radius: var(--md-sys-shape-corner-small);
+      border: 1.5px solid rgba(0, 0, 0, 0.15);
+      background: rgba(0, 0, 0, 0.05);
+      min-height: 18px;
+    }
+    .inv-cell.empty {
+      background: rgba(0, 0, 0, 0.05);
+      opacity: 0.5;
+    }
+    .inv-cell.occupied { opacity: 1; }
+    .inv-cell.reserved {
+      opacity: 0.55;
+      outline: 2px dashed rgba(0, 0, 0, 0.5);
+      outline-offset: -3px;
+    }
+    .color-swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .twin-sensor {
+      background: var(--md-sys-color-surface);
+      border-radius: var(--md-sys-shape-corner-small);
+      padding: 8px 10px;
+      margin: 6px 0;
+    }
+    .twin-sensor__title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font: var(--md-sys-typescale-title-small);
+      margin-bottom: 4px;
+    }
+    .twin-sensor__value {
+      margin-left: auto;
+      font: var(--md-sys-typescale-label-small);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+    @media (max-width: 980px) {
+      .twin-floor {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "inventory"
+          "conveyor"
+          "robot"
+          "color"
+          "distance"
+          "assembly";
+      }
+    }
+
+    /* Event list */
+    .event-list {
+      max-height: 620px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    /* Event panel filter toggles */
+    .event-toggles {
+      display: flex;
+      gap: 8px;
+      margin: 4px 0 12px;
+    }
+    .event-toggle {
+      cursor: pointer;
+      user-select: none;
+    }
+    .event-toggle.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border-color: transparent;
+    }
+    .event-tag {
+      font: var(--md-sys-typescale-label-small);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .event-topic {
+      font: var(--md-sys-typescale-body-medium);
+      color: var(--md-sys-color-on-surface-variant);
+      margin-left: 8px;
+    }
+    .event-actions {
+      list-style: none;
+      padding: 0;
+      margin: 6px 0 4px;
+      display: grid;
+      gap: 4px;
+    }
+    .event-actions li {
+      font: var(--md-sys-typescale-body-medium);
+    }
+    .event-raw summary {
+      cursor: pointer;
+      font: var(--md-sys-typescale-label-medium);
+      color: var(--md-sys-color-primary);
+      margin-top: 4px;
+    }
+    pre.code {
+      margin: 8px 0 0;
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      background: #1d1b20;
+      color: #e6e1e5;
+      overflow: auto;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 980px) {
+      .grid, .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+    }
+  </style>
+</head>
+<body hx-ext="sse,json-enc" sse-connect="/sse/status?filter={{ filter_param|default('kafka,command,pending_action,action_resolved,sensor_request') }}">
+  <div id="sse-sink" sse-swap="update" hidden></div>
+  <div class="shell">
+    <div style="background: var(--md-sys-color-tertiary-container); color: var(--md-sys-color-on-tertiary-container); border-radius: var(--md-sys-shape-corner-medium); padding: 12px 20px; font: var(--md-sys-typescale-body-medium); text-align: center;">
+      ⚠️ This service is a work in progress.
+    </div>
+
+    <header class="nav-bar">
+      <h1>Simulated Factory</h1>
+      <span class="spacer"></span>
+      <div id="status-panel" hx-get="/fragments/status" hx-trigger="load" hx-swap="outerHTML">
+        <span class="status-badge">Loading…</span>
+      </div>
+    </header>
+
+    <section id="pending-panel" class="card" hx-get="/fragments/pending" hx-trigger="load" hx-swap="outerHTML">
+      <h2>Pending Actions</h2>
+      <div class="supporting">Loading…</div>
+    </section>
+
+    <section class="grid">
+      <div id="preset-panel" class="card" hx-get="/fragments/presets" hx-trigger="load" hx-swap="outerHTML">
+        <h2>Presets</h2>
+        <div class="supporting">Loading…</div>
+      </div>
+
+      <div id="twin-panel" class="card" hx-get="/fragments/twin" hx-trigger="load" hx-swap="outerHTML">
+        <h2>Factory Twin</h2>
+        <div class="supporting">Loading…</div>
+      </div>
+    </section>
+
+    <section id="event-panel" class="card" hx-get="/fragments/events?filter={{ filter_param|default('kafka,command,pending_action,action_resolved,sensor_request') }}" hx-trigger="load" hx-swap="outerHTML">
+      <h2>Event History</h2>
+      <div class="supporting">Loading…</div>
+    </section>
+  </div>
+  <script>
+    // Thin client hook: when the event panel is swapped in-place after a
+    // filter chip toggle, update the page URL and reconnect the existing
+    // page-wide SSE stream so live updates use the new active type set.
+    (function () {
+      var currentSSESource = null;
+
+      // Track the active EventSource so we can close it on reconnect.
+      document.body.addEventListener('htmx:sseOpen', function (e) {
+        currentSSESource = e.detail.source;
+      });
+      document.body.addEventListener('htmx:sseClose', function (e) {
+        if (e.detail.source === currentSSESource) {
+          currentSSESource = null;
+        }
+      });
+
+      function onEventPanelSwapped(evt) {
+        var panel = document.getElementById('event-panel');
+        if (!panel) return;
+        // Only act when the swap target is the event panel itself
+        var target = evt.detail.target || evt.detail.elt;
+        if (target && target.id !== 'event-panel') return;
+
+        // data-active-types is the comma-separated lowercase active set
+        // (may be empty string when no types are selected).
+        var activeTypes = panel.getAttribute('data-active-types') || '';
+        var params = new URLSearchParams(window.location.search);
+        var currentTypes = params.get('filter');
+        if (currentTypes === activeTypes) return;
+
+        // Update URL without pushing history
+        params.set('filter', activeTypes);
+        var newUrl = window.location.pathname + '?' + params.toString();
+        history.replaceState(null, '', newUrl);
+
+        // Close the old SSE connection before reconnecting; htmx-ext-sse
+        // does not close the previous EventSource when a new one is created
+        // via htmx.process(), leaving the orphaned connection active.
+        if (currentSSESource) {
+          currentSSESource.close();
+          currentSSESource = null;
+        }
+
+        // Reconnect SSE with the new filter
+        var body = document.body;
+        var newSse = '/sse/status?filter=' + encodeURIComponent(activeTypes);
+        body.setAttribute('sse-connect', newSse);
+        // htmx SSE extension picks up the attribute change on re-process
+        if (window.htmx) {
+          htmx.process(body);
+        }
+      }
+
+      document.body.addEventListener('htmx:afterSwap', onEventPanelSwapped);
+    })();
+  </script>
+</body>
+</html>

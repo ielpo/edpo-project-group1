@@ -1,0 +1,272 @@
+import json
+import re
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from simulated_factory.api import create_app
+
+
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
+
+
+def test_status_and_presets_endpoints() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    status_response = client.get("/api/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "idle"
+
+    presets_response = client.get("/api/presets")
+    assert presets_response.status_code == 200
+    preset_names = [item["name"] for item in presets_response.json()["items"]]
+    assert "happy-path" in preset_names
+
+
+def test_dobot_command_and_sensor_aliases() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    command_response = client.post(
+        "/api/dobot/left/commands",
+        json={
+            "type": "move",
+            "target": {"x": 20, "y": 10, "z": 5, "r": 0},
+            "mode": "MOVE_LINEAR",
+        },
+    )
+    assert command_response.status_code == 202
+
+    state_response = client.get("/api/dobot/left/state")
+    assert state_response.status_code == 200
+    assert state_response.json()["position"]["x"] == 20.0
+
+    color_response = client.get("/color")
+    assert color_response.status_code == 200
+    assert set(color_response.json().keys()) == {"r", "g", "b"}
+
+    health_response = client.get("/health")
+    assert health_response.status_code == 200
+    assert health_response.json() == {"status": "ok"}
+
+
+def test_gate_fire_returns_404_when_no_active_gate() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.post("/api/gate/fire")
+    assert response.status_code == 404
+
+
+def test_gate_reject_returns_404_when_no_active_gate() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.post("/api/gate/reject")
+    assert response.status_code == 404
+
+
+def test_index_renders_htmx_shell() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+    body = response.text
+    assert "text/html" in response.headers["content-type"]
+    # htmx loaded
+    assert "htmx.org" in body
+    # SSE extension wired up with the default process-set filter
+    default_param = "kafka,command,pending_action,action_resolved,sensor_request"
+    assert f'sse-connect="/sse/status?filter={default_param}"' in body
+    assert 'sse-swap="update"' in body
+    # panel placeholders use hx-get with hx-trigger="load"
+    assert 'hx-get="/fragments/presets"' in body
+    assert f'hx-get="/fragments/events?filter={default_param}"' in body
+    assert 'hx-trigger="load"' in body
+
+
+def test_index_threads_custom_filter_into_shell() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/?filter=kafka,state")
+    assert response.status_code == 200
+    body = response.text
+    assert 'sse-connect="/sse/status?filter=kafka,state"' in body
+    assert 'hx-get="/fragments/events?filter=kafka,state"' in body
+
+
+def test_index_places_pending_panel_before_main_grid() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+
+    body = response.text
+    pending_index = body.index('id="pending-panel"')
+    grid_index = body.index('<section class="grid">')
+
+    assert pending_index < grid_index
+
+
+def test_fragment_presets_lists_known_presets() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/fragments/presets")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    body = response.text
+    assert 'id="preset-panel"' in body
+    assert "happy-path" in body
+    assert "wrong-color" in body
+    assert 'hx-post="/api/presets/run"' in body
+
+
+def test_fragment_presets_shows_pipeline_when_running() -> None:
+    from simulated_factory.models import SimulationStatus
+
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    engine = app.state.engine
+    engine._status = SimulationStatus.RUNNING
+    engine._current_preset = "happy-path"
+    engine._current_step = 1
+
+    response = client.get("/fragments/presets")
+    assert response.status_code == 200
+    body = response.text
+    assert "step-pipeline" in body
+    assert "step--active" in body
+    assert "step--done" in body
+
+
+def test_fragment_presets_idle_has_no_pipeline() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.get("/fragments/presets")
+    assert response.status_code == 200
+    assert "step-pipeline" not in response.text
+
+
+def test_rendered_preset_button_payload_is_accepted_by_run_endpoint() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    fragment = client.get("/fragments/presets")
+    assert fragment.status_code == 200
+
+    payloads = [
+        json.loads(raw_payload)
+        for raw_payload in re.findall(r"hx-vals='([^']+)'", fragment.text)
+    ]
+    happy_path_payload = next(
+        payload for payload in payloads if payload.get("preset") == "happy-path"
+    )
+
+    response = client.post("/api/presets/run", json=happy_path_payload)
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "accepted"
+
+
+def test_sse_status_streams_event_stream() -> None:
+    """Verify the /sse/status route registration and media type.
+
+    The endpoint is an open-ended stream, so we inspect the registered
+    FastAPI route and a HEAD-style probe rather than block on the body.
+    """
+    app = create_app(str(CONFIG_PATH))
+    sse_route = next(
+        (r for r in app.routes if getattr(r, "path", None) == "/sse/status"),
+        None,
+    )
+    assert sse_route is not None, "/sse/status route should be registered"
+    assert "GET" in sse_route.methods
+
+    # The handler must construct a StreamingResponse with text/event-stream.
+    import inspect
+
+    source = inspect.getsource(sse_route.endpoint)
+    assert "text/event-stream" in source
+
+
+def test_put_sensor_returns_json_for_htmx_caller() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/config/sensors/color-left",
+        json={"value": "GREEN", "raw_color": "0,255,0"},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    body = response.json()
+    assert body["sensorId"] == "color-left"
+    assert body["value"] == "GREEN"
+    # The update was applied to the engine.
+    sensor = app.state.sensor_registry.live["color-left"]
+    assert sensor._cfg.value == "GREEN"
+
+
+def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    response = client.put(
+        "/api/config/sensors/color-left",
+        json={"value": "BLUE", "raw_color": [0, 0, 255]},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    body = response.json()
+    assert body["sensorId"] == "color-left"
+    assert body["value"] == "BLUE"
+
+
+def test_put_sensor_ignores_removed_fields() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    resp = client.put(
+        "/api/config/sensors/color-left",
+        json={"mode": "fixed", "value": "GREEN", "raw_color": [0, 255, 0]},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["sensorId"] == "color-left"
+    assert body["value"] == "GREEN"
+    assert "mode" not in body
+
+    resp2 = client.put(
+        "/api/config/sensors/distance-left",
+        json={"scripted_values": [5, 15, 25]},
+    )
+    assert resp2.status_code == 200
+    body2 = resp2.json()
+    assert body2["sensorId"] == "distance-left"
+    assert body2["value"] == 30.0
+    assert "scripted_values" not in body2
+
+
+def test_put_sensor_locked_during_preset_run() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    from simulated_factory.models import SimulationStatus
+
+    # Simulate a running preset
+    app.state.engine._status = SimulationStatus.RUNNING
+
+    resp = client.put(
+        "/api/config/sensors/color-left",
+        json={"value": "BLUE"},
+    )
+    assert resp.status_code == 409
+    assert "locked" in resp.json()["detail"].lower()

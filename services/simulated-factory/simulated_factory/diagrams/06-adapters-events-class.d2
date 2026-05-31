@@ -1,0 +1,64 @@
+# Adapters and Event infrastructure classes.
+# Render: d2 06-adapters-events-class.d2 adapters-events-class.svg
+
+EventStore: {
+  shape: class
+  -_events: deque
+  -_subscribers: set
+  -_subscriber_queue_size: int
+  +append(event_type, **kwargs)
+  +subscribe(): asyncio.Queue
+  +unsubscribe(queue)
+  +list_events(page, page_size, filter_text, active_types): tuple
+  +size(): int
+  +clear()
+}
+
+EventBridge: {
+  shape: class
+  # Defined but NOT wired by deps.py in the current code.
+  -_mode: str
+  -_target_url: str?
+  -_logger: Logger
+  +emit(event)
+}
+
+MqttPublisher: {
+  shape: class
+  # Wired in deps.py — used by DistanceSensor via SensorRegistry.wire()
+  -_broker_url: str?
+  -_event_store: EventStore
+  -_logger: Logger
+  +publish_raw(topic, payload)
+}
+
+KafkaObserver: {
+  shape: class
+  +event_store: EventStore
+  +logger: Logger
+  +bootstrap_servers: str
+  +group_id: str
+  +topics: tuple
+  -_consumer: AIOKafkaConsumer?
+  -_task: asyncio.Task?
+  -_running: bool
+  +start()
+  +stop()
+  -_run()
+}
+
+InventoryPoller: {
+  shape: class
+  -_url: str
+  -_logger: Logger
+  -_cache: dict?
+  -_task: asyncio.Task?
+  +get_cache(): dict
+  +start()
+  +stop()
+  -_poll_loop()
+}
+
+MqttPublisher    -> EventStore: "append MQTT events"
+KafkaObserver    -> EventStore: "append KAFKA events"
+InventoryPoller  -> InventoryPoller: "caches inventory grid"

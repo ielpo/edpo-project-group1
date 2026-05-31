@@ -1,0 +1,120 @@
+# Sensor plugin hierarchy and config classes.
+# Render: d2 04-sensor-class.d2 sensor-class.svg
+
+BaseSensor: {
+  shape: class
+  # abstract
+  +name: str
+  -_cfg: SensorConfig
+  +read(step?)*: Any
+  +update(value)*
+  +to_dict()*: dict
+  +clone(): BaseSensor
+  +to_config(): SensorConfig
+  +apply_update(data: dict)
+}
+
+MqttSensor: {
+  shape: class
+  # abstract mix-in
+  +mqtt_message()*: tuple | None
+  +wire(publisher)
+  +publish()
+  +start_task()
+  +stop_task()
+  +pause_task()
+  +resume_task()
+}
+
+ColorSensor: {
+  shape: class
+  -_cfg: ColorSensorConfig
+  +read(step?): tuple
+  +read_rgb_bytes(step?): dict
+  +update(value)
+  +to_dict(): dict
+}
+
+IrSensor: {
+  shape: class
+  -_cfg: IrSensorConfig
+  +read(step?): bool
+  +update(value)
+  +to_dict(): dict
+}
+
+DistanceSensor: {
+  shape: class
+  -_cfg: DistanceSensorConfig
+  -_message_id: int
+  -_publish_task: asyncio.Task?
+  +read(step?): float
+  +update(value)
+  +mqtt_message(): tuple | None
+  +start_task()
+  +stop_task()
+  +to_dict(): dict
+}
+
+GenericSensor: {
+  shape: class
+  +read(step?): Any
+  +update(value)
+  +to_dict(): dict
+}
+
+DobotColorSensor: {
+  shape: class
+  -_cfg: DobotColorSensorConfig
+  +read(): tuple
+  +update(value)
+  +to_dict(): dict
+}
+
+SensorConfig: {
+  shape: class
+  +name: str
+  +type: str
+  +sensorId: str
+}
+
+ColorSensorConfig: {
+  shape: class
+  +mode: str
+  +value: str?
+  +raw_color: list
+  +scripted_values: list
+}
+
+IrSensorConfig: {
+  shape: class
+  +mode: str
+  +value: Any
+  +scripted_values: list
+}
+
+DistanceSensorConfig: {
+  shape: class
+  +mode: str
+  +value: float?
+  +mqtt_topic: str
+  +message_type: str
+  +uid: str
+  +location: str
+  +cadence_ms: int
+  +message_id: int
+}
+
+# Inheritance
+ColorSensor      -> BaseSensor: "extends"
+IrSensor         -> BaseSensor: "extends"
+DistanceSensor   -> BaseSensor: "extends"
+GenericSensor    -> BaseSensor: "extends"
+DobotColorSensor -> BaseSensor: "extends"
+DistanceSensor   -> MqttSensor: "implements"
+
+ColorSensorConfig    -> SensorConfig: "extends"
+IrSensorConfig       -> SensorConfig: "extends"
+DistanceSensorConfig -> SensorConfig: "extends"
+
+BaseSensor -> SensorConfig: "_cfg"
