@@ -8,11 +8,11 @@ Accepted
 
 ## Context
 
-Distance sensors publish a continuous stream of readings while a block is in range, potentially at rates of hundreds of messages per second. The downstream consumers — conveyor controller and robot arm controller — expect exactly one command per block arrival. Forwarding every raw reading directly would either require consumers to implement their own deduplication, or result in repeated commands being sent to the physical hardware.
+Distance sensors publish a continuous stream of readings while a block is in range, potentially at rates of hundreds of messages per second. The downstream consumer  (conveyor controller) expects exactly one command per block arrival. Forwarding every raw reading directly would either require consumers to implement their own deduplication, or result in repeated commands being sent to the physical hardware.
 
 ## Decision
 
-Implement rising-edge detection in `MoveBlockTopology` and `PickUpBlockTopology` using a stateful KTable `aggregate`. A trigger event is emitted exactly once when the gap between the previous and current reading exceeds 2 seconds, indicating a new block has appeared after a period of absence. This keeps deduplication inside the stream processing layer and out of the hardware control services.
+Implement rising-edge detection in `MoveBlockTopology` using a stateful KTable `aggregate`. A trigger event is emitted exactly once when the gap between the previous and current reading exceeds 2 seconds, indicating a new block has appeared after a period of absence. This keeps deduplication inside the stream processing layer and out of the hardware control services.
 
 ## Consequences
 

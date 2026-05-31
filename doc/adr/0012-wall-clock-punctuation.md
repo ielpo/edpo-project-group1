@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-Block detection requires emitting an event once a block has fully passed the sensor, i.e. after a period of inactivity. Kafka Streams session windows and the `Suppress` API both rely on stream time advancing, which only happens when new records arrive. In a low-traffic or test environment the sensor stream may pause entirely, meaning a session never closes.
+Block detection requires emitting an event once a block has fully passed the sensor, i.e. after a period of inactivity. Kafka Streams session windows and the `Suppress` API both rely on stream time advancing, which only happens when new records arrive. In the current setup, the next event is only emitted when a new block is placed in front of the sensor. This leads to the inventory representation to be out of sync with the physical inventory. With high frequency restocking this would not be an issue, but for small inventory size and individual block restocking operations it is not acceptable.
 
 ## Decision
 

@@ -12,7 +12,7 @@ The inventory service initially included a built-in UI for managing the inventor
 
 ## Decision
 
-Extract the dashboard into a dedicated Spring Boot service (`services/dashboard`, port 8083). This service is responsible for:
+Extract the dashboard into a dedicated Spring Boot service (`services/dashboard`, port 8100). This service is responsible for:
 
 - Consuming events from Kafka topics `info.v1` and `error.v1`
 - Maintaining WebSocket connections with connected browsers

@@ -14,6 +14,8 @@ Kafka Streams requires a serialization format for all topics it reads and writes
 
 Use a custom `JsonSerde<T>` backed by Jackson for all stream processing topics. No schema registry is deployed.
 
+Given the data structures being used are very small, and the prototype nature of this application, setting up Avro would provide limited benefits for a higher initial effort.
+
 ## Consequences
 
 - The setup remains self-contained: no additional infrastructure is required beyond the Kafka broker.
