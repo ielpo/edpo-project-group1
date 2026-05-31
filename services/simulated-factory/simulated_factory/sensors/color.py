@@ -8,7 +8,7 @@ from pydantic import Field
 
 from simulated_factory.models import SensorConfig
 from simulated_factory.sensors.base import BaseSensor
-from simulated_factory.utils import raw_color_from_name
+from simulated_factory.utils import raw_color_from_name, rgb_bytes_from_raw
 
 
 class ColorSensorConfig(SensorConfig):
@@ -49,6 +49,12 @@ class ColorSensor(BaseSensor):
         color = str(cfg.value or "YELLOW").upper()
         raw = cfg.raw_color if cfg.raw_color else raw_color_from_name(color)
         return color, raw
+
+    def read_rgb_bytes(self, step: int = 0) -> dict[str, int]:
+        """Return the current color as an RGB byte dict suitable for sensor API responses."""
+        color, raw_color = self.read(step=step)
+        rgb = rgb_bytes_from_raw(raw_color or raw_color_from_name(color))
+        return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
 
     def update(self, value: Any) -> None:
         self._cfg.value = str(value).upper()

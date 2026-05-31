@@ -25,8 +25,6 @@ from simulated_factory.actuators.base import BaseActuator
 from simulated_factory.sensor_registry import SensorRegistry
 from simulated_factory.utils import (
     path_pattern_to_regex,
-    raw_color_from_name,
-    rgb_bytes_from_raw,
 )
 
 logger = logging.getLogger(__name__)
@@ -510,9 +508,8 @@ class SimulationEngine:
         return bool(plugin.read(step=self._current_step))
 
     def read_color_sensor_bytes(self) -> dict[str, int]:
-        color, raw_color = self.read_color("left")
-        rgb = rgb_bytes_from_raw(raw_color or raw_color_from_name(color))
-        return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
+        plugin = cast(Any, self._sensor_registry.get_or_create("color-left"))
+        return plugin.read_rgb_bytes(step=self._current_step)
 
     def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
         return cast(DobotRuntimeState, self._actuators[robot_name].state())
