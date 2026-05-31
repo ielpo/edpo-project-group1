@@ -551,6 +551,10 @@
 <body hx-ext="sse,json-enc" sse-connect="/sse/status?filter={{ filter_param|default('kafka,command,pending_action,action_resolved,sensor_request') }}">
   <div id="sse-sink" sse-swap="update" hidden></div>
   <div class="shell">
+    <div style="background: var(--md-sys-color-tertiary-container); color: var(--md-sys-color-on-tertiary-container); border-radius: var(--md-sys-shape-corner-medium); padding: 12px 20px; font: var(--md-sys-typescale-body-medium); text-align: center;">
+      ⚠️ This service is a work in progress.
+    </div>
+
     <header class="nav-bar">
       <h1>Simulated Factory</h1>
       <span class="spacer"></span>
