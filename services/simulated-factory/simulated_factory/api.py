@@ -48,15 +48,16 @@ def create_app(config_path: str) -> FastAPI:
     event_store = deps["event_store"]
     engine = deps["engine"]
     kafka_observer = deps["kafka_observer"]
+    inventory_poller = deps["inventory_poller"]
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await kafka_observer.start()
-        engine.start_inventory_poller()
+        await inventory_poller.start()
         try:
             yield
         finally:
-            await engine.stop_inventory_poller()
+            await inventory_poller.stop()
             await kafka_observer.stop()
 
     app = FastAPI(

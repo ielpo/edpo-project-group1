@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from typing import Any, cast
 
-import httpx
 from fastapi.encoders import jsonable_encoder
 
 from simulated_factory.events import EventStore
@@ -55,11 +53,12 @@ class SimulationEngine:
         event_store: EventStore,
         mqtt_publisher: Any,
         event_bridge: Any = None,
-        inventory_url: str | None = None,
+        inventory_poller: Any = None,
     ):
         self.event_store = event_store
         self._mqtt_publisher = mqtt_publisher
         self._event_bridge = event_bridge
+        self._inventory_poller = inventory_poller
 
         self._sensor_registry = SensorRegistry(config_path, mqtt_publisher=mqtt_publisher)
         self._presets: dict[str, PresetDefinition] = self._sensor_registry.get_presets()
@@ -81,11 +80,6 @@ class SimulationEngine:
 
         self._actuator_registry = ActuatorRegistry()
         self._actuators: dict[str, BaseActuator] = self._actuator_registry.actuators()
-        self._inventory_cache: dict[str, Any] | None = None
-        self._inventory_task: asyncio.Task[None] | None = None
-        self._inventory_url = inventory_url or os.getenv(
-            "INVENTORY_URL", "http://localhost:8103"
-        )
 
     @property
     def presets(self) -> dict[str, PresetDefinition]:
@@ -524,40 +518,9 @@ class SimulationEngine:
         return cast(DobotRuntimeState, self._actuators[robot_name].state())
 
     def get_inventory_cache(self) -> dict[str, Any]:
-        if self._inventory_cache is None:
+        if self._inventory_poller is None:
             return {"grid": None, "rows": 0, "cols": 0}
-        return self._inventory_cache
-
-    def start_inventory_poller(self) -> None:
-        if self._inventory_task is not None and not self._inventory_task.done():
-            return
-        self._inventory_task = asyncio.create_task(self._inventory_poll_loop())
-
-    async def stop_inventory_poller(self) -> None:
-        task = self._inventory_task
-        self._inventory_task = None
-        if task is None:
-            return
-        task.cancel()
-        try:
-            await task
-        except (asyncio.CancelledError, Exception):
-            pass
-
-    async def _inventory_poll_loop(self) -> None:
-        url = self._inventory_url.rstrip("/") + "/inventory"
-        try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                while True:
-                    try:
-                        response = await client.get(url)
-                        if response.status_code == 200:
-                            self._inventory_cache = response.json()
-                    except Exception:
-                        pass
-                    await asyncio.sleep(3.0)
-        except asyncio.CancelledError:
-            raise
+        return self._inventory_poller.get_cache()
 
     async def record_external_event(self, payload: Any) -> None:
         await self._record_event(
