@@ -57,6 +57,40 @@ presets:
           method: POST
           path: /api/dobot/{name}/commands
 
+  happy-path-manual:
+    description: Deterministic successful order flow with 60-second pauses for manual actions.
+    steps:
+      - name: order-received
+        delayMs: 60000
+        note: Order accepted and conveyor is idle.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+      - name: pickup
+        delayMs: 60000
+        note: Item reaches the pick-up area.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 12.5
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
+      - name: color-check
+        delayMs: 60000
+        note: Color sensor reports the configured block color.
+        awaitRequest:
+          method: GET
+          path: /api/dobot/{name}/color
+      - name: place
+        delayMs: 60000
+        note: Robot places the item and conveyor clears again.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
+
   wrong-color:
     description: The flow continues, but the color sensor deterministically returns blue.
     steps:
@@ -92,6 +126,41 @@ presets:
           method: POST
           path: /api/dobot/{name}/commands
 
+  wrong-color-manual:
+    description: Wrong-color flow with 60-second pauses so an operator can react between steps.
+    steps:
+      - name: order-received
+        delayMs: 60000
+        note: Order accepted and conveyor is idle.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+          color-left: BLUE
+      - name: pickup
+        delayMs: 60000
+        note: Item reaches the pick-up area.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 11.8
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
+      - name: color-check
+        delayMs: 60000
+        note: Sensor reports the wrong color to trigger a deterministic failure.
+        awaitRequest:
+          method: GET
+          path: /api/dobot/{name}/color
+      - name: reject
+        delayMs: 60000
+        note: Conveyor clears the item after the mismatch.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
+
   pickup-failure:
     description: The IR sensor never detects an item, reproducing a failed pickup.
     steps:
@@ -105,6 +174,35 @@ presets:
       - name: pickup-timeout
         delayMs: 10000
         note: No item reaches the IR sensor, so pickup fails.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
+
+  pickup-failure-manual:
+    description: Failed pickup flow with 60-second pauses for manual observation and intervention.
+    steps:
+      - name: order-received
+        delayMs: 60000
+        note: Order accepted and system waits for pickup.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+          ir-left: false
+      - name: pickup-timeout
+        delayMs: 60000
+        note: No item reaches the IR sensor, so pickup fails.
+        triggerMqtt: true
+        sensorUpdates:
+          distance-left: 30.0
+        awaitRequest:
+          method: POST
+          path: /api/dobot/{name}/commands
+      - name: abort
+        delayMs: 60000
+        note: Simulation ends in a deterministic failure state.
         triggerMqtt: true
         sensorUpdates:
           distance-left: 30.0
