@@ -22,9 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.UUID;
 
-// Kafka Streams topology for stopping the conveyor when a block arrives at the left sensor.
-//
-// Topology (matches MoveBlockTopology diagram in kafka-streaming-topology.drawio):
+// Kafka Streams topology for moving the conveyor when a block is detected
 //
 //  [sensor.block-present.v1]       ← pre-filtered by BlockColorTopology; keyed to "distance-sensor"
 //    → groupByKey + aggregate      (rising-edge detection: emit once when gap > 2 s)
@@ -56,7 +54,7 @@ public class MoveBlockTopology {
         KTable<String, BlockPresenceState> blockPresentEdges = blockPresentStream
                 .groupByKey(Grouped.with(Serdes.String(), new JsonSerde<>(DistanceEvent.class, objectMapper)))
                 .aggregate(
-                        () -> new BlockPresenceState(Long.MIN_VALUE, false, 0L),
+                        () -> new BlockPresenceState(0L, false, 0L),
                         (key, event, previous) -> {
                             boolean risingEdge = (event.timestamp() - previous.lastSeenTimestamp()) > BLOCK_ABSENCE_GAP_MS;
                             long edgeTimestamp = risingEdge ? event.timestamp() : previous.edgeTimestamp();
@@ -73,7 +71,7 @@ public class MoveBlockTopology {
                 .mapValues(state -> new BlockMoveTriggerEvent(UUID.randomUUID().toString(), state.edgeTimestamp()));
 
         KStream<String, ConveyorCommandEvent> conveyorCommandStream = moveTriggerStream
-                .mapValues(trigger -> new ConveyorCommandEvent("STOP", trigger.triggerId(), trigger.timestamp()));
+                .mapValues(trigger -> new ConveyorCommandEvent("MOVE", trigger.triggerId(), trigger.timestamp()));
 
         conveyorCommandStream.to(
                 conveyorCommandsTopic,
