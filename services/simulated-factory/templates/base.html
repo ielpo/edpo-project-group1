@@ -559,6 +559,11 @@
       </div>
     </header>
 
+    <section id="pending-panel" class="card" hx-get="/fragments/pending" hx-trigger="load" hx-swap="outerHTML">
+      <h2>Pending Actions</h2>
+      <div class="supporting">Loading…</div>
+    </section>
+
     <section class="grid">
       <div id="preset-panel" class="card" hx-get="/fragments/presets" hx-trigger="load" hx-swap="outerHTML">
         <h2>Presets</h2>
@@ -569,11 +574,6 @@
         <h2>Factory Twin</h2>
         <div class="supporting">Loading…</div>
       </div>
-    </section>
-
-    <section id="pending-panel" class="card" hx-get="/fragments/pending" hx-trigger="load" hx-swap="outerHTML">
-      <h2>Pending Actions</h2>
-      <div class="supporting">Loading…</div>
     </section>
 
     <section id="event-panel" class="card" hx-get="/fragments/events?filter={{ filter_mode|default('full') }}" hx-trigger="load" hx-swap="outerHTML">
