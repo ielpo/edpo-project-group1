@@ -24,4 +24,3 @@ kafka:
     color-classified: color.classified.v1
     inventory-blocks: inventory.blocks.v1
     conveyor-commands: control.conveyor.commands.v1
-    robot-arm-commands: control.robot-arm.commands.v1
