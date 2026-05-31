@@ -13,9 +13,9 @@ from simulated_factory.sensors.ir import IrSensor
 # ---------------------------------------------------------------------------
 
 
-def test_color_sensor_fixed_mode() -> None:
+def test_color_sensor_reads_current_value() -> None:
     sensor = ColorSensor(
-        "color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]}
+        "color-left", {"value": "RED", "raw_color": [1, 0, 0]}
     )
     color, raw = sensor.read()
     assert color == "RED"
@@ -23,54 +23,35 @@ def test_color_sensor_fixed_mode() -> None:
 
 
 def test_color_sensor_default_fallback() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": None})
+    sensor = ColorSensor("color-left", {"value": None})
     color, raw = sensor.read()
     assert color == "YELLOW"
 
 
-def test_color_sensor_scripted_mode() -> None:
-    sensor = ColorSensor(
-        "color-left",
-        {"mode": "scripted", "scripted_values": ["BLUE", "GREEN", "YELLOW"]},
-    )
-    assert sensor.read(step=1)[0] == "BLUE"
-    assert sensor.read(step=2)[0] == "GREEN"
-    assert sensor.read(step=3)[0] == "YELLOW"
-    # Out-of-range clamps to last
-    assert sensor.read(step=99)[0] == "YELLOW"
-
-
-def test_color_sensor_scripted_step_zero_uses_first() -> None:
-    sensor = ColorSensor(
-        "color-left",
-        {"mode": "scripted", "scripted_values": ["RED", "BLUE"]},
-    )
-    assert sensor.read(step=0)[0] == "RED"
-
-
 def test_color_sensor_update() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED"})
+    sensor = ColorSensor("color-left", {"value": "RED"})
     sensor.update("BLUE")
     assert sensor.read()[0] == "BLUE"
 
 
 def test_color_sensor_to_dict() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED"})
+    sensor = ColorSensor("color-left", {"value": "RED"})
     d = sensor.to_dict()
     assert d["sensorId"] == "color-left"
-    assert d["mode"] == "fixed"
     assert d["value"] == "RED"
+    assert "mode" not in d
+    assert "scripted_values" not in d
 
 
 def test_color_sensor_apply_update() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED"})
+    sensor = ColorSensor("color-left", {"value": "RED"})
     sensor.apply_update({"value": "GREEN", "raw_color": [0, 1, 0]})
     assert sensor._cfg.value == "GREEN"
     assert sensor._cfg.raw_color == [0, 1, 0]
 
 
 def test_color_sensor_clone_is_independent() -> None:
-    sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED"})
+    sensor = ColorSensor("color-left", {"value": "RED"})
     cloned = sensor.clone()
     cloned.update("BLUE")
     assert sensor.read()[0] == "RED"
@@ -82,41 +63,34 @@ def test_color_sensor_clone_is_independent() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_ir_sensor_fixed_true() -> None:
-    sensor = IrSensor("ir-left", {"mode": "fixed", "value": True})
+def test_ir_sensor_true() -> None:
+    sensor = IrSensor("ir-left", {"value": True})
     assert sensor.read() is True
 
 
-def test_ir_sensor_fixed_false() -> None:
-    sensor = IrSensor("ir-left", {"mode": "fixed", "value": False})
+def test_ir_sensor_false() -> None:
+    sensor = IrSensor("ir-left", {"value": False})
     assert sensor.read() is False
 
 
 def test_ir_sensor_default_true_when_none() -> None:
-    sensor = IrSensor("ir-left", {"mode": "fixed", "value": None})
+    sensor = IrSensor("ir-left", {"value": None})
     assert sensor.read() is True
 
 
-def test_ir_sensor_scripted_mode() -> None:
-    sensor = IrSensor(
-        "ir-left", {"mode": "scripted", "scripted_values": [True, False, True]}
-    )
-    assert sensor.read(step=1) is True
-    assert sensor.read(step=2) is False
-    assert sensor.read(step=3) is True
-
-
 def test_ir_sensor_update() -> None:
-    sensor = IrSensor("ir-left", {"mode": "fixed", "value": True})
+    sensor = IrSensor("ir-left", {"value": True})
     sensor.update(False)
     assert sensor.read() is False
 
 
 def test_ir_sensor_to_dict() -> None:
-    sensor = IrSensor("ir-left", {"mode": "fixed", "value": True})
+    sensor = IrSensor("ir-left", {"value": True})
     d = sensor.to_dict()
     assert d["sensorId"] == "ir-left"
     assert d["value"] is True
+    assert "mode" not in d
+    assert "scripted_values" not in d
 
 
 # ---------------------------------------------------------------------------
@@ -124,31 +98,18 @@ def test_ir_sensor_to_dict() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_distance_sensor_fixed_mode() -> None:
-    sensor = DistanceSensor("distance-conveyor", {"mode": "fixed", "value": 30.0})
+def test_distance_sensor_reads_current_value() -> None:
+    sensor = DistanceSensor("distance-conveyor", {"value": 30.0})
     assert sensor.read() == 30.0
 
 
 def test_distance_sensor_default_fallback() -> None:
-    sensor = DistanceSensor("distance-conveyor", {"mode": "fixed", "value": None})
+    sensor = DistanceSensor("distance-conveyor", {"value": None})
     assert sensor.read() == 30.0
 
 
-def test_distance_sensor_scripted_mode() -> None:
-    sensor = DistanceSensor(
-        "distance-conveyor",
-        {"mode": "scripted", "scripted_values": [30.0, 12.5, 6.2, 30.0]},
-    )
-    assert sensor.read(step=1) == 30.0
-    assert sensor.read(step=2) == 12.5
-    assert sensor.read(step=3) == 6.2
-    assert sensor.read(step=4) == 30.0
-    # clamps to last
-    assert sensor.read(step=99) == 30.0
-
-
 def test_distance_sensor_update() -> None:
-    sensor = DistanceSensor("distance-conveyor", {"mode": "fixed", "value": 30.0})
+    sensor = DistanceSensor("distance-conveyor", {"value": 30.0})
     sensor.update(15.0)
     assert sensor.read() == 15.0
 
@@ -157,7 +118,6 @@ def test_distance_sensor_to_config_has_metadata() -> None:
     sensor = DistanceSensor(
         "distance-conveyor",
         {
-            "mode": "scripted",
             "value": 30.0,
             "mqtt_topic": "sensors/distance/Conveyor/distance_IR_short_left",
             "uid": "TFu",

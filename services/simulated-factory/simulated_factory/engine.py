@@ -477,15 +477,15 @@ class SimulationEngine:
 
     def read_color(self, robot_name: str) -> tuple[str, list[int]]:
         plugin = self._sensor_registry.get_or_create(f"color-{robot_name}")
-        return cast(tuple[str, list[int]], plugin.read(step=self._current_step))
+        return cast(tuple[str, list[int]], plugin.read())
 
     def read_ir(self, robot_name: str) -> bool:
         plugin = self._sensor_registry.get_or_create(f"ir-{robot_name}")
-        return bool(plugin.read(step=self._current_step))
+        return bool(plugin.read())
 
     def read_color_sensor_bytes(self) -> dict[str, int]:
         plugin = cast(Any, self._sensor_registry.get_or_create("color-left"))
-        return plugin.read_rgb_bytes(step=self._current_step)
+        return plugin.read_rgb_bytes()
 
     async def record_external_event(self, payload: Any) -> None:
         await self._record_event(

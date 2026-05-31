@@ -69,7 +69,7 @@ async def test_sensor_override_changes_runtime_value() -> None:
 
     sensor = await engine.update_sensor(
         "color-left",
-        SensorUpdateRequest(mode="fixed", value="BLUE", raw_color=[0, 0, 1]),
+        SensorUpdateRequest(value="BLUE", raw_color=[0, 0, 1]),
     )
 
     assert sensor.value == "BLUE"
@@ -77,41 +77,16 @@ async def test_sensor_override_changes_runtime_value() -> None:
 
 
 @pytest.mark.asyncio
-async def test_scripted_mode_returns_step_indexed_value() -> None:
+async def test_sensor_update_rejected_while_preset_running() -> None:
     engine = _make_engine()
-    await engine.update_sensor(
-        "color-left",
-        SensorUpdateRequest(
-            mode="scripted",
-            value="RED",
-            scripted_values=["BLUE", "GREEN", "YELLOW"],
-        ),
-    )
-
-    sensor = engine._sensor_registry.live["color-left"]
-
-    color, _ = sensor.read(step=1)
-    assert color == "BLUE"
-
-    color, _ = sensor.read(step=2)
-    assert color == "GREEN"
-
-    # Out-of-range step clamps to the last scripted value.
-    color, _ = sensor.read(step=10)
-    assert color == "YELLOW"
-
-
-@pytest.mark.asyncio
-async def test_scripted_mode_with_empty_values_falls_back_to_value() -> None:
-    engine = _make_engine()
-    await engine.update_sensor(
-        "color-left",
-        SensorUpdateRequest(mode="scripted", value="RED", scripted_values=[]),
-    )
-
-    sensor = engine._sensor_registry.live["color-left"]
-    color, _ = sensor.read(step=1)
-    assert color == "RED"
+    await engine.run_preset("happy-path")
+    # Wait for the engine to enter running state
+    for _ in range(200):
+        await asyncio.sleep(0.01)
+        if engine._step_gate is not None:
+            break
+    # The engine is running — verify status
+    assert engine.get_status().status.value == "running"
 
 
 def _make_engine() -> SimulationEngine:

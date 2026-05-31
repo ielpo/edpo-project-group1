@@ -12,7 +12,7 @@ The fragment endpoints SHALL obtain their panel view models from one shared runt
 
 The `presets` fragment endpoint SHALL accept and use the current simulation state when rendering, so that active step highlighting can be computed server-side.
 
-The `twin` fragment endpoint SHALL accept and use the current simulation state, all sensor configurations, and the cached inventory grid when rendering the block diagram.
+The `twin` fragment endpoint SHALL accept and use the current simulation state, all sensor configurations, and the cached inventory grid when rendering the block diagram. It SHALL render manual sensor controls only, and it SHALL use the current simulation status to decide whether those controls are editable or disabled.
 
 The service SHALL expose `GET /sse/status` as a `text/event-stream` endpoint. On each simulator state change, it SHALL push out-of-band HTML fragments for all affected panels, and those fragments SHALL be rendered from the same shared runtime snapshot source used by the fragment endpoints.
 
@@ -22,10 +22,15 @@ The service SHALL expose `GET /sse/status` as a `text/event-stream` endpoint. On
 - **AND** the fragment can be injected directly into the page without further transformation
 - **AND** if a preset is currently running, the fragment SHALL include a step pipeline on that preset's card
 
-#### Scenario: Client requests the twin fragment
-- **WHEN** a client sends `GET /fragments/twin`
+#### Scenario: Client requests the twin fragment while idle
+- **WHEN** a client sends `GET /fragments/twin` while no preset is running
 - **THEN** the service returns an HTML fragment containing the factory block diagram
-- **AND** the fragment includes sensor controls for all configured sensors
+- **AND** the fragment includes editable manual-value controls for all configured sensors without scripted-value editors or mode toggles
+
+#### Scenario: Client requests the twin fragment during a preset run
+- **WHEN** a client sends `GET /fragments/twin` while a preset is running
+- **THEN** the service returns an HTML fragment containing the factory block diagram
+- **AND** the fragment shows the live current sensor values in disabled, read-only controls
 
 #### Scenario: Preset run triggers a live UI update: `status`, `presets`, `twin`, `events`, and `pending`
 - **WHEN** a preset run starts and the simulation state changes
@@ -96,11 +101,16 @@ The events panel SHALL display `SENSOR_REQUEST` events in process view with clea
 - **AND** the rendered entry identifies the sensor endpoint that was requested
 
 ### Requirement: Sensor update relies on SSE for operator visual refresh
-The simulator HTMX frontend SHALL rely exclusively on the SSE out-of-band swap stream for reflecting sensor configuration changes in the operator UI. The sensor form SHALL use `hx-swap="none"` and SHALL NOT depend on the PUT response body for visual updates.
+The simulator HTMX frontend SHALL rely exclusively on the SSE out-of-band swap stream for reflecting sensor configuration changes and lock-state changes in the operator UI. The sensor form SHALL use `hx-swap="none"` and SHALL NOT depend on the PUT response body for visual updates.
 
-#### Scenario: Operator submits sensor form and sees updated twin
-- **WHEN** an operator submits a sensor edit form in the twin panel
+#### Scenario: Operator submits sensor form and sees updated twin while idle
+- **WHEN** an operator submits a manual sensor edit form in the twin panel while no preset is running
 - **THEN** the form sends `PUT /api/config/sensors/{id}` with `hx-swap="none"`
 - **AND** the SSE stream emits an updated twin panel fragment with `hx-swap-oob="true"`
 - **AND** the twin panel reflects the new sensor configuration without using the PUT response body
+
+#### Scenario: Preset state change locks or unlocks sensor controls
+- **WHEN** the simulator transitions between idle and running preset states
+- **THEN** the SSE stream emits an updated twin panel fragment reflecting the new disabled or enabled sensor controls
+- **AND** the operator UI does not derive sensor lock state locally in browser JavaScript
 

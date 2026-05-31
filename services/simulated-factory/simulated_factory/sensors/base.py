@@ -23,7 +23,7 @@ class BaseSensor(ABC):
     # ------------------------------------------------------------------
 
     @abstractmethod
-    def read(self, step: int = 0) -> Any:
+    def read(self) -> Any:
         """Return the current sensor value."""
 
     @abstractmethod

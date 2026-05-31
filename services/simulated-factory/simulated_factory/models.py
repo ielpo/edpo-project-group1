@@ -110,10 +110,8 @@ class RunPresetRequest(BaseModel):
 
 
 class SensorUpdateRequest(BaseModel):
-    mode: str | None = None
     value: Any = None
     raw_color: list[int] | None = None
-    scripted_values: list[Any] | None = None
 
     @field_validator("raw_color", mode="before")
     @classmethod
@@ -152,30 +150,6 @@ class SensorUpdateRequest(BaseModel):
             return result if result else None
         return v
 
-    @field_validator("scripted_values", mode="before")
-    @classmethod
-    def coerce_scripted_values(cls, v: Any) -> list[Any] | None:
-        if v is None:
-            return None
-        if isinstance(v, str):
-            tokens = [t.strip() for t in v.split(",") if t.strip()]
-            if not tokens:
-                return None
-            return [cls._parse_number(t) for t in tokens]
-        if isinstance(v, list):
-            result: list[Any] = []
-            for item in v:
-                if item is None or (isinstance(item, str) and item.strip() == ""):
-                    continue
-                if isinstance(item, (int, float)):
-                    result.append(item)
-                else:
-                    parsed = cls._parse_number(item)
-                    if parsed is not None:
-                        result.append(parsed)
-            return result
-        return v
-
     @field_validator("value", mode="before")
     @classmethod
     def coerce_value(cls, v: Any) -> Any:
@@ -195,25 +169,6 @@ class SensorUpdateRequest(BaseModel):
             return int(s)
         except ValueError:
             return s
-
-    @staticmethod
-    def _parse_number(val: Any) -> int | float | str | None:
-        if isinstance(val, (int, float)):
-            return val
-        if not isinstance(val, str):
-            return val
-        s = val.strip()
-        if s == "":
-            return None
-        try:
-            if "." in s:
-                return float(s)
-            return int(s)
-        except ValueError:
-            try:
-                return float(s)
-            except ValueError:
-                return s
 
 
 class InteractiveConfig(BaseModel):

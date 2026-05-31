@@ -112,10 +112,13 @@ Force a failure by updating the color sensor:
 ```bash
 curl -X PUT http://localhost:8400/api/config/sensors/color-left \
   -H 'Content-Type: application/json' \
-  -d '{"mode": "fixed", "value": "BLUE", "raw_color": [0, 0, 1]}'
+  -d '{"value": "BLUE", "raw_color": [0, 0, 1]}'
 ```
 
-Note: The Factory Twin UI now exposes `scripted_values` and `raw_color` as individual form inputs; the API accepts arrays or legacy CSV strings for backward compatibility.
+Note: Sensor updates are accepted only while no preset is running.
+While a preset is active, the API returns `409 Conflict` and sensor
+controls in the UI are disabled. Sensors retain the last preset-applied
+value when the run ends.
 
 ## Notes
 

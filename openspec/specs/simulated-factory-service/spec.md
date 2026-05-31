@@ -15,17 +15,17 @@ The service MUST expose the current simulation state as one coherent snapshot ac
 - **AND** the client can determine the current factory state without contradictory snapshots
 
 ### Requirement: Explicit sensor type selection with backward compatibility
-The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted. Built-in sensor behavior MUST remain compatible with the existing `fixed` and `scripted` sensor modes, including legacy `scripted_values` input forms where they are already supported.
+The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted. Built-in sensor defaults MUST store only the current manual value and sensor-specific static metadata; `mode` and `scripted_values` MUST NOT be part of the sensor default contract.
 
 #### Scenario: Sensor type is declared explicitly
 - **WHEN** a sensor is configured with `type: color`
 - **THEN** the service uses the color sensor implementation for that sensor
-- **AND** the sensor continues to honor the configured mode and value fields
+- **AND** the sensor default stores its manual `value`, optional `raw_color`, and static metadata without a configured mode field
 
 #### Scenario: Existing sensor config without type still works
 - **WHEN** an existing configuration defines `color-left` without an explicit `type`
 - **THEN** the service infers the sensor type from the sensor id prefix
-- **AND** the sensor behavior remains unchanged
+- **AND** the sensor default remains usable without legacy `mode` or `scripted_values` fields
 
 ### Requirement: Versioned simulator contract
 The simulator service MUST expose its developer-facing HTTP and WebSocket contract under the `/api` base path and MUST publish `v1` as the current contract version.
@@ -85,51 +85,60 @@ The service MUST provide `POST /api/presets/run`, `POST /api/presets/stop`, and 
 - **AND** the runtime state returns to the initial idle state
 
 ### Requirement: Sensor configuration management
-The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate sensor modes and values. The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted. Built-in sensor behavior MUST remain compatible with the existing `fixed` and `scripted` modes, and legacy `scripted_values` input forms MUST continue to be supported.
+The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/{sensorId}` to read and update sensor behavior, and it MUST validate manual sensor values by sensor type. The service MUST support an explicit `type` field for sensor entries in `config.yml` and MUST continue to infer sensor types from sensor id prefixes when `type` is omitted.
 
-The `PUT /api/config/sensors/{sensorId}` endpoint SHALL accept either an array for `scripted_values` or a legacy CSV string; the server supports both for backward compatibility. Unknown or invalid modes MUST be rejected.
+The `PUT /api/config/sensors/{sensorId}` endpoint SHALL accept only the manual-value fields relevant to the addressed sensor type: `value` for all sensors and `raw_color` for color sensors. It SHALL always return a JSON response containing the updated sensor configuration when the write succeeds.
 
-The `PUT /api/config/sensors/{sensorId}` endpoint SHALL always return a JSON response containing the updated sensor configuration, regardless of request headers. Input normalization (CSV strings to lists, string booleans to native booleans, numeric strings to numbers) SHALL be performed by model-level validators before the handler executes.
+The `PUT /api/config/sensors/{sensorId}` endpoint MUST reject manual updates with `409 Conflict` while a preset is running. Removed scripted-contract fields such as `mode` and `scripted_values` MUST NOT be accepted as aliases for legacy behavior. If they are present in a request, the service SHALL ignore them and continue processing supported manual-value fields.
 
-Valid sensor modes are `fixed` and `scripted` only. The `random` mode and the `failRate` field are removed from the API contract.
+Input normalization for manual values (for example string booleans to native booleans and numeric strings to numbers) SHALL be performed before the handler applies the update.
 
-- `fixed`: the sensor always returns `value`.
-- `scripted`: the sensor returns `scripted_values[currentStep - 1]` (clamped to bounds). If `scripted_values` is empty, behavior falls back to `value`.
-
-#### Scenario: Sensor behavior is updated with explicit type
-- **WHEN** a client updates a sensor configuration that includes `type: ir`
+#### Scenario: Sensor behavior is updated while idle
+- **WHEN** a client updates a sensor while no preset is running using only manual-value fields valid for that sensor type
 - **THEN** the service stores the updated sensor configuration in runtime memory
-- **AND** subsequent reads use the IR sensor implementation and return the updated configuration with `mode: fixed` or `mode: scripted` as appropriate
+- **AND** it returns the updated configuration as JSON without `mode` or `scripted_values`
 
-#### Scenario: Sensor behavior is updated with fixed mode
-- **WHEN** a client updates a sensor with `mode: fixed` and a `value`
-- **THEN** the service stores the updated sensor configuration in runtime memory
-- **AND** it returns the updated configuration as JSON with `mode: fixed`
+#### Scenario: Manual update is rejected during a preset run
+- **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` while a preset is running
+- **THEN** the service returns `409 Conflict`
+- **AND** it leaves the sensor's current runtime value unchanged
 
-#### Scenario: Sensor behavior is updated with scripted mode
-- **WHEN** a client updates a sensor with `mode: scripted` and a non-empty `scripted_values` list
-- **THEN** the service stores the updated sensor configuration in runtime memory
-- **AND** subsequent reads return `scripted_values[currentStep - 1]` during a running preset
-
-#### Scenario: Unknown mode is rejected
-- **WHEN** a client updates a sensor with an unrecognized mode value
-- **THEN** the service MUST NOT apply the update silently
-- **AND** it returns an error or ignores the unknown mode field
+#### Scenario: Removed scripted fields are ignored
+- **WHEN** a client updates a sensor using removed fields such as `mode` or `scripted_values`
+- **THEN** the service ignores those removed fields instead of translating them into legacy behavior
+- **AND** it continues to return the current manual sensor configuration without `mode` or `scripted_values`
 
 #### Scenario: PUT always returns JSON regardless of caller headers
 - **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `HX-Request: true` header
 - **THEN** the service SHALL return a JSON response with the updated sensor configuration
 - **AND** the response content-type SHALL be `application/json`
 
-#### Scenario: CSV string input is normalized to a list
-- **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `raw_color` as `"0,128,255"`
-- **THEN** the service SHALL normalize the value to `[0, 128, 255]` before processing
-- **AND** the response SHALL contain `raw_color` as a list of integers
-
 #### Scenario: String boolean value is normalized
 - **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `value` as `"true"`
 - **THEN** the service SHALL normalize the value to boolean `true` before processing
 - **AND** the response SHALL contain `value` as a native boolean
+
+### Requirement: Preset-driven sensor lifecycle
+Sensors MUST begin in manual-control state using their configured default values. When a preset starts, preset step `sensorUpdates` MUST become the only runtime source of sensor value changes until the run completes or stops.
+
+During a running preset, sensor reads and sensor-configuration snapshots MUST expose the live preset-applied value, and existing downstream integrations such as MQTT publishing MUST continue to use that live value.
+
+When a preset completes or is stopped, sensors MUST return to manual-control state and MUST retain the last preset-applied value as the current manual value. Reset behavior remains governed by the existing run reset contract.
+
+#### Scenario: Running preset drives live sensor values
+- **WHEN** a preset step applies `sensorUpdates` to one or more sensors
+- **THEN** subsequent sensor reads return the live preset-applied values
+- **AND** runtime integrations such as MQTT publishing observe those same live values
+
+#### Scenario: Completed preset restores manual control with the last value
+- **WHEN** a preset finishes after applying one or more sensor updates
+- **THEN** the sensors become manually editable again
+- **AND** each sensor keeps the last value applied by the preset as its current manual value
+
+#### Scenario: Stopped preset restores manual control with the current value
+- **WHEN** an operator stops a running preset after one or more sensor updates have already been applied
+- **THEN** the sensors become manually editable again
+- **AND** each sensor keeps the most recent preset-applied value until an operator changes it manually
 
 ### Requirement: Event history and live status stream
 The service MUST record an in-memory chronological event history and MUST expose it through `GET /api/events` with paging and filtering. It MUST stream state diffs and key events over WebSocket `/ws/status`.

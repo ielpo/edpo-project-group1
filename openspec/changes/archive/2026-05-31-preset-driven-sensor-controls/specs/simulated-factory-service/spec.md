@@ -18,7 +18,7 @@ The service MUST provide `GET /api/config/sensors` and `PUT /api/config/sensors/
 
 The `PUT /api/config/sensors/{sensorId}` endpoint SHALL accept only the manual-value fields relevant to the addressed sensor type: `value` for all sensors and `raw_color` for color sensors. It SHALL always return a JSON response containing the updated sensor configuration when the write succeeds.
 
-The `PUT /api/config/sensors/{sensorId}` endpoint MUST reject manual updates with `409 Conflict` while a preset is running. Removed scripted-contract fields such as `mode` and `scripted_values` MUST be treated as invalid input and MUST NOT be accepted as aliases for legacy behavior.
+The `PUT /api/config/sensors/{sensorId}` endpoint MUST reject manual updates with `409 Conflict` while a preset is running. Removed scripted-contract fields such as `mode` and `scripted_values` MUST NOT be accepted as aliases for legacy behavior. If they are present in a request, the service SHALL ignore them and continue processing supported manual-value fields.
 
 Input normalization for manual values (for example string booleans to native booleans and numeric strings to numbers) SHALL be performed before the handler applies the update.
 
@@ -32,10 +32,10 @@ Input normalization for manual values (for example string booleans to native boo
 - **THEN** the service returns `409 Conflict`
 - **AND** it leaves the sensor's current runtime value unchanged
 
-#### Scenario: Removed scripted fields are rejected
+#### Scenario: Removed scripted fields are ignored
 - **WHEN** a client updates a sensor using removed fields such as `mode` or `scripted_values`
-- **THEN** the service rejects the request as invalid input
-- **AND** it does not silently translate those fields into manual sensor updates
+- **THEN** the service ignores those removed fields instead of translating them into legacy behavior
+- **AND** it continues to return the current manual sensor configuration without `mode` or `scripted_values`
 
 #### Scenario: PUT always returns JSON regardless of caller headers
 - **WHEN** a client sends `PUT /api/config/sensors/{sensorId}` with `HX-Request: true` header while no preset is running

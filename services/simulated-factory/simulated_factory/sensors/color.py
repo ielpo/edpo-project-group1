@@ -1,4 +1,4 @@
-"""Color sensor plugin — supports fixed and scripted modes."""
+"""Color sensor plugin — manual value with preset-driven updates."""
 
 from __future__ import annotations
 
@@ -14,10 +14,8 @@ from simulated_factory.utils import raw_color_from_name, rgb_bytes_from_raw
 
 
 class ColorSensorConfig(SensorConfig):
-    mode: str = "fixed"
     value: str | None = None
     raw_color: list[int] = Field(default_factory=list)
-    scripted_values: list[Any] = Field(default_factory=list)
     sensorId: str = ""
     mqtt_topic: str = "DobotFactory/ColorSensor"
     cadence_ms: int = 1000
@@ -44,21 +42,15 @@ class ColorSensor(BaseSensor, MqttSensor):
             self._cfg.sensorId = name
         self._message_id = self._cfg.message_id
 
-    def read(self, step: int = 0) -> tuple[str, list[int]]:
+    def read(self) -> tuple[str, list[int]]:
         cfg = self._cfg
-        if cfg.mode == "scripted" and cfg.scripted_values:
-            idx = max(0, min(step - 1, len(cfg.scripted_values) - 1))
-            if step == 0:
-                idx = 0
-            color = str(cfg.scripted_values[idx]).upper()
-            return color, raw_color_from_name(color)
         color = str(cfg.value or "YELLOW").upper()
         raw = cfg.raw_color if cfg.raw_color else raw_color_from_name(color)
         return color, raw
 
-    def read_rgb_bytes(self, step: int = 0) -> dict[str, int]:
+    def read_rgb_bytes(self) -> dict[str, int]:
         """Return the current color as an RGB byte dict suitable for sensor API responses."""
-        color, raw_color = self.read(step=step)
+        color, raw_color = self.read()
         rgb = rgb_bytes_from_raw(raw_color or raw_color_from_name(color))
         return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
 
@@ -109,10 +101,8 @@ class ColorSensor(BaseSensor, MqttSensor):
         return {
             "sensorId": self.name,
             "type": self._cfg.type,
-            "mode": self._cfg.mode,
             "value": self._cfg.value,
             "raw_color": self._cfg.raw_color,
-            "scripted_values": self._cfg.scripted_values,
             "mqtt_topic": self._cfg.mqtt_topic,
             "cadence_ms": self._cfg.cadence_ms,
         }

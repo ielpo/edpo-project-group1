@@ -40,13 +40,8 @@ class MySensorSensor(BaseSensor):
         super().__init__(name, config)
         # Access config fields via self._cfg
 
-    def read(self, step: int = 0) -> Any:
-        """Return the current sensor value.
-        
-        step: 1-based simulation step index. Use for scripted sensors that
-        return different values at different steps. Ignore for sensors with
-        independent logic.
-        """
+    def read(self) -> Any:
+        """Return the current sensor value."""
         ...
 
     def update(self, value: Any) -> None:
@@ -76,9 +71,7 @@ All fields from `config.yml` are available via `self._cfg` (as `SensorConfig` at
 
 | Field            | Type         | Purpose                                          |
 |------------------|--------------|--------------------------------------------------|
-| `mode`           | `str`        | `"fixed"` or `"scripted"`                        |
-| `value`          | `Any`        | Current value for fixed mode                     |
-| `scripted_values`| `list`       | Step-indexed values for scripted mode            |
+| `value`          | `Any`        | Current sensor value                             |
 | `mqtt_topic`     | `str`        | MQTT topic override (distance sensors)           |
 | `uid`            | `str`        | Sensor UID for MQTT payload                      |
 | `location`       | `str`        | Sensor location for MQTT payload                 |
@@ -92,7 +85,6 @@ from pydantic import Field
 from simulated_factory.models import SensorConfig
 
 class MySensorSensorConfig(SensorConfig):
-    mode: str = "fixed"
     value: float | None = None
     threshold: float = 10.0  # custom field
 ```
@@ -108,21 +100,17 @@ and use it when constructing your plugin.
 # simulated_factory/sensors/temperature.py
 from typing import Any
 
-from pydantic import Field
-
 from simulated_factory.models import SensorConfig
 from simulated_factory.sensors.base import BaseSensor
 
 
 class TemperatureSensorConfig(SensorConfig):
-    mode: str = "fixed"
     value: float | None = None
-    scripted_values: list[Any] = Field(default_factory=list)
     sensorId: str = ""
 
 
 class TemperatureSensor(BaseSensor):
-    """Fixed or scripted temperature sensor (Celsius)."""
+    """Temperature sensor (Celsius)."""
 
     def __init__(self, name: str, config: Any) -> None:
         if isinstance(config, dict):
@@ -137,11 +125,7 @@ class TemperatureSensor(BaseSensor):
             cfg = config
         super().__init__(name, cfg)
 
-    def read(self, step: int = 0) -> float:
-        if self._cfg.mode == "scripted" and self._cfg.scripted_values:
-            index = max(step - 1, 0)
-            index = min(index, len(self._cfg.scripted_values) - 1)
-            return float(self._cfg.scripted_values[index])
+    def read(self) -> float:
         return float(self._cfg.value) if self._cfg.value is not None else 20.0
 
     def update(self, value: Any) -> None:
@@ -151,9 +135,7 @@ class TemperatureSensor(BaseSensor):
         return {
             "sensorId": self.name,
             "type": self._cfg.type,
-            "mode": self._cfg.mode,
             "value": self._cfg.value,
-            "scripted_values": self._cfg.scripted_values,
         }
 ```
 
@@ -164,7 +146,6 @@ defaults:
   sensors:
     temperature-room:
       type: temperature
-      mode: fixed
       value: 22.5
 ```
 
@@ -178,13 +159,11 @@ defaults:
     # Built-in sensors
     color-left:
       type: color          # loads simulated_factory.sensors.color.ColorSensor
-      mode: fixed
       value: RED
       raw_color: [1, 0, 0]
 
     ir-left:
       type: ir             # loads simulated_factory.sensors.ir.IrSensor
-      mode: fixed
       value: true
 
     distance-left:
@@ -199,7 +178,6 @@ defaults:
     # Custom sensor
     my-custom-sensor:
       type: my-custom      # loads simulated_factory.sensors.my_custom.MyCustomSensor
-      mode: fixed
       value: 42
       my_field: some_value  # custom config field
 ```
@@ -217,8 +195,9 @@ defaults:
 Sensor plugins work transparently with existing preset definitions:
 
 - **`sensorUpdates`** in steps — applied via `sensor_registry.apply_updates()` which calls `plugin.update(value)`
-- **`read()` calls** — `engine.read_color()` and `engine.read_ir()` delegate to `plugin.read(step)`
+- **`read()` calls** — `engine.read_color()` and `engine.read_ir()` delegate to `plugin.read()`
 - **API updates** — `PUT /api/config/sensors/{id}` calls `plugin.apply_update(data)` which sets matching `_cfg` fields
+- **Locking** — While a preset is running, the API rejects manual sensor updates with `409 Conflict`
 
 No changes to preset YAML are needed when switching from built-in to custom sensors.
 

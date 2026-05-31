@@ -35,34 +35,6 @@ class TestRawColorValidator:
         assert req.raw_color == expected
 
 
-class TestScriptedValuesValidator:
-    """Tests for coerce_scripted_values."""
-
-    @pytest.mark.parametrize(
-        "input_val,expected",
-        [
-            # CSV string → list of numbers
-            ("5,15,25", [5, 15, 25]),
-            ("1.5, 2.5, 3.5", [1.5, 2.5, 3.5]),
-            # Already a list
-            ([5, 15, 25], [5, 15, 25]),
-            ([10, 20.5, 30], [10, 20.5, 30]),
-            # List of strings
-            (["5", "15", "25"], [5, 15, 25]),
-            (["1.5", "2.5"], [1.5, 2.5]),
-            # Empty / None
-            (None, None),
-            ("", None),
-            ([], []),
-            # List with empty strings filtered out
-            (["10", "", "20"], [10, 20]),
-        ],
-    )
-    def test_coercion(self, input_val, expected):
-        req = SensorUpdateRequest(scripted_values=input_val)
-        assert req.scripted_values == expected
-
-
 class TestValueValidator:
     """Tests for coerce_value."""
 

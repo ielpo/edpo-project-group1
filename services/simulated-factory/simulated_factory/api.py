@@ -23,6 +23,7 @@ from simulated_factory.models import (
     ResolveActionRequest,
     RunPresetRequest,
     SensorUpdateRequest,
+    SimulationStatus,
     utc_now,
 )
 from simulated_factory.runtime_snapshot import RuntimeSnapshot
@@ -287,6 +288,13 @@ def create_app(config_path: str) -> FastAPI:
                 payload = json.loads(body.decode("utf-8"))
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="invalid JSON body")
+
+        # Reject writes while a preset is running
+        if engine.get_status().status == SimulationStatus.RUNNING:
+            raise HTTPException(
+                status_code=409,
+                detail="Sensor updates are locked while a preset is running",
+            )
 
         try:
             update = SensorUpdateRequest(**payload)

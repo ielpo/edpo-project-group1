@@ -2,16 +2,12 @@ import asyncio
 from typing import Any, cast
 import json
 
-from pydantic import Field
-
 from simulated_factory.sensors.base import BaseSensor, MqttSensor
 from simulated_factory.models import SensorConfig
 
 
 class DistanceSensorConfig(SensorConfig):
-    mode: str = "fixed"
     value: float | None = 30.0
-    scripted_values: list[Any] = Field(default_factory=list)
     mqtt_topic: str = "Tinkerforge/Conveyor/distance_IR_short_TFu"
     message_type: str = "distance_IR_short_left"
     uid: str = "TFu"
@@ -41,11 +37,7 @@ class DistanceSensor(BaseSensor, MqttSensor):
             self._cfg.sensorId = name
         self._message_id = self._cfg.message_id
 
-    def read(self, step: int = 0) -> float:
-        if self._cfg.mode == "scripted" and self._cfg.scripted_values:
-            idx = max(step - 1, 0)
-            idx = min(idx, len(self._cfg.scripted_values) - 1)
-            return float(self._cfg.scripted_values[idx])
+    def read(self) -> float:
         return self._cfg.value if self._cfg.value is not None else 30.0
 
     def update(self, value: Any) -> None:
@@ -93,7 +85,6 @@ class DistanceSensor(BaseSensor, MqttSensor):
         return {
             "sensorId": self.name,
             "type": self._cfg.type,
-            "mode": self._cfg.mode,
             "value": self._cfg.value,
             "mqtt_topic": self._cfg.mqtt_topic,
             "uid": self._cfg.uid,

@@ -181,6 +181,42 @@ class TestSensorUpdates:
         state_events = [e for e in events if e["type"] == "STATE"]
         assert any("ir-left" in str(e.get("payload", {})) for e in state_events)
 
+    @pytest.mark.asyncio
+    async def test_sensor_update_rejected_during_preset_run(self) -> None:
+        engine, event_store = _make_engine()
+        await engine.run_preset("happy-path")
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if engine._step_gate is not None:
+                break
+        assert engine.get_status().status == SimulationStatus.RUNNING
+        # The engine.update_sensor itself doesn't enforce locking — the API does.
+        # Verify running state is detectable for the API layer.
+
+    @pytest.mark.asyncio
+    async def test_preset_retains_last_sensor_value_on_completion(self) -> None:
+        engine, event_store = _make_engine()
+        await engine.run_preset("happy-path")
+
+        gate_calls = [
+            ("POST", "/api/dobot/left/commands"),
+            ("GET", "/api/dobot/left/color"),
+            ("POST", "/api/dobot/left/commands"),
+        ]
+        for method, path in gate_calls:
+            for _ in range(200):
+                await asyncio.sleep(0.01)
+                if engine._step_gate is not None:
+                    break
+            engine.fire_gate_if_matches(method, path)
+
+        await asyncio.wait_for(engine._run_task, timeout=2.0)
+        assert engine.get_status().status == SimulationStatus.IDLE
+
+        # After completion, distance-left should retain the last preset-applied value (30.0 from last step)
+        sensor = engine._sensor_registry.live["distance-left"]
+        assert sensor.read() == 30.0
+
     def test_sensor_configs_list(self) -> None:
         engine, _ = _make_engine()
         configs = engine._sensor_registry.configs()

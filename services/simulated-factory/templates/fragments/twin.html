@@ -113,15 +113,16 @@
     {# ---------- Color Sensor ---------- #}
     {% set color_sensors = [] %}
     {% for s in sensors %}{% if s.sensorId.startswith('color-') %}{{- color_sensors.append(s) or '' -}}{% endif %}{% endfor %}
+    {% set locked = state.status == "running" %}
     <section class="twin-zone twin-zone--color" id="twin-zone-color">
       <header class="twin-zone__header">
         <h3>Color Sensor</h3>
+        {% if locked %}<span class="chip chip-assist">locked</span>{% endif %}
       </header>
       {% for sensor in color_sensors %}
         <article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
           <div class="twin-sensor__title">
             {{ sensor.sensorId }}
-            <span class="chip chip-assist">{{ sensor.mode }}</span>
             {% if sensor.value in color_swatches %}
               <span class="color-swatch" style="background: {{ color_swatches[sensor.value] }};" title="{{ sensor.value }}"></span>
             {% endif %}
@@ -132,34 +133,28 @@
             hx-swap="none"
             hx-ext="json-enc"
           >
-            <div class="field">
-              <label>Mode</label>
-              <select name="mode">
-                {% for m in ["fixed", "scripted"] %}
-                  <option value="{{ m }}"{% if sensor.mode == m %} selected{% endif %}>{{ m }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label>Color</label>
-              <select name="value">
-                <option value=""{% if sensor.value in [None, ""] %} selected{% endif %}>(none)</option>
-                {% for c in ["RED", "GREEN", "BLUE", "YELLOW"] %}
-                  <option value="{{ c }}"{% if sensor.value == c %} selected{% endif %}>{{ c }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label>Raw RGB</label>
-              <div class="raw-color-inputs">
-                <input name="raw_color[]" value="{{ sensor.raw_color[0] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
-                <input name="raw_color[]" value="{{ sensor.raw_color[1] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
-                <input name="raw_color[]" value="{{ sensor.raw_color[2] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+            <fieldset{% if locked %} disabled{% endif %}>
+              <div class="field">
+                <label>Color</label>
+                <select name="value">
+                  <option value=""{% if sensor.value in [None, ""] %} selected{% endif %}>(none)</option>
+                  {% for c in ["RED", "GREEN", "BLUE", "YELLOW"] %}
+                    <option value="{{ c }}"{% if sensor.value == c %} selected{% endif %}>{{ c }}</option>
+                  {% endfor %}
+                </select>
               </div>
-            </div>
-            <div class="submit-cell">
-              <button type="submit" class="btn btn-filled">Apply</button>
-            </div>
+              <div class="field">
+                <label>Raw RGB</label>
+                <div class="raw-color-inputs">
+                  <input name="raw_color[]" value="{{ sensor.raw_color[0] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+                  <input name="raw_color[]" value="{{ sensor.raw_color[1] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+                  <input name="raw_color[]" value="{{ sensor.raw_color[2] if sensor.raw_color else '' }}" type="number" inputmode="numeric">
+                </div>
+              </div>
+              <div class="submit-cell">
+                <button type="submit" class="btn btn-filled">Apply</button>
+              </div>
+            </fieldset>
           </form>
         </article>
       {% else %}
@@ -173,13 +168,13 @@
     <section class="twin-zone twin-zone--distance" id="twin-zone-distance">
       <header class="twin-zone__header">
         <h3>Distance / IR Sensors</h3>
+        {% if locked %}<span class="chip chip-assist">locked</span>{% endif %}
       </header>
       {% for sensor in distance_sensors %}
         {% set is_ir = sensor.sensorId.startswith("ir-") %}
         <article class="twin-sensor" id="twin-sensor-{{ sensor.sensorId }}">
           <div class="twin-sensor__title">
             {{ sensor.sensorId }}
-            <span class="chip chip-assist">{{ sensor.mode }}</span>
             <span class="twin-sensor__value">value: <code>{{ sensor.value|tojson }}</code></span>
           </div>
           <form
@@ -188,50 +183,25 @@
             hx-swap="none"
             hx-ext="json-enc"
           >
-            <div class="field">
-              <label>Mode</label>
-              <select name="mode">
-                {% for m in ["fixed", "scripted"] %}
-                  <option value="{{ m }}"{% if sensor.mode == m %} selected{% endif %}>{{ m }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            {% if is_ir %}
-              <div class="field">
-                <label>Value</label>
-                <select name="value">
-                  <option value="true"{% if sensor.value is sameas true %} selected{% endif %}>true</option>
-                  <option value="false"{% if sensor.value is sameas false %} selected{% endif %}>false</option>
-                </select>
-              </div>
-            {% else %}
-              <div class="field">
-                <label>Fixed value</label>
-                <input type="number" step="any" name="value" value="{{ sensor.value if sensor.value is not none else '' }}">
-              </div>
-              <div class="field scripted-list">
-                <label>Scripted values</label>
-                <div class="items">
-                  {% if sensor.scripted_values %}
-                    {% for v in sensor.scripted_values %}
-                      <div class="scripted-item">
-                        <input name="scripted_values[]" value="{{ v }}" type="number" step="any">
-                        <button type="button" class="remove-value">−</button>
-                      </div>
-                    {% endfor %}
-                  {% else %}
-                    <div class="scripted-item">
-                      <input name="scripted_values[]" value="" type="number" step="any">
-                      <button type="button" class="remove-value">−</button>
-                    </div>
-                  {% endif %}
+            <fieldset{% if locked %} disabled{% endif %}>
+              {% if is_ir %}
+                <div class="field">
+                  <label>Value</label>
+                  <select name="value">
+                    <option value="true"{% if sensor.value is sameas true %} selected{% endif %}>true</option>
+                    <option value="false"{% if sensor.value is sameas false %} selected{% endif %}>false</option>
+                  </select>
                 </div>
-                <button type="button" class="add-value">Add</button>
+              {% else %}
+                <div class="field">
+                  <label>Value</label>
+                  <input type="number" step="any" name="value" value="{{ sensor.value if sensor.value is not none else '' }}">
+                </div>
+              {% endif %}
+              <div class="submit-cell">
+                <button type="submit" class="btn btn-filled">Apply</button>
               </div>
-            {% endif %}
-            <div class="submit-cell">
-              <button type="submit" class="btn btn-filled">Apply</button>
-            </div>
+            </fieldset>
           </form>
         </article>
       {% else %}
@@ -254,25 +224,4 @@
     </section>
 
   </div>
-
-<script>
-if (!window._simfactory_twin_inputs_init) {
-  window._simfactory_twin_inputs_init = true;
-  document.addEventListener('click', function(e) {
-    var t = e.target;
-    if (t.matches('.add-value')) {
-      var list = t.closest('.scripted-list');
-      if (!list) return;
-      var items = list.querySelector('.items');
-      var item = document.createElement('div');
-      item.className = 'scripted-item';
-      item.innerHTML = '<input name="scripted_values[]" type="number" step="any" value=""> <button type="button" class="remove-value">−</button>';
-      items.appendChild(item);
-    } else if (t.matches('.remove-value')) {
-      var item = t.closest('.scripted-item');
-      if (item) item.remove();
-    }
-  });
-}
-</script>
 </div>

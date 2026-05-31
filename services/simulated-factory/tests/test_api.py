@@ -190,7 +190,7 @@ def test_put_sensor_returns_json_for_htmx_caller() -> None:
 
     response = client.put(
         "/api/config/sensors/color-left",
-        json={"mode": "fixed", "value": "GREEN", "raw_color": "0,1,0"},
+        json={"value": "GREEN", "raw_color": "0,1,0"},
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
@@ -209,7 +209,7 @@ def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
 
     response = client.put(
         "/api/config/sensors/color-left",
-        json={"mode": "fixed", "value": "BLUE", "raw_color": [0, 0, 1]},
+        json={"value": "BLUE", "raw_color": [0, 0, 1]},
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
@@ -218,24 +218,43 @@ def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
     assert body["value"] == "BLUE"
 
 
-def test_put_sensor_accepts_scripted_values_array_and_csv() -> None:
+def test_put_sensor_ignores_removed_fields() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
-    # Send an array payload
     resp = client.put(
-        "/api/config/sensors/distance-conveyor",
-        json={"mode": "scripted", "scripted_values": [5, 15, 25]},
+        "/api/config/sensors/color-left",
+        json={"mode": "fixed", "value": "GREEN", "raw_color": [0, 1, 0]},
     )
     assert resp.status_code == 200
-    sensor = app.state.sensor_registry.live["distance-conveyor"]
-    assert sensor._cfg.scripted_values == [5, 15, 25]
+    body = resp.json()
+    assert body["sensorId"] == "color-left"
+    assert body["value"] == "GREEN"
+    assert "mode" not in body
 
-    # Send a CSV string payload
     resp2 = client.put(
-        "/api/config/sensors/distance-conveyor",
-        json={"mode": "scripted", "scripted_values": "10,20.5,30"},
+        "/api/config/sensors/distance-left",
+        json={"scripted_values": [5, 15, 25]},
     )
     assert resp2.status_code == 200
-    sensor2 = app.state.sensor_registry.live["distance-conveyor"]
-    assert sensor2._cfg.scripted_values == [10, 20.5, 30]
+    body2 = resp2.json()
+    assert body2["sensorId"] == "distance-left"
+    assert body2["value"] == 30.0
+    assert "scripted_values" not in body2
+
+
+def test_put_sensor_locked_during_preset_run() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    from simulated_factory.models import SimulationStatus
+
+    # Simulate a running preset
+    app.state.engine._status = SimulationStatus.RUNNING
+
+    resp = client.put(
+        "/api/config/sensors/color-left",
+        json={"value": "BLUE"},
+    )
+    assert resp.status_code == 409
+    assert "locked" in resp.json()["detail"].lower()
