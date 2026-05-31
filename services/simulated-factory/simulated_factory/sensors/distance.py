@@ -14,7 +14,7 @@ class DistanceSensorConfig(SensorConfig):
     uid: str = "TFu"
     location: str = "Conveyor"
     message_id: int = 0
-    cadence_ms: int = 250
+    cadence_ms: int = 1000
     sensorId: str = ""
 
 
