@@ -17,6 +17,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from simulated_factory.deps import build_dependencies
+from simulated_factory.events import (
+    PROCESS_EVENT_TYPES,
+    build_filter_param,
+    parse_filter_types,
+)
 from simulated_factory.models import (
     RunPresetRequest,
     SensorUpdateRequest,
@@ -139,16 +144,21 @@ def create_app(config_path: str) -> FastAPI:
 
         return response
 
-    def _event_filter_mode(request: Request) -> str:
-        """Normalize the event-filter query parameter for the current request."""
-        mode = request.query_params.get("filter")
-        return mode if mode in ("full", "process") else "full"
+    def _event_active_types(request: Request) -> frozenset[str]:
+        """Parse the `?filter=` query parameter into an active-types set."""
+        # `query_params.get("filter")` returns None if the key is absent and
+        # "" if it is present-but-empty (`?filter=`). parse_filter_types treats
+        # those two cases differently (None = default to process, "" = empty).
+        raw = request.query_params.get("filter")
+        return parse_filter_types(raw)
 
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
-        filter_mode = _event_filter_mode(request)
+        active_types = _event_active_types(request)
         return templates.TemplateResponse(
-            request, "base.html", {"filter_mode": filter_mode}
+            request,
+            "base.html",
+            {"filter_param": build_filter_param(active_types)},
         )
 
     # ------------------------------------------------------------------
@@ -171,8 +181,8 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.get("/fragments/events", response_class=HTMLResponse)
     async def fragment_events(request: Request) -> HTMLResponse:
-        mode = _event_filter_mode(request)
-        ctx = {"oob": False, **snapshot.events_view(filter_mode=mode)}
+        active_types = _event_active_types(request)
+        ctx = {"oob": False, **snapshot.events_view(active_types=active_types)}
         return templates.TemplateResponse(request, "fragments/events.html", ctx)
 
     @app.get("/fragments/pending", response_class=HTMLResponse)
@@ -224,8 +234,8 @@ def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
     def _render_all_oob(request: Request) -> str:
         """Render every panel as an out-of-band swap fragment."""
-        filter_mode = _event_filter_mode(request)
-        panels = snapshot.all_panels(filter_mode=filter_mode)
+        active_types = _event_active_types(request)
+        panels = snapshot.all_panels(active_types=active_types)
         parts: list[str] = []
         for name in ("status", "presets", "twin", "events", "pending"):
             response = templates.TemplateResponse(
@@ -359,19 +369,16 @@ def create_app(config_path: str) -> FastAPI:
         filter: str | None = None,
         mode: str | None = None,
     ) -> dict[str, Any]:
-        # Backward compat: `filter` historically accepted free-text. If it matches
-        # a known mode keyword, treat it as the filter mode. The new explicit
-        # `mode` param wins when both are given.
-        filter_mode = mode
-        text_filter: str | None = filter
-        if filter in ("full", "process"):
-            filter_mode = filter_mode or filter
-            text_filter = None
+        # `filter` is treated as free-text search for the JSON API. The legacy
+        # `mode=process` keyword filters to the process-relevant event types.
+        active_types: frozenset[str] | None = None
+        if mode == "process":
+            active_types = PROCESS_EVENT_TYPES
         items, next_page = event_store.list_events(
             page=page,
             page_size=pageSize,
-            filter_text=text_filter,
-            filter_mode=filter_mode,
+            filter_text=filter,
+            active_types=active_types,
         )
         return {"items": items, "nextPage": next_page}
 

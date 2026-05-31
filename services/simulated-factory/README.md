@@ -27,7 +27,7 @@ templates/
    ├─ status.html             status badge
    ├─ presets.html            preset cards with run buttons
    ├─ twin.html              digital twin panel (sensors + inventory)
-   ├─ events.html             chronological event list
+   ├─ events.html             chronological event list with cumulative per-type filter chips
    └─ pending.html            pending-action approve/reject cards
 ```
 

@@ -548,7 +548,7 @@
     }
   </style>
 </head>
-<body hx-ext="sse,json-enc" sse-connect="/sse/status?filter={{ filter_mode|default('full') }}">
+<body hx-ext="sse,json-enc" sse-connect="/sse/status?filter={{ filter_param|default('kafka,command,pending_action,action_resolved,sensor_request') }}">
   <div id="sse-sink" sse-swap="update" hidden></div>
   <div class="shell">
     <header class="nav-bar">
@@ -576,15 +576,15 @@
       </div>
     </section>
 
-    <section id="event-panel" class="card" hx-get="/fragments/events?filter={{ filter_mode|default('full') }}" hx-trigger="load" hx-swap="outerHTML">
+    <section id="event-panel" class="card" hx-get="/fragments/events?filter={{ filter_param|default('kafka,command,pending_action,action_resolved,sensor_request') }}" hx-trigger="load" hx-swap="outerHTML">
       <h2>Event History</h2>
       <div class="supporting">Loading…</div>
     </section>
   </div>
   <script>
     // Thin client hook: when the event panel is swapped in-place after a
-    // filter toggle, update the page URL and reconnect the existing
-    // page-wide SSE stream so live updates use the new filter mode.
+    // filter chip toggle, update the page URL and reconnect the existing
+    // page-wide SSE stream so live updates use the new active type set.
     (function () {
       var currentSSESource = null;
 
@@ -605,13 +605,15 @@
         var target = evt.detail.target || evt.detail.elt;
         if (target && target.id !== 'event-panel') return;
 
-        var mode = panel.getAttribute('data-filter-mode') || 'full';
+        // data-active-types is the comma-separated lowercase active set
+        // (may be empty string when no types are selected).
+        var activeTypes = panel.getAttribute('data-active-types') || '';
         var params = new URLSearchParams(window.location.search);
-        var currentMode = params.get('filter') || 'full';
-        if (mode === currentMode) return;
+        var currentTypes = params.get('filter');
+        if (currentTypes === activeTypes) return;
 
         // Update URL without pushing history
-        params.set('filter', mode);
+        params.set('filter', activeTypes);
         var newUrl = window.location.pathname + '?' + params.toString();
         history.replaceState(null, '', newUrl);
 
@@ -625,7 +627,7 @@
 
         // Reconnect SSE with the new filter
         var body = document.body;
-        var newSse = '/sse/status?filter=' + encodeURIComponent(mode);
+        var newSse = '/sse/status?filter=' + encodeURIComponent(activeTypes);
         body.setAttribute('sse-connect', newSse);
         // htmx SSE extension picks up the attribute change on re-process
         if (window.htmx) {

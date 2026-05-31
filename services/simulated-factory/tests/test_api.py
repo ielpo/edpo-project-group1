@@ -77,24 +77,25 @@ def test_index_renders_htmx_shell() -> None:
     assert "text/html" in response.headers["content-type"]
     # htmx loaded
     assert "htmx.org" in body
-    # SSE extension wired up
-    assert 'sse-connect="/sse/status?filter=full"' in body
+    # SSE extension wired up with the default process-set filter
+    default_param = "kafka,command,pending_action,action_resolved,sensor_request"
+    assert f'sse-connect="/sse/status?filter={default_param}"' in body
     assert 'sse-swap="update"' in body
     # panel placeholders use hx-get with hx-trigger="load"
     assert 'hx-get="/fragments/presets"' in body
-    assert 'hx-get="/fragments/events?filter=full"' in body
+    assert f'hx-get="/fragments/events?filter={default_param}"' in body
     assert 'hx-trigger="load"' in body
 
 
-def test_index_threads_process_filter_into_shell() -> None:
+def test_index_threads_custom_filter_into_shell() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
-    response = client.get("/?filter=process")
+    response = client.get("/?filter=kafka,state")
     assert response.status_code == 200
     body = response.text
-    assert 'sse-connect="/sse/status?filter=process"' in body
-    assert 'hx-get="/fragments/events?filter=process"' in body
+    assert 'sse-connect="/sse/status?filter=kafka,state"' in body
+    assert 'hx-get="/fragments/events?filter=kafka,state"' in body
 
 
 def test_index_places_pending_panel_before_main_grid() -> None:

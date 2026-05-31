@@ -21,7 +21,13 @@ from simulated_factory.adapters.kafka_observer import (
     KafkaObserver,
 )
 from simulated_factory.api import create_app
-from simulated_factory.events import PROCESS_EVENT_TYPES, EventStore
+from simulated_factory.events import (
+    ALL_EVENT_TYPES,
+    PROCESS_EVENT_TYPES,
+    EventStore,
+    build_filter_param,
+    parse_filter_types,
+)
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
@@ -32,7 +38,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yml"
 # ---------------------------------------------------------------------------
 
 
-async def test_event_store_filter_mode_returns_only_process_types() -> None:
+async def test_event_store_active_types_returns_only_selected() -> None:
     store = EventStore()
     await store.append("REST", message="noisy poll")
     await store.append("STATE", message="state diff")
@@ -42,7 +48,8 @@ async def test_event_store_filter_mode_returns_only_process_types() -> None:
     await store.append("SENSOR_REQUEST", message="ir read")
 
     full, _ = store.list_events()
-    process, _ = store.list_events(filter_mode="process")
+    process, _ = store.list_events(active_types=PROCESS_EVENT_TYPES)
+    subset, _ = store.list_events(active_types=frozenset({"KAFKA", "STATE"}))
 
     assert {item["type"] for item in full} == {
         "REST",
@@ -58,15 +65,39 @@ async def test_event_store_filter_mode_returns_only_process_types() -> None:
         "SENSOR_REQUEST",
     }
     assert all(item["type"] in PROCESS_EVENT_TYPES for item in process)
+    assert {item["type"] for item in subset} == {"KAFKA", "STATE"}
 
 
-async def test_event_store_filter_mode_unknown_falls_back_to_full() -> None:
+async def test_event_store_empty_active_types_returns_no_events() -> None:
     store = EventStore()
-    await store.append("REST", message="x")
-    await store.append("KAFKA", message="y", topic="info.v1")
+    await store.append("KAFKA", message="x", topic="info.v1")
+    await store.append("REST", message="y")
 
-    items, _ = store.list_events(filter_mode="bogus")
-    assert {item["type"] for item in items} == {"REST", "KAFKA"}
+    items, _ = store.list_events(active_types=frozenset())
+    assert items == []
+
+
+def test_parse_filter_types_defaults_to_process_when_param_absent() -> None:
+    assert parse_filter_types(None) == PROCESS_EVENT_TYPES
+
+
+def test_parse_filter_types_empty_string_returns_empty_set() -> None:
+    assert parse_filter_types("") == frozenset()
+
+
+def test_parse_filter_types_silently_ignores_unknown_types() -> None:
+    result = parse_filter_types("kafka,bogus,command")
+    assert result == frozenset({"KAFKA", "COMMAND"})
+
+
+def test_parse_filter_types_is_case_insensitive() -> None:
+    assert parse_filter_types("Kafka,COMMAND") == frozenset({"KAFKA", "COMMAND"})
+
+
+def test_build_filter_param_lowercase_comma_separated() -> None:
+    # Order follows TYPE_LABELS (KAFKA before STATE)
+    assert build_filter_param(frozenset({"STATE", "KAFKA"})) == "kafka,state"
+    assert build_filter_param(frozenset()) == ""
 
 
 def test_process_event_types_allowlist_constant() -> None:
@@ -356,38 +387,77 @@ async def test_kafka_observer_connection_failure_is_non_fatal(
 # ---------------------------------------------------------------------------
 
 
-def test_events_fragment_renders_filter_toggles() -> None:
+def test_events_fragment_renders_filter_chips() -> None:
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
+    # Default (no filter param) = process set
     response = client.get("/fragments/events")
     assert response.status_code == 200
     body = response.text
-    assert 'data-filter-mode="full"' in body
-    assert "Full log" in body
-    assert "Process view" in body
-    # Toggle links point to server-filtered endpoints
-    assert 'hx-get="/fragments/events?filter=full"' in body
-    assert 'hx-get="/fragments/events?filter=process"' in body
+    # data-active-types holds the active set as comma-separated lowercase
+    assert 'data-active-types="kafka,command,pending_action,action_resolved,sensor_request"' in body
+    # Preset chips
+    assert ">All</a>" in body
+    assert ">Process</a>" in body
+    assert ">None</a>" in body
+    # Individual type chips
+    for label in ("Kafka", "Command", "Pending", "Resolved", "Sensor", "REST", "State", "MQTT", "Event"):
+        assert ">" + label + "</a>" in body
 
 
-def test_events_fragment_process_mode_marks_panel() -> None:
+def test_events_fragment_chip_urls_toggle_active_set() -> None:
+    """Each chip's hx-get URL should encode the active set with that type toggled."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
-    # Generate some events
+    # Active = kafka,command. Clicking the State chip should ADD state.
+    body = client.get("/fragments/events?filter=kafka,command").text
+    # State chip is inactive -> URL adds 'state'
+    assert 'hx-get="/fragments/events?filter=kafka,command,state"' in body
+    # Kafka chip is active -> URL removes 'kafka' (leaves 'command')
+    assert 'hx-get="/fragments/events?filter=command"' in body
+    # Process preset URL
+    assert 'hx-get="/fragments/events?filter=kafka,command,pending_action,action_resolved,sensor_request"' in body
+    # None preset URL
+    assert 'hx-get="/fragments/events?filter="' in body
+
+
+def test_events_fragment_custom_subset_marks_panel() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
     client.get("/api/dobot/left/color")
     client.post(
         "/api/dobot/left/commands",
         json={"type": "suction-cup", "enabled": True},
     )
 
-    response = client.get("/fragments/events?filter=process")
+    # Pick a custom set: only sensor + command
+    response = client.get("/fragments/events?filter=sensor_request,command")
     body = response.text
     assert 'id="event-panel"' in body
-    assert 'data-filter-mode="process"' in body
-    # Process-mode rendering produces a sensor endpoint indicator
+    assert 'data-active-types="command,sensor_request"' in body
     assert "/api/dobot/left/color" in body
+
+
+def test_events_fragment_empty_filter_shows_empty_state() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    client.get("/api/dobot/left/color")
+
+    body = client.get("/fragments/events?filter=").text
+    assert 'data-active-types=""' in body
+    assert "No events match the current filter" in body
+
+
+def test_events_fragment_unknown_types_silently_ignored() -> None:
+    app = create_app(str(CONFIG_PATH))
+    client = TestClient(app)
+
+    body = client.get("/fragments/events?filter=kafka,bogus,command").text
+    assert 'data-active-types="kafka,command"' in body
 
 
 def test_events_fragment_renders_human_readable_command_summary() -> None:
@@ -412,8 +482,8 @@ def test_events_fragment_renders_human_readable_command_summary() -> None:
     assert "<details" in body and "Raw payload" in body
 
 
-def test_events_fragment_process_mode_excludes_non_process_events() -> None:
-    """Process mode server-side filter should exclude REST events from render."""
+def test_events_fragment_process_filter_excludes_rest() -> None:
+    """Process filter should exclude REST events from render."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
@@ -421,7 +491,9 @@ def test_events_fragment_process_mode_excludes_non_process_events() -> None:
     client.get("/api/dobot/left/color")  # SENSOR_REQUEST
     client.get("/api/status")  # REST
 
-    body = client.get("/fragments/events?filter=process").text
+    body = client.get(
+        "/fragments/events?filter=kafka,command,pending_action,action_resolved,sensor_request"
+    ).text
     # SENSOR_REQUEST should be present
     assert "/api/dobot/left/color" in body
     # REST events should be excluded by server-side filtering
@@ -441,37 +513,39 @@ def test_base_template_contains_client_hook_for_sse_reconnect() -> None:
     assert "htmx.process(body)" in base_template
 
 
-def test_page_shell_threads_filter_mode_into_event_panel_url() -> None:
-    """GET / should thread the filter mode into the event panel hx-get."""
+def test_page_shell_threads_filter_param_into_event_panel_url() -> None:
+    """GET / should thread the active filter into the event panel and SSE URLs."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
-    response = client.get("/?filter=process")
+    response = client.get("/?filter=kafka,state")
     assert response.status_code == 200
     body = response.text
-    assert '/fragments/events?filter=process' in body
-    assert '/sse/status?filter=process' in body
+    assert '/fragments/events?filter=kafka,state' in body
+    assert '/sse/status?filter=kafka,state' in body
 
 
-def test_page_shell_defaults_filter_to_full() -> None:
-    """GET / without filter param should default to full mode."""
+def test_page_shell_defaults_filter_to_process_set() -> None:
+    """GET / without filter param should default to the process set."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
     response = client.get("/")
     assert response.status_code == 200
     body = response.text
-    assert '/fragments/events?filter=full' in body
-    assert '/sse/status?filter=full' in body
+    default_param = "kafka,command,pending_action,action_resolved,sensor_request"
+    assert f'/fragments/events?filter={default_param}' in body
+    assert f'/sse/status?filter={default_param}' in body
 
 
-def test_page_shell_normalizes_invalid_filter() -> None:
-    """GET / with invalid filter should fall back to full."""
+def test_page_shell_ignores_unknown_filter_types() -> None:
+    """GET / with only unknown types in filter should resolve to an empty set."""
     app = create_app(str(CONFIG_PATH))
     client = TestClient(app)
 
     response = client.get("/?filter=bogus")
     assert response.status_code == 200
     body = response.text
-    assert '/fragments/events?filter=full' in body
-    assert '/sse/status?filter=full' in body
+    # All unknowns stripped -> empty active set
+    assert '/fragments/events?filter=' in body
+    assert '/sse/status?filter=' in body

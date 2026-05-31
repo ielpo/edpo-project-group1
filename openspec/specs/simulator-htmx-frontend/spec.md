@@ -104,24 +104,22 @@ The MD3 color role tokens SHALL be sourced from the project's five-color palette
 - **AND** the Roboto typeface is applied
 
 ### Requirement: Event-panel filter toggles
-The simulator events panel SHALL provide explicit filter toggles for `Full log` and `Process view`.
+The simulator events panel SHALL provide cumulative per-type filter chips and preset shortcuts (All, Process, None) for composing the visible event set.
 
-The selected filter SHALL control which events the server renders without removing any entries from backend full history. Toggle interactions SHALL select a server-backed filter mode rather than relying on client-side hiding of already-rendered events as the primary behavior.
+The selected filter SHALL control which events the server renders without removing any entries from backend full history. Chip interactions SHALL toggle individual event types in the active filter set via server-side HTMX round-trips rather than relying on client-side hiding.
 
-#### Scenario: Operator switches to process view
-- **WHEN** the operator selects `Process view` in the events panel
-- **THEN** the resulting event-panel request carries the `process` filter mode
-- **AND** the returned panel shows only process-relevant event types (`KAFKA`, `COMMAND`, `PENDING_ACTION`, `ACTION_RESOLVED`, `SENSOR_REQUEST`)
-- **AND** non-process events (for example `REST`, `STATE`, `MQTT`) are excluded from the rendered result
+#### Scenario: Operator composes a custom filter
+- **WHEN** the operator toggles individual type chips to build a custom filter (e.g. Kafka + Sensor + State)
+- **THEN** the resulting event-panel request carries a `filter` parameter listing the selected types as a comma-separated lowercase string
+- **AND** the returned panel shows only events matching the selected types
 - **AND** the full simulator page is not reloaded to apply the filter change
-- **AND** live SSE refreshes continue rendering the event panel in process mode until the filter changes
+- **AND** live SSE refreshes continue rendering the event panel with the same filter until the filter changes
 
-#### Scenario: Operator switches back to full log
-- **WHEN** the operator selects `Full log` in the events panel
-- **THEN** the resulting event-panel request carries the `full` filter mode
-- **AND** the returned panel shows the complete chronological event stream including `MQTT` and other debugging signals
-- **AND** the full simulator page is not reloaded to apply the filter change
-- **AND** live SSE refreshes continue rendering the full event list until the filter changes
+#### Scenario: Operator uses a preset to bulk-set types
+- **WHEN** the operator clicks the "Process" preset chip
+- **THEN** the resulting event-panel request carries `filter=kafka,command,pending_action,action_resolved,sensor_request`
+- **AND** the returned panel shows only process-relevant event types
+- **AND** individual type chips reflect the preset's selection and remain independently togglable
 
 ### Requirement: Human-readable process event rendering
 In process view, the events panel SHALL render robot command events in a human-readable summary format so operators can quickly follow robot behavior.

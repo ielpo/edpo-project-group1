@@ -9,7 +9,7 @@ EventStore: {
   +append(event_type, **kwargs)
   +subscribe(): asyncio.Queue
   +unsubscribe(queue)
-  +list_events(page, page_size, filter_text, filter_mode): tuple
+  +list_events(page, page_size, filter_text, active_types): tuple
   +size(): int
   +clear()
 }

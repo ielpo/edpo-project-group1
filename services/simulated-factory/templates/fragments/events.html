@@ -1,30 +1,36 @@
-{# Events panel fragment. Supports two display modes selected via toggles:
-   - full: every recorded event including REST/STATE/MQTT noise
-   - process: only Camunda-process-relevant types (KAFKA, COMMAND,
-     PENDING_ACTION, ACTION_RESOLVED, SENSOR_REQUEST)
-   Filtering is applied server-side at render time; full history is always
-   retained in the EventStore for debugging. #}
-{% set mode = filter_mode|default('full') %}
-<div id="event-panel" class="card events-panel" data-filter-mode="{{ mode }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+{# Events panel fragment. Cumulative per-type filter chips plus preset shortcuts
+   (All, Process, None). Each chip carries a pre-computed `hx-get` URL that
+   toggles the chip's type into/out of the active set. Filtering is applied
+   server-side; full history is always retained in the EventStore. #}
+<div id="event-panel"
+     class="card events-panel"
+     data-active-types="{{ filter_param }}"
+     {% if oob %}hx-swap-oob="true"{% endif %}>
   <h2>Event History</h2>
   <div class="supporting">
-    Switch between the full debug log and the process-focused view.
-    Process view highlights Kafka topics, robot commands, sensor reads,
-    and operator-resolvable actions.
+    Toggle individual event types to compose a custom view, or use a preset
+    shortcut. Filtering happens server-side; full history is retained.
   </div>
-  <div class="event-toggles" role="group" aria-label="Event filter mode">
-    <a href="?filter=full"
-       class="chip event-toggle{% if mode == 'full' %} chip-assist active{% endif %}"
-       hx-get="/fragments/events?filter=full"
-       hx-target="#event-panel"
-       hx-swap="outerHTML"
-       style="text-decoration:none">Full log</a>
-    <a href="?filter=process"
-       class="chip event-toggle{% if mode == 'process' %} chip-assist active{% endif %}"
-       hx-get="/fragments/events?filter=process"
-       hx-target="#event-panel"
-       hx-swap="outerHTML"
-       style="text-decoration:none">Process view</a>
+  <div class="event-toggles" role="group" aria-label="Event filter presets">
+    {% for chip in preset_chips %}
+      <a href="?filter={{ chip.filter_param }}"
+         class="chip event-toggle{% if chip.active %} chip-assist active{% endif %}"
+         hx-get="/fragments/events?filter={{ chip.filter_param }}"
+         hx-target="#event-panel"
+         hx-swap="outerHTML"
+         style="text-decoration:none">{{ chip.label }}</a>
+    {% endfor %}
+  </div>
+  <div class="event-toggles" role="group" aria-label="Event type filters">
+    {% for chip in type_chips %}
+      <a href="?filter={{ chip.filter_param }}"
+         class="chip event-toggle event-toggle--type{% if chip.active %} chip-assist active{% endif %}"
+         data-event-type="{{ chip.type }}"
+         hx-get="/fragments/events?filter={{ chip.filter_param }}"
+         hx-target="#event-panel"
+         hx-swap="outerHTML"
+         style="text-decoration:none">{{ chip.label }}</a>
+    {% endfor %}
   </div>
   <div class="event-list">
     {% for event in events %}
@@ -80,7 +86,7 @@
         {% endif %}
       </article>
     {% else %}
-    <div class="supporting">No events yet.</div>
+    <div class="supporting">No events match the current filter</div>
     {% endfor %}
   </div>
 </div>

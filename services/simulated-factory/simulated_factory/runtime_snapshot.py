@@ -14,7 +14,13 @@ from fastapi.encoders import jsonable_encoder
 from simulated_factory.actuator_registry import ActuatorRegistry
 from simulated_factory.adapters.inventory_poller import InventoryPoller
 from simulated_factory.engine import SimulationEngine
-from simulated_factory.events import EventStore
+from simulated_factory.events import (
+    ALL_EVENT_TYPES,
+    EventStore,
+    PROCESS_EVENT_TYPES,
+    TYPE_LABELS,
+    build_filter_param,
+)
 from simulated_factory.models import SimulationState
 from simulated_factory.sensor_registry import SensorRegistry
 
@@ -80,14 +86,57 @@ class RuntimeSnapshot:
             "inventory": self._inventory_poller.get_cache(),
         }
 
-    def events_view(self, filter_mode: str = "full", limit: int = 30) -> dict[str, Any]:
+    def events_view(
+        self,
+        active_types: frozenset[str] | None = None,
+        limit: int = 30,
+    ) -> dict[str, Any]:
         """View model for the events panel."""
+        if active_types is None:
+            active_types = PROCESS_EVENT_TYPES
         items, _ = self._event_store.list_events(
-            page=1, page_size=limit, filter_mode=filter_mode
+            page=1, page_size=limit, active_types=active_types
         )
+        return self._events_panel_ctx(items, active_types)
+
+    def _events_panel_ctx(
+        self, events_items: list[dict[str, Any]], active_types: frozenset[str]
+    ) -> dict[str, Any]:
+        """Common event-panel context with precomputed chip toggle URLs."""
+        type_chips = [
+            {
+                "type": t,
+                "label": label,
+                "active": t in active_types,
+                "filter_param": build_filter_param(
+                    active_types - {t} if t in active_types else active_types | {t}
+                ),
+            }
+            for t, label in TYPE_LABELS
+        ]
+        preset_chips = [
+            {
+                "label": "All",
+                "active": active_types == ALL_EVENT_TYPES,
+                "filter_param": build_filter_param(ALL_EVENT_TYPES),
+            },
+            {
+                "label": "Process",
+                "active": active_types == PROCESS_EVENT_TYPES,
+                "filter_param": build_filter_param(PROCESS_EVENT_TYPES),
+            },
+            {
+                "label": "None",
+                "active": not active_types,
+                "filter_param": "",
+            },
+        ]
         return {
-            "events": items,
-            "filter_mode": filter_mode,
+            "events": events_items,
+            "active_types": active_types,
+            "filter_param": build_filter_param(active_types),
+            "type_chips": type_chips,
+            "preset_chips": preset_chips,
         }
 
     def pending_view(self) -> dict[str, Any]:
@@ -98,7 +147,9 @@ class RuntimeSnapshot:
     # Composed multi-panel snapshot (one coherent read cycle)
     # ------------------------------------------------------------------
 
-    def all_panels(self, filter_mode: str = "full") -> dict[str, dict[str, Any]]:
+    def all_panels(
+        self, active_types: frozenset[str] | None = None
+    ) -> dict[str, dict[str, Any]]:
         """Derive all panel data from one base read cycle.
 
         Captures shared state once and derives every panel from it so that
@@ -129,8 +180,10 @@ class RuntimeSnapshot:
             }
             for preset in self._sensor_registry.get_presets().values()
         ]
+        if active_types is None:
+            active_types = PROCESS_EVENT_TYPES
         events_items, _ = self._event_store.list_events(
-            page=1, page_size=30, filter_mode=filter_mode
+            page=1, page_size=30, active_types=active_types
         )
         pending = self._engine.get_pending_actions()
 
@@ -138,6 +191,6 @@ class RuntimeSnapshot:
             "status": {"state": state_encoded},
             "presets": {"presets": presets, "state": state_encoded},
             "twin": {"state": state_encoded, "sensors": sensors, "inventory": inventory},
-            "events": {"events": events_items, "filter_mode": filter_mode},
+            "events": self._events_panel_ctx(events_items, active_types),
             "pending": {"pending": pending},
         }

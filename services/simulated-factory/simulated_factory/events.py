@@ -14,17 +14,61 @@ PROCESS_EVENT_TYPES: frozenset[str] = frozenset(
     {"KAFKA", "COMMAND", "PENDING_ACTION", "ACTION_RESOLVED", "SENSOR_REQUEST"}
 )
 
+# All known event types. Source of truth for chip rendering and validation.
+ALL_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "KAFKA",
+        "COMMAND",
+        "PENDING_ACTION",
+        "ACTION_RESOLVED",
+        "SENSOR_REQUEST",
+        "REST",
+        "STATE",
+        "MQTT",
+        "EVENT",
+    }
+)
+
+# Ordered list and human-friendly chip labels. Order is preserved for UI rendering.
+TYPE_LABELS: tuple[tuple[str, str], ...] = (
+    ("KAFKA", "Kafka"),
+    ("COMMAND", "Command"),
+    ("PENDING_ACTION", "Pending"),
+    ("ACTION_RESOLVED", "Resolved"),
+    ("SENSOR_REQUEST", "Sensor"),
+    ("REST", "REST"),
+    ("STATE", "State"),
+    ("MQTT", "MQTT"),
+    ("EVENT", "Event"),
+)
+
 # Size for the per-subscriber asyncio.Queue used to stream events to UI clients.
 EVENT_SUBSCRIBER_QUEUE_SIZE = 100
 
 
-def _normalize_filter_mode(filter_mode: str | None) -> str:
-    if filter_mode is None:
-        return "full"
-    mode = filter_mode.lower()
-    if mode not in ("full", "process"):
-        return "full"
-    return mode
+def parse_filter_types(param: str | None) -> frozenset[str]:
+    """Parse the `?filter=` query parameter into a set of active event types.
+
+    - ``None`` (param absent) → defaults to :data:`PROCESS_EVENT_TYPES`.
+    - Empty string → empty set (explicit "show nothing").
+    - Otherwise → comma-separated, case-insensitive type names. Unknown
+      values are silently ignored.
+    """
+    if param is None:
+        return PROCESS_EVENT_TYPES
+    if param == "":
+        return frozenset()
+    tokens = [t.strip().upper() for t in param.split(",") if t.strip()]
+    return frozenset(t for t in tokens if t in ALL_EVENT_TYPES)
+
+
+def build_filter_param(active_types: frozenset[str]) -> str:
+    """Render an active-types set as the lowercase, comma-separated query value.
+
+    Ordering follows :data:`TYPE_LABELS` so URLs are stable and human-readable.
+    """
+    ordered = [t for t, _ in TYPE_LABELS if t in active_types]
+    return ",".join(t.lower() for t in ordered)
 
 
 class EventStore:
@@ -89,14 +133,13 @@ class EventStore:
         page: int = 1,
         page_size: int = 50,
         filter_text: str | None = None,
-        filter_mode: str | None = None,
+        active_types: frozenset[str] | None = None,
     ) -> tuple[list[dict[str, Any]], int | None]:
         items = [jsonable_encoder(item) for item in self._events]
         items.reverse()
 
-        mode = _normalize_filter_mode(filter_mode)
-        if mode == "process":
-            items = [item for item in items if item.get("type") in PROCESS_EVENT_TYPES]
+        if active_types is not None:
+            items = [item for item in items if item.get("type") in active_types]
 
         if filter_text:
             needle = filter_text.lower()
