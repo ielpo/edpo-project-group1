@@ -1,5 +1,6 @@
-from datetime import datetime
 import logging
+
+import pytest
 
 from simulated_factory.utils import (
     parse_broker_target,
@@ -10,9 +11,8 @@ from simulated_factory.utils import (
     raw_color_from_name,
     rgb_bytes_from_raw,
 )
-from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.events import EventStore
-from simulated_factory.models import SensorConfig
 
 
 def test_parse_broker_target_variants() -> None:
@@ -58,14 +58,14 @@ def test_raw_color_and_rgb_helpers() -> None:
     assert rgb_bytes_from_raw([1]) == (255, 0, 0)
 
 
-def test_distance_publisher_build_payload_messageid_and_fields() -> None:
-    dp = DistancePublisher(None, EventStore(), logging.getLogger("test"))
-    sensor = SensorConfig(sensorId="distance-1")
-    payload1 = dp._build_payload(sensor, 12.34)
-    payload2 = dp._build_payload(sensor, 5.0)
-    assert isinstance(payload1["messageID"], int)
-    assert payload2["messageID"] == payload1["messageID"] + 1
-    assert payload1["distance"] == 12.34
-    assert payload2["distance"] == 5.0
-    # timestamp should be an ISO-formatted datetime
-    datetime.fromisoformat(payload1["timestamp"])
+@pytest.mark.asyncio
+async def test_mqtt_publisher_publish_raw_appends_event() -> None:
+    event_store = EventStore()
+    publisher = MqttPublisher(None, event_store, logging.getLogger("test"))
+    await publisher.publish_raw("test/topic", '{"distance": 12.34}')
+
+    items, _ = event_store.list_events(page=1, page_size=10)
+    assert len(items) == 1
+    assert items[0]["type"] == "MQTT"
+    assert items[0]["topic"] == "test/topic"
+    assert items[0]["payload"] == '{"distance": 12.34}'

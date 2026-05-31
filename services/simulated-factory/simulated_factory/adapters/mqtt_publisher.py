@@ -1,26 +1,27 @@
 import logging
 
-from paho.mqtt.publish import single as mqtt_publish_single
+try:
+    from paho.mqtt.publish import single as mqtt_publish_single
+except ImportError:  # pragma: no cover
+    mqtt_publish_single = None  # type: ignore[assignment]
 
 from simulated_factory.events import EventStore
+from simulated_factory.utils import parse_broker_target
 
 
 class MqttPublisher:
     def __init__(
         self,
-        hostname: str,
-        port: int,
+        broker_url: str | None,
         event_store: EventStore,
         logger: logging.Logger,
     ):
-        self.hostname = hostname
-        self.port = port
-        self.event_store = event_store
-        self.logger = logger
-        self._message_id = 1279
+        self._broker_url = broker_url
+        self._event_store = event_store
+        self._logger = logger
 
-    async def publish(self, topic: str, payload: str) -> None:
-        await self.event_store.append(
+    async def publish_raw(self, topic: str, payload: str) -> None:
+        await self._event_store.append(
             "MQTT",
             source="simulation-publisher",
             message="Published to MQTT",
@@ -28,14 +29,19 @@ class MqttPublisher:
             payload=payload,
         )
 
+        if self._broker_url is None or mqtt_publish_single is None:
+            return
+
+        hostname, port = parse_broker_target(self._broker_url)
+
         try:
             mqtt_publish_single(
                 topic,
                 payload,
-                hostname=self.hostname,
-                port=self.port,
+                hostname=hostname,
+                port=port,
             )
         except Exception as exc:
-            self.logger.warning(
-                "Failed to publish MQTT message to %s: %s", self.hostname, exc
+            self._logger.warning(
+                "Failed to publish MQTT message to %s:%s: %s", hostname, port, exc
             )

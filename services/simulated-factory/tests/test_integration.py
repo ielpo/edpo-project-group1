@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.models import (
@@ -28,7 +28,7 @@ def _make_engine() -> tuple[SimulationEngine, EventStore]:
     engine = SimulationEngine(
         config_path=str(CONFIG_PATH),
         event_store=event_store,
-        distance_publisher=DistancePublisher(None, event_store, LOGGER),
+        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
         event_bridge=EventBridge("none", None, LOGGER),
     )
     return engine, event_store

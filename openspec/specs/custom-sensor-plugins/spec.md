@@ -9,12 +9,12 @@ Define the contract for custom sensor plugins in the simulated-factory service, 
 ## Requirements
 
 ### Requirement: Plugin base interface
-All sensor plugins SHALL implement a base interface that defines the methods required for reading, updating, and serializing sensor values. The plugin interface SHALL be defined in `simulated_factory/sensors/base.py` as an abstract base class `BaseSensor` with the following abstract methods: `read()`, `update(value: Any)`, and `to_dict()`.
+All sensor plugins SHALL implement a base interface defined in `simulated_factory/sensors/base.py` as an abstract base class `BaseSensor`. The mandatory abstract methods are `read(step: int = 0)`, `update(value: Any)`, and `to_dict()`. The base class SHALL provide default implementations for `clone()`, `to_config()`, and `apply_update(data)`. Plugins MUST NOT rely on `__getattr__` delegation from `BaseSensor`; all external access to sensor state SHALL go through the declared interface methods. There is no `apply_overrides` method — `apply_update` covers both preset override and API update call sites, stripping `type` unconditionally.
 
 #### Scenario: Plugin implements required interface
 - **WHEN** a developer creates a custom sensor plugin
-- **THEN** the plugin class SHALL inherit from `BaseSensor` and implement all three abstract methods
-- **AND** the plugin can be instantiated without errors
+- **THEN** the plugin class SHALL inherit from `BaseSensor` and implement `read(step: int = 0)`, `update(value: Any)`, and `to_dict()`
+- **AND** the plugin inherits working `clone()`, `to_config()`, and `apply_update()` from the base class unless it overrides them
 
 ### Requirement: Plugin registration in configuration
 Sensor plugins SHALL be registered in `config.yml` with an explicit `type` field that identifies the plugin module name. The engine SHALL use the `type` field to dynamically import and instantiate the sensor plugin at startup.
@@ -80,8 +80,8 @@ Sensors implemented as plugins SHALL integrate seamlessly with existing preset d
 - **AND** subsequent reads of the sensor reflect the updated value
 
 #### Scenario: Preset step publishes a plugin sensor value
-- **WHEN** a preset step includes `publishDistance` and the distance sensor is a plugin
-- **THEN** the engine SHALL call the sensor's `read()` method and publish the distance value via MQTT
+- **WHEN** a preset step includes `triggerMqtt: true` and the distance sensor is a plugin
+- **THEN** the engine SHALL call the sensor's `mqtt_message()` method and publish the result via MQTT
 
 ### Requirement: Plugin sensor state isolation
 Each sensor plugin instance SHALL maintain its own state independent of other sensors. State from one sensor plugin SHALL NOT leak to or affect other sensors.

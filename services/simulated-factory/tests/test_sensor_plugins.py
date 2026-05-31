@@ -62,9 +62,9 @@ def test_color_sensor_to_dict() -> None:
     assert d["value"] == "RED"
 
 
-def test_color_sensor_apply_update_request() -> None:
+def test_color_sensor_apply_update() -> None:
     sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED"})
-    sensor.apply_update_request({"value": "GREEN", "raw_color": [0, 1, 0]})
+    sensor.apply_update({"value": "GREEN", "raw_color": [0, 1, 0]})
     assert sensor._cfg.value == "GREEN"
     assert sensor._cfg.raw_color == [0, 1, 0]
 
@@ -153,7 +153,7 @@ def test_distance_sensor_update() -> None:
     assert sensor.read() == 15.0
 
 
-def test_distance_sensor_to_sensor_config_has_metadata() -> None:
+def test_distance_sensor_to_config_has_metadata() -> None:
     sensor = DistanceSensor(
         "distance-conveyor",
         {
@@ -166,11 +166,40 @@ def test_distance_sensor_to_sensor_config_has_metadata() -> None:
             "cadence_ms": 250,
         },
     )
-    cfg = sensor.to_sensor_config()
+    cfg = sensor.to_config()
     assert cfg.sensorId == "distance-conveyor"
     assert cfg.uid == "TFu"
     assert cfg.location == "Conveyor"
     assert cfg.cadence_ms == 250
+
+
+def test_distance_sensor_mqtt_message_uses_current_value() -> None:
+    sensor = DistanceSensor(
+        "distance-conveyor",
+        {
+            "value": 30.0,
+            "mqtt_topic": "sensors/distance/topic",
+            "uid": "TFu",
+            "location": "Conveyor",
+        },
+    )
+
+    message = sensor.mqtt_message()
+    assert message is not None
+    topic, payload = message
+    assert topic == "sensors/distance/topic"
+    assert '"distance": 30.0' in payload
+
+
+def test_distance_sensor_mqtt_message_returns_none_when_value_missing() -> None:
+    sensor = DistanceSensor(
+        "distance-conveyor",
+        {
+            "value": None,
+            "mqtt_topic": "sensors/distance/topic",
+        },
+    )
+    assert sensor.mqtt_message() is None
 
 
 def test_distance_sensor_clone_is_independent() -> None:
@@ -182,22 +211,22 @@ def test_distance_sensor_clone_is_independent() -> None:
 
 
 # ---------------------------------------------------------------------------
-# apply_overrides
+# apply_update
 # ---------------------------------------------------------------------------
 
 
-def test_apply_overrides_updates_value_and_raw_color() -> None:
+def test_apply_update_updates_value_and_raw_color() -> None:
     sensor = ColorSensor(
         "color-left", {"mode": "fixed", "value": "RED", "raw_color": [1, 0, 0]}
     )
-    sensor.apply_overrides({"value": "BLUE", "raw_color": [0, 0, 1]})
+    sensor.apply_update({"value": "BLUE", "raw_color": [0, 0, 1]})
     color, raw = sensor.read()
     assert color == "BLUE"
     assert raw == [0, 0, 1]
 
 
-def test_apply_overrides_ignores_type_key() -> None:
+def test_apply_update_ignores_type_key() -> None:
     sensor = ColorSensor("color-left", {"mode": "fixed", "value": "RED"})
     # type key must not cause an AttributeError on SensorConfig
-    sensor.apply_overrides({"type": "color", "value": "GREEN"})
+    sensor.apply_update({"type": "color", "value": "GREEN"})
     assert sensor.read()[0] == "GREEN"

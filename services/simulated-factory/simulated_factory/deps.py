@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Any, Dict
 
-from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.adapters.kafka_observer import KafkaObserver
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
@@ -13,7 +13,7 @@ def build_dependencies(
 ) -> Dict[str, Any]:
     """Create and wire service dependencies for the simulated factory.
 
-    Returns a dict with keys: event_store, event_bridge, distance_publisher,
+    Returns a dict with keys: event_store, event_bridge, mqtt_publisher,
     engine, kafka_observer.
     """
     if logger is None:
@@ -25,7 +25,7 @@ def build_dependencies(
         target_url=os.getenv("SIMULATOR_EVENT_BRIDGE_URL"),
         logger=logger,
     )
-    distance_publisher = DistancePublisher(
+    mqtt_publisher = MqttPublisher(
         broker_url=os.getenv("SIMULATOR_BROKER_URL"),
         event_store=event_store,
         logger=logger,
@@ -33,7 +33,7 @@ def build_dependencies(
     engine = SimulationEngine(
         config_path=config_path,
         event_store=event_store,
-        distance_publisher=distance_publisher,
+        mqtt_publisher=mqtt_publisher,
         event_bridge=event_bridge,
     )
 
@@ -42,7 +42,7 @@ def build_dependencies(
     return {
         "event_store": event_store,
         "event_bridge": event_bridge,
-        "distance_publisher": distance_publisher,
+        "mqtt_publisher": mqtt_publisher,
         "engine": engine,
         "kafka_observer": kafka_observer,
     }

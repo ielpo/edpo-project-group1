@@ -37,9 +37,7 @@ class IrSensor(BaseSensor):
         if not self._cfg.sensorId:
             self._cfg.sensorId = name
 
-    def read(self, step: int | None = None) -> bool:
-        if step is None:
-            step = 0
+    def read(self, step: int = 0) -> bool:
         if self._cfg.mode == "scripted" and self._cfg.scripted_values:
             index = max(step - 1, 0)
             index = min(index, len(self._cfg.scripted_values) - 1)
@@ -57,23 +55,3 @@ class IrSensor(BaseSensor):
             "value": self._cfg.value,
             "scripted_values": self._cfg.scripted_values,
         }
-
-    def to_sensor_config(self) -> IrSensorConfig:
-        return self._cfg.model_copy(deep=True)
-
-    def clone(self) -> "IrSensor":
-        return IrSensor(self.name, self._cfg.model_copy(deep=True))
-
-    def apply_overrides(self, overrides: dict[str, Any]) -> None:
-        filtered = {k: v for k, v in overrides.items() if k != "type"}
-        for k, v in filtered.items():
-            if hasattr(self._cfg, k):
-                setattr(self._cfg, k, v)
-
-    def apply_update_request(self, update: dict[str, Any]) -> None:
-        if "value" in update:
-            self._cfg.value = update["value"]
-        if "mode" in update:
-            self._cfg.mode = update["mode"]
-        if "scripted_values" in update:
-            self._cfg.scripted_values = update["scripted_values"]

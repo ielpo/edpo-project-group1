@@ -49,7 +49,7 @@ class PresetStep(BaseModel):
     name: str
     delayMs: int = 100
     note: str | None = None
-    publishDistance: float | None = None
+    triggerMqtt: bool = False
     sensorUpdates: dict[str, Any] = Field(default_factory=dict)
     awaitRequest: AwaitRequest | None = None
 

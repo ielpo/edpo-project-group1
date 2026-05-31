@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
 from simulated_factory.models import InteractiveConfig, SensorUpdateRequest
@@ -20,7 +20,7 @@ async def test_engine_runs_happy_path_deterministically() -> None:
     engine = SimulationEngine(
         config_path=str(CONFIG_PATH),
         event_store=event_store,
-        distance_publisher=DistancePublisher(None, event_store, LOGGER),
+        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
         event_bridge=EventBridge("none", None, LOGGER),
     )
 
@@ -59,7 +59,7 @@ async def test_sensor_override_changes_runtime_value() -> None:
     engine = SimulationEngine(
         config_path=str(CONFIG_PATH),
         event_store=event_store,
-        distance_publisher=DistancePublisher(None, event_store, LOGGER),
+        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
         event_bridge=EventBridge("none", None, LOGGER),
     )
 
@@ -84,7 +84,7 @@ async def test_scripted_mode_returns_step_indexed_value() -> None:
         ),
     )
 
-    sensor = engine.sensors["color-left"]
+    sensor = engine._sensors["color-left"]
 
     color, _ = sensor.read(step=1)
     assert color == "BLUE"
@@ -105,7 +105,7 @@ async def test_scripted_mode_with_empty_values_falls_back_to_value() -> None:
         SensorUpdateRequest(mode="scripted", value="RED", scripted_values=[]),
     )
 
-    sensor = engine.sensors["color-left"]
+    sensor = engine._sensors["color-left"]
     color, _ = sensor.read(step=1)
     assert color == "RED"
 
@@ -115,7 +115,7 @@ def _make_engine() -> SimulationEngine:
     return SimulationEngine(
         config_path=str(CONFIG_PATH),
         event_store=event_store,
-        distance_publisher=DistancePublisher(None, event_store, LOGGER),
+        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
         event_bridge=EventBridge("none", None, LOGGER),
     )
 
@@ -129,7 +129,7 @@ async def test_handle_dobot_commands_auto_resolves_when_not_intercepted() -> Non
     assert "correlationId" in result
     assert "outcome" not in result
     assert engine.get_pending_actions() == []
-    assert engine.state.dobots["left"].position.x == 1.0
+    assert engine._dobots["left"].position.x == 1.0
 
 
 @pytest.mark.asyncio
@@ -160,7 +160,7 @@ async def test_handle_dobot_commands_suspends_until_resolved() -> None:
     assert result["outcome"] == "success"
     assert "timedOut" not in result
     assert engine.get_pending_actions() == []
-    assert engine.state.dobots["left"].position.x == 7.0
+    assert engine._dobots["left"].position.x == 7.0
 
 
 @pytest.mark.asyncio
@@ -182,7 +182,7 @@ async def test_handle_dobot_commands_times_out() -> None:
     assert result.get("timedOut") is True
     assert engine.get_pending_actions() == []
     # State should NOT have been applied for failed actions.
-    assert engine.state.dobots["left"].position.x == 0.0
+    assert engine._dobots["left"].position.x == 0.0
 
 
 @pytest.mark.asyncio
@@ -251,7 +251,7 @@ async def test_gated_step_holds_until_fire_gate_matches() -> None:
             break
     assert engine._step_gate is not None
     assert engine.get_status().waitingForRequest is not None
-    assert engine.sensors["color-left"].value == "RED"  # not applied yet
+    assert engine._sensors["color-left"]._cfg.value == "RED"  # not applied yet
 
     # Non-matching request does not fire.
     assert engine.fire_gate_if_matches("GET", "/api/dobot/left/color") is False
@@ -259,7 +259,7 @@ async def test_gated_step_holds_until_fire_gate_matches() -> None:
 
     # Matching request fires; side-effects applied synchronously.
     assert engine.fire_gate_if_matches("POST", "/api/dobot/left/commands") is True
-    assert engine.sensors["color-left"].value == "GREEN"
+    assert engine._sensors["color-left"]._cfg.value == "GREEN"
 
     await asyncio.wait_for(engine._run_task, timeout=1.0)
     assert engine.get_status().waitingForRequest is None
@@ -287,7 +287,7 @@ async def test_gated_step_times_out_emits_event() -> None:
     await asyncio.wait_for(engine._run_task, timeout=2.0)
 
     # Side-effects applied on timeout.
-    assert engine.sensors["color-left"].value == "BLUE"
+    assert engine._sensors["color-left"]._cfg.value == "BLUE"
 
     events, _ = engine.event_store.list_events(page=1, page_size=50)
     assert any(ev.get("payload", {}).get("gateTimedOut") is True for ev in events), (

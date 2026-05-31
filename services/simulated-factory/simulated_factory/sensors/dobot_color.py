@@ -12,7 +12,7 @@ class DobotColorSensorConfig(SensorConfig):
 class DobotColorSensor(BaseSensor):
     """Dobot sensor for color detection."""
 
-    def read(self) -> tuple[str, list[int]]:
+    def read(self, step: int = 0) -> tuple[str, list[int]]:
         cfg = cast(DobotColorSensorConfig, self._cfg)
         color = str(cfg.color or "YELLOW").upper()
         raw_color = cfg.raw_color or raw_color_from_name(color)
@@ -22,3 +22,12 @@ class DobotColorSensor(BaseSensor):
         cfg = cast(DobotColorSensorConfig, self._cfg)
         cfg.raw_color = raw_color_from_name(value)
         cfg.color = value
+
+    def to_dict(self) -> dict[str, str | list[int]]:
+        cfg = cast(DobotColorSensorConfig, self._cfg)
+        return {
+            "sensorId": self.name,
+            "type": cfg.type,
+            "color": cfg.color,
+            "raw_color": cfg.raw_color,
+        }

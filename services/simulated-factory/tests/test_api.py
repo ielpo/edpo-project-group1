@@ -119,9 +119,9 @@ def test_fragment_presets_shows_pipeline_when_running() -> None:
     client = TestClient(app)
 
     engine = app.state.engine
-    engine.state.status = SimulationStatus.RUNNING
-    engine.state.currentPreset = "happy-path"
-    engine.state.currentStep = 1
+    engine._status = SimulationStatus.RUNNING
+    engine._current_preset = "happy-path"
+    engine._current_step = 1
 
     response = client.get("/fragments/presets")
     assert response.status_code == 200
@@ -176,8 +176,8 @@ def test_put_sensor_returns_html_for_htmx_caller() -> None:
     # is intentionally empty for HTMX callers.
     assert response.text == ""
     # The update was applied to the engine.
-    sensor = app.state.engine.sensors["color-left"]
-    assert sensor.value == "GREEN"
+    sensor = app.state.engine._sensors["color-left"]
+    assert sensor._cfg.value == "GREEN"
 
 
 def test_put_sensor_returns_json_for_non_htmx_caller() -> None:
@@ -205,8 +205,8 @@ def test_put_sensor_accepts_scripted_values_array_and_csv() -> None:
         json={"mode": "scripted", "scripted_values": [5, 15, 25]},
     )
     assert resp.status_code == 200
-    sensor = app.state.engine.sensors["distance-conveyor"]
-    assert sensor.scripted_values == [5, 15, 25]
+    sensor = app.state.engine._sensors["distance-conveyor"]
+    assert sensor._cfg.scripted_values == [5, 15, 25]
 
     # Send a CSV string payload
     resp2 = client.put(
@@ -214,5 +214,5 @@ def test_put_sensor_accepts_scripted_values_array_and_csv() -> None:
         json={"mode": "scripted", "scripted_values": "10,20.5,30"},
     )
     assert resp2.status_code == 200
-    sensor2 = app.state.engine.sensors["distance-conveyor"]
-    assert sensor2.scripted_values == [10, 20.5, 30]
+    sensor2 = app.state.engine._sensors["distance-conveyor"]
+    assert sensor2._cfg.scripted_values == [10, 20.5, 30]

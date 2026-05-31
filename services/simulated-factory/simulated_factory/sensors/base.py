@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import copy
 from typing import Any
 
 from simulated_factory.models import SensorConfig
@@ -16,21 +17,12 @@ class BaseSensor(ABC):
         self.name = name
         self._cfg = config
 
-    def __getattr__(self, item: str) -> Any:
-        # Delegate attribute access to _cfg for backward compat
-        cfg = object.__getattribute__(self, "_cfg")
-        if hasattr(cfg, item):
-            return getattr(cfg, item)
-        raise AttributeError(
-            f"'{type(self).__name__}' object has no attribute '{item}'"
-        )
-
     # ------------------------------------------------------------------
     # Abstract interface
     # ------------------------------------------------------------------
 
     @abstractmethod
-    def read(self) -> Any:
+    def read(self, step: int = 0) -> Any:
         """Return the current sensor value. """
 
     @abstractmethod
@@ -41,11 +33,22 @@ class BaseSensor(ABC):
     def to_dict(self) -> dict[str, Any]:
         """Serialize the sensor state for API responses."""
 
+    def clone(self) -> "BaseSensor":
+        cfg = self.to_config()
+        return self.__class__(self.name, cfg)
+
+    def to_config(self) -> SensorConfig:
+        if hasattr(self._cfg, "model_copy"):
+            return self._cfg.model_copy(deep=True)
+        return copy.deepcopy(self._cfg)
+
+    def apply_update(self, data: dict[str, Any]) -> None:
+        filtered = {key: value for key, value in data.items() if key != "type"}
+        for key, value in filtered.items():
+            if hasattr(self._cfg, key):
+                setattr(self._cfg, key, value)
+
 class MqttSensor(ABC):
     @abstractmethod
-    def get_topic(self) -> str:
-        """Get the MQTT topic"""
-
-    @abstractmethod
-    def get_payload(self) -> str:
-        """Get the serialized payload to publish"""
+    def mqtt_message(self) -> tuple[str, str] | None:
+        """Return (topic, payload) if the sensor has data to publish."""

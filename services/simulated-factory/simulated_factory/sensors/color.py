@@ -38,9 +38,9 @@ class ColorSensor(BaseSensor):
         if not self._cfg.sensorId:
             self._cfg.sensorId = name
 
-    def read(self, step: int | None = None) -> tuple[str, list[int]]:
+    def read(self, step: int = 0) -> tuple[str, list[int]]:
         cfg = self._cfg
-        if cfg.mode == "scripted" and cfg.scripted_values and step is not None:
+        if cfg.mode == "scripted" and cfg.scripted_values:
             idx = max(0, min(step - 1, len(cfg.scripted_values) - 1))
             if step == 0:
                 idx = 0
@@ -63,33 +63,3 @@ class ColorSensor(BaseSensor):
             "raw_color": self._cfg.raw_color,
             "scripted_values": self._cfg.scripted_values,
         }
-
-    def to_sensor_config(self) -> ColorSensorConfig:
-        return self._cfg.model_copy(deep=True)
-
-    def clone(self) -> "ColorSensor":
-        return ColorSensor(self.name, self._cfg.model_copy(deep=True))
-
-    def apply_update_request(self, update: dict[str, Any]) -> None:
-        if "value" in update:
-            self._cfg.value = update["value"]
-        if "raw_color" in update:
-            self._cfg.raw_color = update["raw_color"]
-        if "mode" in update:
-            self._cfg.mode = update["mode"]
-        if "scripted_values" in update:
-            self._cfg.scripted_values = update["scripted_values"]
-
-    def apply_overrides(self, overrides: dict[str, Any]) -> None:
-        filtered = {k: v for k, v in overrides.items() if k != "type"}
-        for k, v in filtered.items():
-            if hasattr(self._cfg, k):
-                setattr(self._cfg, k, v)
-
-    @property
-    def value(self) -> str | None:
-        return self._cfg.value
-
-    @value.setter
-    def value(self, val: str | None) -> None:
-        self._cfg.value = val

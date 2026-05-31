@@ -40,9 +40,7 @@ class DistanceSensor(BaseSensor, MqttSensor):
             self._cfg.sensorId = name
         self._message_id = self._cfg.message_id
 
-    def read(self, step: int | None = None) -> float:
-        if step is None:
-            return self._cfg.value if self._cfg.value is not None else 30.0
+    def read(self, step: int = 0) -> float:
         if self._cfg.mode == "scripted" and self._cfg.scripted_values:
             idx = max(step - 1, 0)
             idx = min(idx, len(self._cfg.scripted_values) - 1)
@@ -52,10 +50,9 @@ class DistanceSensor(BaseSensor, MqttSensor):
     def update(self, value: Any) -> None:
         self._cfg.value = float(value)
 
-    def get_topic(self) -> str:
-        return self._cfg.mqtt_topic
-
-    def get_payload(self) -> str:
+    def mqtt_message(self) -> tuple[str, str] | None:
+        if self._cfg.value is None:
+            return None
         message = {
             "type": self._cfg.type,
             "UID": self._cfg.uid,
@@ -64,7 +61,7 @@ class DistanceSensor(BaseSensor, MqttSensor):
             "distance": self._cfg.value,
         }
         self._message_id += 1
-        return json.dumps(message)
+        return self._cfg.mqtt_topic, json.dumps(message)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,25 +73,3 @@ class DistanceSensor(BaseSensor, MqttSensor):
             "uid": self._cfg.uid,
             "location": self._cfg.location,
         }
-
-    def to_sensor_config(self) -> DistanceSensorConfig:
-        cfg = self._cfg.model_copy(deep=True)
-        cfg.sensorId = self.name
-        return cfg
-
-    def clone(self) -> "DistanceSensor":
-        return DistanceSensor(self.name, self._cfg.model_copy(deep=True))
-
-    def apply_overrides(self, overrides: dict[str, Any]) -> None:
-        filtered = {k: v for k, v in overrides.items() if k != "type"}
-        for k, v in filtered.items():
-            if hasattr(self._cfg, k):
-                setattr(self._cfg, k, v)
-
-    def apply_update_request(self, update: dict[str, Any]) -> None:
-        if "value" in update:
-            self._cfg.value = float(update["value"])
-        if "mode" in update:
-            self._cfg.mode = update["mode"]
-        if "scripted_values" in update:
-            self._cfg.scripted_values = update["scripted_values"]

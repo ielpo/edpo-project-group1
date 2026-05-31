@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from simulated_factory.adapters.distance_publisher import DistancePublisher
+from simulated_factory.adapters.mqtt_publisher import MqttPublisher
 from simulated_factory.api import create_app
 from simulated_factory.engine import SimulationEngine
 from simulated_factory.events import EventBridge, EventStore
@@ -21,7 +21,7 @@ def _make_engine() -> SimulationEngine:
     return SimulationEngine(
         config_path=str(CONFIG_PATH),
         event_store=event_store,
-        distance_publisher=DistancePublisher(None, event_store, LOGGER),
+        mqtt_publisher=MqttPublisher(None, event_store, LOGGER),
         event_bridge=EventBridge("none", None, LOGGER),
     )
 
@@ -65,7 +65,7 @@ def test_twin_fragment_block_location_badge_mapping(
     client = TestClient(app)
 
     engine = app.state.engine
-    engine.state.currentStepName = step_name
+    engine._current_step_name = step_name
 
     response = client.get("/fragments/twin")
     assert response.status_code == 200
