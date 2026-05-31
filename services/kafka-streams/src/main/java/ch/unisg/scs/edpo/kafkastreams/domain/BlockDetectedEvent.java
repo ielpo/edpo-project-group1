@@ -1,7 +1,8 @@
 package ch.unisg.scs.edpo.kafkastreams.domain;
 
-// Published when the operator places a block and presses the button.
-// Key on sensor.block-detected.v1: cubeId
+// Emitted after 3 s of wall-clock inactivity on the left distance sensor.
+// Published on the internal/diagnostic sensor.block-detected.v1 topic.
+// Topic key: "sliding-window-join". The block identifier stays in the payload as cubeId.
 public record BlockDetectedEvent(
         String cubeId,
         long timestamp

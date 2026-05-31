@@ -1,37 +1,33 @@
 # kafka-streams
 
-Kafka Streams service for block detection and inventory tracking (Exercise 7).
+Kafka Streams service for restocking block detection, color enrichment, command triggering, and queryable inventory materialization.
 
-Consumes distance and colour sensor events, detects blocks via a session window, joins with colour readings, and maintains a queryable inventory.
+The service contains three topology slices:
 
-## Topology
+1. Left sensor block detection and color enrichment.
+2. Left sensor conveyor-stop triggering.
+3. Right sensor robot-arm pick-up triggering.
 
-```
-sensor.distance.raw.v1     ← conveyor distance sensor (continuous readings)
-        │
-        filter (distance < 25.0 = block present)
-        │
-        Session Window (2 s inactivity gap)
-        │
-        Suppress (emit once when session closes)   "compress into one event"
-        │
-        map → generate cubeId (UUID)
-        │
-        ├─→  sensor.block-detected.v1              new-block-events
-        │
-        └─→  selectKey("color-sensor")
-                       │
-sensor.color.raw.v1        ← colour sensor (continuous readings, no key)
-        filter (discard non-RGBY)
-        selectKey("color-sensor")
-                       │
-                       └─→  Sliding Window Join (10 s)
-                                      │
-                                      reduce(first colour per cube)
-                                      │
-                                      ├─→  inventory.blocks.v1
-                                      └─→  KTable "inventory-store"
-```
+All custom payloads use the local `JsonSerde<T>` implementation backed by Jackson 3.
+
+## Topologies
+
+### Left sensor and inventory
+
+1. `sensor.distance.raw.v1` is filtered to readings below `25.0` and rekeyed to `distance-sensor`.
+2. Each filtered reading is published to `sensor.block-present.v1` as an internal signal for `MoveBlockTopology`.
+3. A custom wall-clock processor emits one `BlockDetectedEvent` after `3 s` of inactivity, using a `200 ms` punctuation interval so detection still happens when no new records arrive.
+4. `sensor.color.raw.v1` is classified to `RED`, `GREEN`, `BLUE`, or `YELLOW`; unknown colors are dropped.
+5. Detected blocks and classified colors are joined in a `10 s` sliding window on the internal key `sliding-window-join`.
+6. The first joined color per `cubeId` is materialized in `inventory-store` and published to `inventory.blocks.v1`.
+
+### Conveyor stop commands
+
+`MoveBlockTopology` consumes `sensor.block-present.v1` and emits exactly one `STOP` command to `control.conveyor.commands.v1` for each new left-sensor rising edge after at least `2 s` of inactivity.
+
+### Robot arm pick-up commands
+
+`PickUpBlockTopology` consumes `sensor.distance.right.raw.v1` and emits exactly one `PICK_AND_PLACE` command to `control.robot-arm.commands.v1` for each new right-sensor rising edge after at least `2 s` of inactivity.
 
 ## Running
 
@@ -41,20 +37,25 @@ Requires Kafka on `localhost:9092`.
 mvn spring-boot:run
 ```
 
-Or use the `KafkaStreams` IntelliJ run configuration. Runs on port 8104.
+Or use the `KafkaStreams` IntelliJ run configuration. The service listens on port `8104`.
 
 ## REST API
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /inventory` | All detected blocks (cubeId → color) |
-| `GET /inventory/{cubeId}` | Single block entry |
+| `GET /inventory` | All detected blocks currently materialized in `inventory-store` |
+| `GET /inventory/{cubeId}` | A single inventory entry by `cubeId` |
 
-## Topics
+## Topic contract
 
-| Topic | Direction | Content |
-|-------|-----------|---------|
-| `sensor.distance.raw.v1` | in | Raw distance readings from conveyor sensor |
-| `sensor.color.raw.v1` | in | Raw RGB readings from colour sensor (no key) |
-| `sensor.block-detected.v1` | out | Confirmed block detection with generated cubeId |
-| `inventory.blocks.v1` | out | Enriched block + colour event (first colour per cube) |
+| Topic | Direction | Contract | Notes |
+|-------|-----------|----------|-------|
+| `sensor.distance.raw.v1` | in | external | Raw left distance sensor readings |
+| `sensor.distance.right.raw.v1` | in | external | Raw right distance sensor readings |
+| `sensor.color.raw.v1` | in | external | Raw RGB readings |
+| `sensor.block-present.v1` | out | internal | Filtered left-sensor readings used by `MoveBlockTopology` |
+| `sensor.block-detected.v1` | out | internal/diagnostic | Left-sensor inactivity detections keyed as `sliding-window-join` |
+| `color.classified.v1` | out | internal/diagnostic | Classified valid colors before the sliding-window join |
+| `inventory.blocks.v1` | out | supported | First-win inventory events keyed by `cubeId` |
+| `control.conveyor.commands.v1` | out | supported | `STOP` commands for the conveyor |
+| `control.robot-arm.commands.v1` | out | supported | `PICK_AND_PLACE` commands for the robot arm |
