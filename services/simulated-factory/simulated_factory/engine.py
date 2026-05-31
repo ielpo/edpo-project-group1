@@ -20,9 +20,10 @@ from simulated_factory.models import (
     SensorUpdateRequest,
     SimulationState,
     SimulationStatus,
-    Position,
     utc_now,
 )
+from simulated_factory.actuator_registry import ActuatorRegistry
+from simulated_factory.actuators.base import BaseActuator
 from simulated_factory.sensor_registry import SensorRegistry
 from simulated_factory.sensors.base import BaseSensor, MqttSensor
 from simulated_factory.utils import (
@@ -81,10 +82,8 @@ class SimulationEngine:
 
         self._sensors: dict[str, BaseSensor] = self._sensor_registry.sensors()
         self._wire_sensors(self._sensors)
-        self._dobots: dict[str, DobotRuntimeState] = {
-            "left": DobotRuntimeState(),
-            "right": DobotRuntimeState(),
-        }
+        self._actuator_registry = ActuatorRegistry()
+        self._actuators: dict[str, BaseActuator] = self._actuator_registry.actuators()
         self._inventory_cache: dict[str, Any] | None = None
         self._inventory_task: asyncio.Task[None] | None = None
         self._inventory_url = inventory_url or os.getenv(
@@ -112,8 +111,8 @@ class SimulationEngine:
             currentStepName=self._current_step_name,
             timestamp=utc_now(),
             dobots={
-                name: dobot.model_copy(deep=True)
-                for name, dobot in self._dobots.items()
+                name: cast(DobotRuntimeState, actuator.state())
+                for name, actuator in self._actuators.items()
             },
             waitingForRequest=(
                 self._waiting_for_request.model_copy(deep=True)
@@ -198,10 +197,7 @@ class SimulationEngine:
 
         self._sensors = self._sensor_registry.sensors()
         self._wire_sensors(self._sensors)
-        self._dobots = {
-            "left": DobotRuntimeState(),
-            "right": DobotRuntimeState(),
-        }
+        self._actuators = self._actuator_registry.actuators()
 
         await self._record_event(
             "STATE", message="Simulation reset", payload={"status": "reset"}
@@ -463,7 +459,7 @@ class SimulationEngine:
 
             outcome = action.outcome or "failure"
             if outcome == "success":
-                self._apply_dobot_commands(robot_name, command_list)
+                self._actuators[robot_name].apply(command_list)
                 await self._record_event(
                     "COMMAND",
                     message=(
@@ -481,55 +477,13 @@ class SimulationEngine:
                 result["timedOut"] = True
             return result
 
-        self._apply_dobot_commands(robot_name, command_list)
+        self._actuators[robot_name].apply(command_list)
         await self._record_event(
             "COMMAND",
             message=f"Accepted {len(command_list)} command(s) for {robot_name}",
             payload={"robot": robot_name, "commands": command_list},
         )
         return {"correlationId": correlation_id}
-
-    def _apply_dobot_commands(self, robot_name: str, command_list: list[Any]) -> None:
-        dobot_state = self._dobots.setdefault(robot_name, DobotRuntimeState())
-        for command in command_list:
-            command_type = str(command.get("type", "unknown"))
-            match command_type:
-                case "move":
-                    target = command.get("target", {})
-                    dobot_state.position = Position(
-                        x=float(target.get("x", dobot_state.position.x)),
-                        y=float(target.get("y", dobot_state.position.y)),
-                        z=float(target.get("z", dobot_state.position.z)),
-                        r=float(target.get("r", dobot_state.position.r)),
-                    )
-                case "move-relative":
-                    offset = command.get("offset", {})
-                    dobot_state.position.x += float(offset.get("x", 0.0) or 0.0)
-                    dobot_state.position.y += float(offset.get("y", 0.0) or 0.0)
-                    dobot_state.position.z += float(offset.get("z", 0.0) or 0.0)
-                    dobot_state.position.r += float(offset.get("r", 0.0) or 0.0)
-                case "set-speed":
-                    dobot_state.speed = float(command.get("speed", dobot_state.speed))
-                    if command.get("acceleration") is not None:
-                        dobot_state.acceleration = float(command["acceleration"])
-                case "suction-cup":
-                    dobot_state.suction_enabled = bool(command.get("enabled", False))
-                case "run-conveyor":
-                    dobot_state.conveyor_speed = float(command.get("speed", 0.0))
-                    dobot_state.conveyor_direction = str(
-                        command.get("direction", "STOP")
-                    )
-                case "move-conveyor":
-                    dobot_state.conveyor_speed = float(command.get("speed", 0.0))
-                    dobot_state.conveyor_distance = float(command.get("distance", 0.0))
-                    dobot_state.conveyor_direction = str(
-                        command.get("direction", "STOP")
-                    )
-                case _:
-                    logger.info(
-                        "Ignoring unsupported simulator command type %s", command_type
-                    )
-            dobot_state.last_command = command_type
 
     async def resolve_action(
         self, action_id: str, outcome: str, reason: str | None = None
@@ -622,9 +576,7 @@ class SimulationEngine:
         return {"r": rgb[0], "g": rgb[1], "b": rgb[2]}
 
     def get_dobot_state(self, robot_name: str) -> DobotRuntimeState:
-        return self._dobots.setdefault(robot_name, DobotRuntimeState()).model_copy(
-            deep=True
-        )
+        return cast(DobotRuntimeState, self._actuators[robot_name].state())
 
     def get_inventory_cache(self) -> dict[str, Any]:
         if self._inventory_cache is None:

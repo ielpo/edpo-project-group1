@@ -51,9 +51,9 @@ Unknown command types are logged at `WARNING` level and skipped — not raised. 
 
 ### 4. Engine delegates via registry
 
-The engine holds an `ActuatorRegistry` (constructed in `__init__`). `handle_dobot_commands` calls `registry.get(robot_name).apply(command_list)` instead of `self._apply_dobot_commands(robot_name, command_list)`.
+The engine holds an `ActuatorRegistry` (constructed in `__init__`) and a working copy `self._actuators = self._actuator_registry.actuators()`, mirroring `self._sensors`. `handle_dobot_commands` calls `self._actuators[robot_name].apply(command_list)` instead of `self._apply_dobot_commands(robot_name, command_list)`. `get_dobot_state` returns `self._actuators[robot_name].state()`.
 
-`ActuatorRegistry.get(name)` raises `KeyError` for unknown names. The current `setdefault` auto-create behavior (`engine.py:493` and `engine.py:625`) is removed — a caller passing an unrecognised robot name gets a hard failure, not a silently spawned phantom actuator. The API layer catches `KeyError` from `get_dobot_state()` and returns HTTP 404.
+Dict access (`self._actuators[robot_name]`) raises `KeyError` for unknown names. The current `setdefault` auto-create behavior (`engine.py:493` and `engine.py:625`) is removed — a caller passing an unrecognised robot name gets a hard failure, not a silently spawned phantom actuator. The API layer catches `KeyError` from both the command and state endpoints and returns HTTP 404.
 
 On-demand creation is considered an error for both actuators and sensors. The sensor on-demand creation in `_sensor_for()` and `_apply_sensor_updates()` is out of scope here but is similarly wrong.
 

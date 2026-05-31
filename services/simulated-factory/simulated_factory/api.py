@@ -437,7 +437,10 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.post("/api/dobot/{name}/commands", status_code=202)
     async def dobot_commands(name: str, payload: Any = Body(...)) -> dict[str, Any]:
-        result = await engine.handle_dobot_commands(name, payload)
+        try:
+            result = await engine.handle_dobot_commands(name, payload)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Unknown robot {name}")
         return result
 
     @app.get("/api/interactive/config")
@@ -499,7 +502,11 @@ def create_app(config_path: str) -> FastAPI:
 
     @app.get("/api/dobot/{name}/state")
     async def read_dobot_state(name: str) -> JSONResponse:
-        return JSONResponse(jsonable_encoder(engine.get_dobot_state(name)))
+        try:
+            state = engine.get_dobot_state(name)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Unknown robot {name}")
+        return JSONResponse(jsonable_encoder(state))
 
     @app.get("/color")
     @app.get("/api/color")

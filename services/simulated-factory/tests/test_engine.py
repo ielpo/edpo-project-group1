@@ -129,7 +129,7 @@ async def test_handle_dobot_commands_auto_resolves_when_not_intercepted() -> Non
     assert "correlationId" in result
     assert "outcome" not in result
     assert engine.get_pending_actions() == []
-    assert engine._dobots["left"].position.x == 1.0
+    assert engine.get_dobot_state("left").position.x == 1.0
 
 
 @pytest.mark.asyncio
@@ -160,7 +160,7 @@ async def test_handle_dobot_commands_suspends_until_resolved() -> None:
     assert result["outcome"] == "success"
     assert "timedOut" not in result
     assert engine.get_pending_actions() == []
-    assert engine._dobots["left"].position.x == 7.0
+    assert engine.get_dobot_state("left").position.x == 7.0
 
 
 @pytest.mark.asyncio
@@ -201,7 +201,7 @@ async def test_handle_dobot_commands_rejects_overlapping_intercepts() -> None:
     assert first["outcome"] == "success"
     assert engine.get_pending_actions() == []
     # Only the first command is applied; overlapping command is rejected.
-    assert engine._dobots["left"].position.x == 3.0
+    assert engine.get_dobot_state("left").position.x == 3.0
 
 
 @pytest.mark.asyncio
@@ -223,7 +223,7 @@ async def test_handle_dobot_commands_times_out() -> None:
     assert result.get("timedOut") is True
     assert engine.get_pending_actions() == []
     # State should NOT have been applied for failed actions.
-    assert engine._dobots["left"].position.x == 0.0
+    assert engine.get_dobot_state("left").position.x == 0.0
 
 
 @pytest.mark.asyncio
