@@ -63,6 +63,8 @@ The following table lists the Kafka topics consumed and produced by the `kafka-s
     [`sensor.distance.raw.v1`], [in], [Raw distance readings from the left conveyor distance sensor (forwarded from MQTT)],
     [`sensor.color.raw.v1`], [in], [Raw RGB readings from the color sensor (forwarded from MQTT)],
     [`sensor.block-present.v1`], [internal], [Filtered block-present readings forwarded from BlockColorTopology to MoveBlockTopology],
+    [`sensor.block-detected.v1`], [internal], [Block-detected events emitted by the wall-clock inactivity processor when a block has passed the distance sensor; diagnostic and demo purposes only],
+    [`color.classified.v1`], [internal], [Classified color readings produced by the color branch of BlockColorTopology; diagnostic and demo purposes only],
     [`inventory.blocks.v1`], [out], [Enriched block and color events; also queryable via `GET /inventory`],
     [`control.conveyor.commands.v1`], [out], [Conveyor commands emitted by MoveBlockTopology],
   ),
@@ -93,7 +95,7 @@ The topologies use both the streaming and table abstractions.
 
 `KStream` is the primary abstraction for unbounded sensor data: distance readings, color readings, and intermediate events all flow as streams. After the join and reduce, the enriched inventory is materialised into a `KTable` (`inventory-store`), representing the current state of all detected blocks. The table is then converted back to a stream to publish to `inventory.blocks.v1`.
 
-The aggregation state store in `MoveBlockTopology` (`move-block-edge-store`) is also KTable-backed, persisting the last-seen timestamp and rising-edge flag per sensor key.
+The aggregation state store in `MoveBlockTopology` (`move-block-edge-store`) is also KTable-backed, persisting the last-seen timestamp, rising-edge flag, and edge timestamp per sensor key.
 
 == Joins Across Streams (Week 9)
 
@@ -229,7 +231,7 @@ The RGB color classification thresholds are heuristic. Calibrating them against 
 
 *Explicit windowed aggregation.* The windowed operations in this assignment are covered by the sliding-window join and the rising-edge aggregate. Adding an explicit tumbling or hopping window aggregation (for example, counting blocks per color per minute for restocking analytics) would more directly illustrate the windowed-operations pattern from the lecture.
 
-*Integration tests.* No `TopologyTestDriver` tests exist for any of the three topologies. Adding unit-level topology tests would make regressions immediately visible without needing to run the full Kafka stack.
+*Integration tests.* No `TopologyTestDriver` tests exist for any of the two topologies. Adding unit-level topology tests would make regressions immediately visible without needing to run the full Kafka stack.
 
 *Configurable color thresholds.* The RGB classification thresholds in `BlockColor.from()` are currently hardcoded constants. Externalising them into `application.yml` would simplify calibration for different lighting conditions or sensor hardware without requiring a recompile.
 
