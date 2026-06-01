@@ -40,7 +40,7 @@ A customer can place an order via a Camunda form. The Order service then orchest
 This report covers the stream processing layer added for Assignment 2, implemented in the `kafka-streams` service. The service uses Kafka Streams to process sensor data in order to restock the inventory: it detects blocks, classifies their color, and sends commands to the conveyor belt.
 
 
-The new service resides in the inventory bounded context. Because the inventory is now being restocked by the Dobot Magician and not by hand, the robot control is now a shared kernel between the the inventory and factory contexts.
+The new service resides in the inventory bounded context. Because the inventory is now being restocked by the Dobot Magician and not by hand, the robot control is now a shared kernel between the inventory and factory contexts.
 
 #figure(
   image("../images/contextmap-assignment2.png", width: 70%),
@@ -79,7 +79,7 @@ Stateless operations transform or filter individual records without requiring an
 
 *Filter* is applied to discard distance readings that do not indicate a block is present. The threshold is `distance < 25.0` (cm), matching the physical range of the conveyor sensors. It is also used to discard invalid color readings.
 
-*Translate (Map)* is used to translate domain events, for example converting raw RGB values into a `BlockColor` enum.
+*Translate (Map)* is used to translate domain events, for example, converting raw RGB values into a `BlockColor` enum.
 
 *Translate (SelectKey)* re-keys streams to the fixed partition keys required for downstream joins and aggregations. For instance, all distance readings are re-keyed to `"distance-sensor"`, and both the block-detected and color streams are re-keyed to `"sliding-window-join"` before the join.
 
@@ -111,7 +111,7 @@ The controller uses `StoreQueryParameters.fromNameAndType` and `QueryableStoreTy
 
 == Windowed Operations (Week 10)
 
-*Sliding window join:* The stream-stream join in `BlockColorTopology` uses `JoinWindows.ofTimeDifferenceAndGrace(Duration.ofSeconds(10), Duration.ofSeconds(1))`. This is a sliding window over event time, allowing block and color events that arrive within 10 seconds of each other to be joined. Due to the events not being generated on the same schedule, the sliding window join is a good solution to match events from both streams.
+*Sliding window join:* The stream-stream join in `BlockColorTopology` uses `JoinWindows.ofTimeDifferenceAndGrace(Duration.ofSeconds(10), Duration.ofSeconds(1))`. This is a sliding window over event time, allowing block and color events that arrive within 10 seconds of each other to be joined. Due to the events not being generated on the same schedule, the sliding window join is a good solution for matching events from both streams.
 
 *Wall-clock inactivity window (custom processor):* Block detection in `BlockColorTopology` relies on a custom `BlockInactivityProcessor`. A wall-clock punctuation triggers every 200 ms and emits a `BlockDetectedEvent` when a sensor key has not received events for more than 3 seconds. This implements session-window semantics driven by wall-clock time rather than stream time, which is necessary because physical blocks create a continuous stream of distance readings with no natural end marker. A standard Kafka Streams session window was not used because it advances only when new records arrive (see ADR 0012).
 
@@ -124,6 +124,8 @@ Tumbling and hopping windows are not used in the current implementation. The use
 All events are serialized and deserialized using a custom `JsonSerde<T>` built on Jackson. This keeps the setup self-contained without requiring a schema registry.
 
 = Topology Descriptions
+
+This section describes the two Kafka Streams topologies implemented in the `kafka-streams` service, including their processing steps and design justifications.
 
 == BlockColorTopology
 
@@ -202,6 +204,8 @@ The following ADRs are related to this assignment:
 - ADR 0013: JSON Serialization over Avro.
 
 = Reflections
+
+This section summarises what worked well during the implementation, the challenges we encountered, and what we would improve in a future iteration.
 
 == What went well
 
