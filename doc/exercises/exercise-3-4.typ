@@ -182,6 +182,9 @@ The following ADRs are related to these exercises:
 - ADR 0006: Dashboard is a separate service for event visualization.
 - ADR 0007: Structure of the Kafka topics.
 - ADR 0008: Kafka Deployment and Consumer Offset Policy.
+- ADR 0014: Hexagonal Architecture for Order and Factory Services.
+- ADR 0015: Embedded H2 Database for Process Engine Persistence.
+- ADR 0016: Correlation ID Strategy.
 
 = Contributions
 
