@@ -140,6 +140,9 @@ What we would improve next:
 The following ADRs are related to this exercise:
 
 - ADR 0009: Granularity of Factory Service
+- ADR 0014: Hexagonal Architecture for Order and Factory Services.
+- ADR 0015: Embedded H2 Database for Process Engine Persistence.
+- ADR 0016: Correlation ID Strategy.
 
 = Contributions
 
