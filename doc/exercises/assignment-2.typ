@@ -30,7 +30,7 @@ size: 12pt
 
 Since the hand-in of Assignment 1, the documentation for Exercise 5 has been updated. ADR 0010 was added to document the decisions around communication protocols. The flow-success sequence diagram was extended for clarity, accompanied by additional explanatory text.
 
-Three additional ADRs were added to document architectural decisions that were implicit in the Assignment 1 implementation: ADR 0014 (Hexagonal Architecture for Order and Factory Services), ADR 0015 (Embedded H2 Database for Process Engine Persistence), and ADR 0016 (Correlation ID Strategy).
+Three additional ADRs were added to document architectural decisions that were taken for the Assignment 1 implementation: ADR 0014 (Hexagonal Architecture for Order and Factory Services), ADR 0015 (Embedded H2 Database for Process Engine Persistence), and ADR 0016 (Correlation ID Strategy).
 
 = Project Overview
 
